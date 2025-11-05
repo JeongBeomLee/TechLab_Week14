@@ -1,15 +1,20 @@
 {
   "Name" : "스태틱 메시_0",
   "OwnedComponents" : [{
-      "Id" : 4291,
+      "ScriptFilePath" : "Data/Scripts/coach.lua",
+      "Type" : "ULuaScriptComponent",
+      "bIsActive" : true,
+      "bTickEnabled" : true
+    }, {
+      "Id" : 799,
       "MaterialSlots" : [{
           "AssetPath" : "Material_0.001",
           "Type" : "UMaterial"
         }],
       "ParentId" : 0,
-      "RelativeLocation" : [39.626556, -38.346268, 12.032730],
-      "RelativeRotationEuler" : [0.000000, 0.000000, 141.300873],
-      "RelativeScale" : [20.000000, 20.000000, 20.000000],
+      "RelativeLocation" : [0.481880, -63.902054, 1.463622],
+      "RelativeRotationEuler" : [0.000000, -0.000000, 103.842461],
+      "RelativeScale" : [30.000000, 30.000000, 30.000000],
       "StaticMesh" : "Data/Model/SHC.obj",
       "Type" : "UStaticMeshComponent",
       "bBlockComponent" : false,
@@ -24,24 +29,25 @@
       "bIsActive" : true,
       "bTickEnabled" : true
     }, {
-      "BoxExtent" : [0.539444, 0.743036, 0.680975],
-      "Id" : 4293,
-      "ParentId" : 4291,
+      "Id" : 845,
+      "ParentId" : 799,
+      "Pitch" : 1.000000,
       "RelativeLocation" : [0.000000, 0.000000, 0.000000],
       "RelativeRotationEuler" : [0.000000, 0.000000, 0.000000],
       "RelativeScale" : [1.000000, 1.000000, 1.000000],
-      "Type" : "UBoxComponent",
-      "bBlockComponent" : false,
-      "bGenerateOverlapEvents" : true,
+      "Sounds" : ["Data/Audio/CGC1.wav", "Data/Audio/CGC2.wav", "Data/Audio/SHC1.wav", "Data/Audio/HitFireball.wav"],
+      "Type" : "UAudioComponent",
+      "Volume" : 1.000000,
+      "bAutoPlay" : true,
       "bHiddenInGame" : false,
       "bIsActive" : true,
+      "bIsLooping" : false,
       "bIsVisible" : true,
-      "bShapeHiddenInGame" : true,
-      "bShapeIsVisible" : true,
       "bTickEnabled" : true
     }],
-  "RootComponentId" : 4291,
+  "RootComponentId" : 799,
   "Tag" : "",
   "Type" : "AStaticMeshActor",
-  "bActorHiddenInGame" : false
+  "bActorHiddenInGame" : false,
+  "bActorIsActive" : true
 }
