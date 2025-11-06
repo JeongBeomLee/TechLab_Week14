@@ -1,6 +1,6 @@
 {
   "Actors" : {
-    "1205" : {
+    "789" : {
       "CameraMoveSpeed" : 48.099998,
       "CameraPitchDeg" : 0.000000,
       "CameraYawDeg" : 0.000000,
@@ -10,13 +10,13 @@
           "AspectRatio" : 1.000000,
           "FarClip" : 500.000000,
           "FieldOfView" : 60.000000,
-          "Id" : 1207,
+          "Id" : 791,
           "NearClip" : 0.100000,
           "ObjectName" : "UCameraComponent_6",
           "ParentId" : 0,
           "ProjectionMode" : 0,
           "RelativeLocation" : [-180.000000, -54.000000, 90.000000],
-          "RelativeRotationEuler" : [3.000000, 21.999996, 16.000000],
+          "RelativeRotationEuler" : [3.000000, 21.999994, 16.000000],
           "RelativeScale" : [1.000000, 1.000000, 1.000000],
           "Type" : "UCameraComponent",
           "ZoomFactor" : 1.000000,
@@ -26,29 +26,29 @@
           "bTickEnabled" : true
         }],
       "PerspectiveCameraInput" : false,
-      "RootComponentId" : 1207,
+      "RootComponentId" : 791,
       "Tag" : "",
       "Type" : "ACameraActor",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "1208" : {
+    "792" : {
       "CameraMoveSpeed" : 48.099998,
       "CameraPitchDeg" : 0.000000,
       "CameraYawDeg" : 0.000000,
       "MouseSensitivity" : 0.100000,
-      "ObjectName" : "Camera2",
+      "ObjectName" : "Camera4",
       "OwnedComponents" : [{
           "AspectRatio" : 1.000000,
           "FarClip" : 500.000000,
           "FieldOfView" : 60.000000,
-          "Id" : 1210,
+          "Id" : 794,
           "NearClip" : 0.100000,
           "ObjectName" : "UCameraComponent_12",
           "ParentId" : 0,
           "ProjectionMode" : 0,
           "RelativeLocation" : [-3.000000, 14.000000, -9.000000],
-          "RelativeRotationEuler" : [0.000000, -0.000000, 175.999985],
+          "RelativeRotationEuler" : [0.000000, -0.000000, 175.999969],
           "RelativeScale" : [1.000000, 1.000000, 1.000000],
           "Type" : "UCameraComponent",
           "ZoomFactor" : 1.000000,
@@ -58,13 +58,13 @@
           "bTickEnabled" : true
         }],
       "PerspectiveCameraInput" : false,
-      "RootComponentId" : 1210,
+      "RootComponentId" : 794,
       "Tag" : "",
       "Type" : "ACameraActor",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "1211" : {
+    "795" : {
       "CameraMoveSpeed" : 48.099998,
       "CameraPitchDeg" : 0.000000,
       "CameraYawDeg" : 0.000000,
@@ -74,7 +74,7 @@
           "AspectRatio" : 1.000000,
           "FarClip" : 500.000000,
           "FieldOfView" : 60.000000,
-          "Id" : 1213,
+          "Id" : 797,
           "NearClip" : 0.100000,
           "ObjectName" : "UCameraComponent_10",
           "ParentId" : 0,
@@ -90,23 +90,23 @@
           "bTickEnabled" : true
         }],
       "PerspectiveCameraInput" : false,
-      "RootComponentId" : 1213,
+      "RootComponentId" : 797,
       "Tag" : "",
       "Type" : "ACameraActor",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "1214" : {
+    "798" : {
       "CameraMoveSpeed" : 48.099998,
       "CameraPitchDeg" : 0.000000,
       "CameraYawDeg" : 0.000000,
       "MouseSensitivity" : 0.100000,
-      "ObjectName" : "Camera4",
+      "ObjectName" : "Camera2",
       "OwnedComponents" : [{
           "AspectRatio" : 1.000000,
           "FarClip" : 500.000000,
           "FieldOfView" : 60.000000,
-          "Id" : 1216,
+          "Id" : 800,
           "NearClip" : 0.100000,
           "ObjectName" : "UCameraComponent_8",
           "ParentId" : 0,
@@ -122,13 +122,13 @@
           "bTickEnabled" : true
         }],
       "PerspectiveCameraInput" : false,
-      "RootComponentId" : 1216,
+      "RootComponentId" : 800,
       "Tag" : "",
       "Type" : "ACameraActor",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "1583" : {
+    "801" : {
       "CameraMoveSpeed" : 48.099998,
       "CameraPitchDeg" : 0.000000,
       "CameraYawDeg" : 0.000000,
@@ -138,7 +138,7 @@
           "AspectRatio" : 1.000000,
           "FarClip" : 500.000000,
           "FieldOfView" : 60.000000,
-          "Id" : 1585,
+          "Id" : 803,
           "NearClip" : 0.100000,
           "ObjectName" : "UCameraComponent_36",
           "ParentId" : 0,
@@ -154,16 +154,16 @@
           "bTickEnabled" : true
         }],
       "PerspectiveCameraInput" : false,
-      "RootComponentId" : 1585,
+      "RootComponentId" : 803,
       "Tag" : "",
       "Type" : "ACameraActor",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "787" : {
+    "804" : {
       "ObjectName" : "맵",
       "OwnedComponents" : [{
-          "Id" : 789,
+          "Id" : 806,
           "MaterialSlots" : [{
               "AssetPath" : "terrain_mtl",
               "Type" : "UMaterial"
@@ -182,13 +182,13 @@
           "bIsVisible" : true,
           "bTickEnabled" : true
         }],
-      "RootComponentId" : 789,
+      "RootComponentId" : 806,
       "Tag" : "",
       "Type" : "AStaticMeshActor",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "790" : {
+    "807" : {
       "ObjectName" : "파이어볼 생성기",
       "OwnedComponents" : [{
           "ObjectName" : "ULuaScriptComponent_9",
@@ -197,7 +197,7 @@
           "bIsActive" : true,
           "bTickEnabled" : true
         }, {
-          "Id" : 793,
+          "Id" : 810,
           "MaterialSlots" : [{
               "AssetPath" : "texture",
               "Type" : "UMaterial"
@@ -224,13 +224,13 @@
           "bRotationInLocalSpace" : true,
           "bTickEnabled" : true
         }],
-      "RootComponentId" : 793,
+      "RootComponentId" : 810,
       "Tag" : "",
       "Type" : "AStaticMeshActor",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "795" : {
+    "812" : {
       "ObjectName" : "HeightFog",
       "OwnedComponents" : [{
           "FogCutoffDistance" : 10300.000000,
@@ -239,7 +239,7 @@
           "FogInscatteringColor" : [0.806950, 0.227441, 0.227441, 1.000000],
           "FogMaxOpacity" : 0.600000,
           "HeightFogShader" : "Shaders/PostProcess/HeightFog_PS.hlsl",
-          "Id" : 798,
+          "Id" : 815,
           "ObjectName" : "UHeightFogComponent_4",
           "ParentId" : 0,
           "RelativeLocation" : [-3.786875, 7.579581, -203.815994],
@@ -252,13 +252,13 @@
           "bIsVisible" : true,
           "bTickEnabled" : true
         }],
-      "RootComponentId" : 798,
+      "RootComponentId" : 815,
       "Tag" : "",
       "Type" : "AHeightFogActor",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "799" : {
+    "816" : {
       "ObjectName" : "백승현_코치님",
       "OwnedComponents" : [{
           "ObjectName" : "ULuaScriptComponent_10",
@@ -267,7 +267,7 @@
           "bIsActive" : true,
           "bTickEnabled" : true
         }, {
-          "Id" : 802,
+          "Id" : 819,
           "MaterialSlots" : [{
               "AssetPath" : "Material_0.001",
               "Type" : "UMaterial"
@@ -292,22 +292,16 @@
           "bIsActive" : true,
           "bTickEnabled" : true
         }],
-      "RootComponentId" : 802,
+      "RootComponentId" : 819,
       "Tag" : "",
       "Type" : "AStaticMeshActor",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "804" : {
+    "821" : {
       "ObjectName" : "임창근_코치님",
       "OwnedComponents" : [{
-          "ObjectName" : "ULuaScriptComponent_12",
-          "ScriptFilePath" : "Data/Scripts/coach.lua",
-          "Type" : "ULuaScriptComponent",
-          "bIsActive" : true,
-          "bTickEnabled" : true
-        }, {
-          "Id" : 807,
+          "Id" : 824,
           "MaterialSlots" : [{
               "AssetPath" : "Material_0",
               "Type" : "UMaterial"
@@ -325,14 +319,20 @@
           "bIsActive" : true,
           "bIsVisible" : true,
           "bTickEnabled" : true
+        }, {
+          "ObjectName" : "ULuaScriptComponent_12",
+          "ScriptFilePath" : "Data/Scripts/coach.lua",
+          "Type" : "ULuaScriptComponent",
+          "bIsActive" : true,
+          "bTickEnabled" : true
         }],
-      "RootComponentId" : 807,
+      "RootComponentId" : 824,
       "Tag" : "",
       "Type" : "AStaticMeshActor",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "808" : {
+    "825" : {
       "ObjectName" : "ADirectionalLightActor_2",
       "OwnedComponents" : [{
           "CascadedAreaColorDebugValue" : 0.000000,
@@ -340,7 +340,7 @@
           "CascadedCount" : 8,
           "CascadedLinearBlendingValue" : 0.000000,
           "CascadedOverlapValue" : 0.200000,
-          "Id" : 810,
+          "Id" : 827,
           "Intensity" : 1.000000,
           "LightColor" : [0.772201, 0.354795, 0.722241, 1.000000],
           "ObjectName" : "UDirectionalLightComponent_5",
@@ -362,18 +362,18 @@
           "bOverrideCameraLightPerspective" : false,
           "bTickEnabled" : true
         }],
-      "RootComponentId" : 810,
+      "RootComponentId" : 827,
       "Tag" : "",
       "Type" : "ADirectionalLightActor",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "811" : {
+    "828" : {
       "ObjectName" : "AAmbientLightActor_2",
       "OwnedComponents" : [{
-          "Id" : 813,
+          "Id" : 830,
           "ObjectName" : "UAudioComponent_2",
-          "ParentId" : 815,
+          "ParentId" : 832,
           "Pitch" : 1.000000,
           "RelativeLocation" : [0.000000, 0.000000, 0.000000],
           "RelativeRotationEuler" : [0.000000, 0.000000, 0.000000],
@@ -388,7 +388,7 @@
           "bIsVisible" : true,
           "bTickEnabled" : true
         }, {
-          "Id" : 815,
+          "Id" : 832,
           "Intensity" : 0.100000,
           "LightColor" : [1.000000, 1.000000, 1.000000, 1.000000],
           "ObjectName" : "UAmbientLightComponent_5",
@@ -408,13 +408,13 @@
           "bIsVisible" : true,
           "bTickEnabled" : true
         }],
-      "RootComponentId" : 815,
+      "RootComponentId" : 832,
       "Tag" : "",
       "Type" : "AAmbientLightActor",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "816" : {
+    "833" : {
       "ObjectName" : "TileMapManager",
       "OwnedComponents" : [{
           "ObjectName" : "TileMapScript",
@@ -423,7 +423,7 @@
           "bIsActive" : true,
           "bTickEnabled" : true
         }, {
-          "Id" : 818,
+          "Id" : 835,
           "ObjectName" : "USceneComponent_8",
           "ParentId" : 0,
           "RelativeLocation" : [0.000000, 0.000000, 2.000000],
@@ -435,16 +435,16 @@
           "bIsVisible" : true,
           "bTickEnabled" : true
         }],
-      "RootComponentId" : 818,
+      "RootComponentId" : 835,
       "Tag" : "",
       "Type" : "AEmptyActor",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "819" : {
+    "836" : {
       "ObjectName" : "FireballManager",
       "OwnedComponents" : [{
-          "Id" : 820,
+          "Id" : 837,
           "ObjectName" : "USceneComponent_9",
           "ParentId" : 0,
           "RelativeLocation" : [-2.246344, 1.999817, 0.053925],
@@ -462,13 +462,13 @@
           "bIsActive" : true,
           "bTickEnabled" : true
         }],
-      "RootComponentId" : 820,
+      "RootComponentId" : 837,
       "Tag" : "",
       "Type" : "AEmptyActor",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "822" : {
+    "839" : {
       "ObjectName" : "PlayerSpawner",
       "OwnedComponents" : [{
           "ObjectName" : "ULuaScriptComponent_15",
@@ -477,7 +477,7 @@
           "bIsActive" : true,
           "bTickEnabled" : true
         }, {
-          "Id" : 823,
+          "Id" : 841,
           "ObjectName" : "USceneComponent_10",
           "ParentId" : 0,
           "RelativeLocation" : [0.000000, 0.000000, 0.000000],
@@ -489,16 +489,16 @@
           "bIsVisible" : true,
           "bTickEnabled" : true
         }],
-      "RootComponentId" : 823,
+      "RootComponentId" : 841,
       "Tag" : "",
       "Type" : "AEmptyActor",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "825" : {
+    "842" : {
       "ObjectName" : "PlayerCameraManager",
       "OwnedComponents" : [{
-          "Id" : 826,
+          "Id" : 843,
           "ObjectName" : "USceneComponent_11",
           "ParentId" : 0,
           "RelativeLocation" : [0.000000, 0.000000, -0.055540],
@@ -510,17 +510,17 @@
           "bIsVisible" : true,
           "bTickEnabled" : true
         }],
-      "RootComponentId" : 826,
+      "RootComponentId" : 843,
       "Tag" : "",
-      "TransitionCurve" : [0.470000, 0.000000, 0.002813, 0.965000],
+      "TransitionCurve" : [1.000000, 0.000000, 0.000000, 1.000000],
       "Type" : "APlayerCameraManager",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "827" : {
+    "844" : {
       "ObjectName" : "Name",
       "OwnedComponents" : [{
-          "Id" : 828,
+          "Id" : 845,
           "ObjectName" : "USceneComponent_12",
           "ParentId" : 0,
           "RelativeLocation" : [-147.332611, -40.449654, 62.866299],
@@ -532,9 +532,9 @@
           "bIsVisible" : true,
           "bTickEnabled" : true
         }, {
-          "Id" : 833,
+          "Id" : 846,
           "ObjectName" : "UBillboardComponent_20",
-          "ParentId" : 828,
+          "ParentId" : 845,
           "RelativeLocation" : [-4.759857, 3.586769, 0.000000],
           "RelativeRotationEuler" : [0.000000, -0.000000, 0.000000],
           "RelativeScale" : [10.000000, 10.000000, 1.000000],
@@ -547,9 +547,9 @@
           "bIsVisible" : true,
           "bTickEnabled" : true
         }, {
-          "Id" : 829,
+          "Id" : 847,
           "ObjectName" : "UBillboardComponent_17",
-          "ParentId" : 828,
+          "ParentId" : 845,
           "RelativeLocation" : [-3.701950, -19.328808, 5.855534],
           "RelativeRotationEuler" : [0.000000, -0.000000, 0.000000],
           "RelativeScale" : [9.000000, 9.000000, 1.000000],
@@ -568,9 +568,9 @@
           "bIsActive" : true,
           "bTickEnabled" : true
         }, {
-          "Id" : 831,
+          "Id" : 849,
           "ObjectName" : "UBillboardComponent_18",
-          "ParentId" : 828,
+          "ParentId" : 845,
           "RelativeLocation" : [-4.420670, 17.313623, -2.359337],
           "RelativeRotationEuler" : [0.000000, -0.000000, 0.000000],
           "RelativeScale" : [10.000000, 10.000000, 10.000000],
@@ -583,9 +583,9 @@
           "bIsVisible" : true,
           "bTickEnabled" : true
         }, {
-          "Id" : 832,
+          "Id" : 850,
           "ObjectName" : "UBillboardComponent_19",
-          "ParentId" : 828,
+          "ParentId" : 845,
           "RelativeLocation" : [-3.924591, -8.772038, 2.077717],
           "RelativeRotationEuler" : [0.000000, -0.000000, 0.000000],
           "RelativeScale" : [10.000000, 10.000000, 1.000000],
@@ -598,20 +598,20 @@
           "bIsVisible" : true,
           "bTickEnabled" : true
         }],
-      "RootComponentId" : 828,
+      "RootComponentId" : 845,
       "Tag" : "",
       "Type" : "AEmptyActor",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     }
   },
-  "NextUUID" : 1586,
+  "NextUUID" : 1730,
   "PerspectiveCamera" : {
     "FOV" : [60.000000],
     "FarClip" : [505.000000],
-    "Location" : [-198.572372, -55.052402, 105.089653],
+    "Location" : [-191.510178, -50.193939, 103.285995],
     "NearClip" : [0.100000],
-    "Rotation" : [0.000000, 31.670803, 10.333020]
+    "Rotation" : [0.000000, 33.770710, 8.632282]
   },
   "Version" : 1
 }
