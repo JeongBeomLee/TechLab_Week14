@@ -1213,6 +1213,9 @@ xcopy /y /d "$(ProjectDir)ThirdParty\lib\Lua\lua54.dll" "$(OutDir)"</Command>
         </Code>
     </Task>
   </UsingTask>
+  <Target Name="EnsureLibraries" BeforeTargets="CustomPreBuildCopy">
+    <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(ProjectDir)BuildTools\CodeGenerator\EnsureLibraries.ps1&quot;" />
+  </Target>
   <Target Name="CustomPreBuildCopy" BeforeTargets="PreBuildEvent">
     <PropertyGroup Condition="'$(Configuration)'=='Debug'">
       <PowerShellScript>
