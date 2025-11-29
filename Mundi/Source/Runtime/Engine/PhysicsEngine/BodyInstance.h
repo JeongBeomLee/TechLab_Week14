@@ -7,16 +7,20 @@ USTRUCT()
 struct FBodyInstance
 {
     GENERATED_REFLECTION_BODY()
-    
+
     FBodyInstance();
     ~FBodyInstance();
-    
+
+    // 복사 시 런타임 포인터는 복사하지 않음 (PhysX 리소스 공유 방지)
+    FBodyInstance(const FBodyInstance& Other);
+    FBodyInstance& operator=(const FBodyInstance& Other);
+
     /**
-     * 단일 강체를 초기화한다. 
+     * 단일 강체를 초기화한다.
      * @param Setup         모양 정보 (UBodySetup)
      * @param Transform     월드 트랜스폼
-     * @param Component     바디를 소유한 컴포넌트 
-     * @param InRBScene     바디가 속할 물리 씬 
+     * @param Component     바디를 소유한 컴포넌트
+     * @param InRBScene     바디가 속할 물리 씬
      */
     void InitBody(UBodySetup* Setup, const FTransform& Transform, UPrimitiveComponent* Component, FPhysScene* InRBScene);
 

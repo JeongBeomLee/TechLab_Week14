@@ -39,7 +39,10 @@ void UBoxComponent::DuplicateSubObjects()
 
 	if (BoxBodySetup)
 	{
-		// @todo BoxBodySetup 깊은 복사
+		// BoxBodySetup 깊은 복사: 새 객체 생성 후 AggGeom 복사
+		UBodySetup* OldSetup = BoxBodySetup;
+		BoxBodySetup = NewObject<UBodySetup>();
+		BoxBodySetup->AggGeom = OldSetup->AggGeom;
 	}
 }
 

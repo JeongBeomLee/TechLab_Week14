@@ -12,6 +12,7 @@ PxPhysics*               GPhysXSDK = nullptr;
 PxCooking*               GPhysXCooking = nullptr;
 PxDefaultCpuDispatcher*  GPhysXDispatcher = nullptr;
 PxPvd*                   GPhysXVisualDebugger = nullptr;
+PxPvdTransport*          GPhysXPvdTransport = nullptr;
 FPhysXAllocator*         GPhysXAllocator= nullptr;
 FPhysXErrorCallback*     GPhysXErrorCallback = nullptr;
 
@@ -54,8 +55,11 @@ bool InitGamePhys()
 
     if (GPhysXVisualDebugger)
     {
-        PxPvdTransport* Transport = PxDefaultPvdSocketTransportCreate("127.0.0.1", 5425, 10);
-        GPhysXVisualDebugger->connect(*Transport, PxPvdInstrumentationFlag::eALL);
+        GPhysXPvdTransport = PxDefaultPvdSocketTransportCreate("127.0.0.1", 5425, 10);
+        if (GPhysXPvdTransport)
+        {
+            GPhysXVisualDebugger->connect(*GPhysXPvdTransport, PxPvdInstrumentationFlag::eALL);
+        }
     }
 
     PxCookingParams CookingParams(PScale);
@@ -91,7 +95,19 @@ void TermGamePhys()
     if (GPhysXCooking)        { GPhysXCooking->release(); GPhysXCooking = nullptr; }
     if (GPhysXSDK)            { PxCloseExtensions(); }
     if (GPhysXSDK)            { GPhysXSDK->release(); GPhysXSDK = nullptr; }
-    if (GPhysXVisualDebugger) { GPhysXVisualDebugger->release(); GPhysXVisualDebugger = nullptr; }
+
+    // PVD 연결 해제 후 transport 해제 (순서 중요)
+    if (GPhysXVisualDebugger)
+    {
+        if (GPhysXVisualDebugger->isConnected())
+        {
+            GPhysXVisualDebugger->disconnect();
+        }
+        GPhysXVisualDebugger->release();
+        GPhysXVisualDebugger = nullptr;
+    }
+    if (GPhysXPvdTransport)   { GPhysXPvdTransport->release(); GPhysXPvdTransport = nullptr; }
+
     if (GPhysXFoundation)     { GPhysXFoundation->release(); GPhysXFoundation = nullptr; }
 
     delete GPhysXAllocator; GPhysXAllocator = nullptr;

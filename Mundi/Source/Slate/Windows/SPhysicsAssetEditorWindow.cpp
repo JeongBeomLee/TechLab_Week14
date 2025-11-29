@@ -9,7 +9,7 @@
 #include "Source/Runtime/Engine/Viewer/EditorAssetPreviewContext.h"
 #include "Source/Runtime/Engine/PhysicsEngine/PhysicsAsset.h"
 #include "Source/Runtime/Engine/PhysicsEngine/PhysicsTypes.h"
-#include "Source/Runtime/Engine/PhysicsEngine/FBodySetup.h"
+#include "Source/Runtime/Engine/PhysicsEngine/BodySetup.h"
 #include "Source/Runtime/Engine/PhysicsEngine/FConstraintSetup.h"
 #include "Source/Runtime/Core/Misc/VertexData.h"
 #include "SkeletalMeshActor.h"
@@ -50,107 +50,149 @@ namespace
 }
 
 /**
- * Shape 타입에 따라 와이어프레임 라인 좌표를 생성합니다.
- * @param Body Shape 설정
- * @param ShapeTransform 월드 공간 Shape 트랜스폼
- * @param OutStartPoints 라인 시작점 배열 (출력)
- * @param OutEndPoints 라인 끝점 배열 (출력)
+ * Sphere Shape 와이어프레임 라인 좌표 생성
  */
-static void GenerateShapeLineCoordinates(
-	const FBodySetup& Body,
-	const FTransform& ShapeTransform,
+static void GenerateSphereLineCoordinates(
+	const FKSphereElem& Sphere,
+	const FTransform& BoneTransform,
 	TArray<FVector>& OutStartPoints,
 	TArray<FVector>& OutEndPoints)
 {
-	OutStartPoints.Empty();
-	OutEndPoints.Empty();
+	FVector Center = BoneTransform.Translation + BoneTransform.Rotation.RotateVector(Sphere.Center);
+	float Radius = Sphere.Radius;
 
-	const FVector Center = ShapeTransform.Translation;
-
-	switch (Body.ShapeType)
+	// 3개 평면 (XY, XZ, YZ)에 원 그리기
+	for (int32 j = 0; j < CircleSegments; ++j)
 	{
-	case EPhysicsShapeType::Sphere:
-		// 3개 평면 (XY, XZ, YZ)에 원 그리기
-		for (int32 j = 0; j < CircleSegments; ++j)
-		{
-			float Angle1 = (j / static_cast<float>(CircleSegments)) * 2.0f * M_PI;
-			float Angle2 = ((j + 1) / static_cast<float>(CircleSegments)) * 2.0f * M_PI;
-			float Cos1 = cos(Angle1), Sin1 = sin(Angle1);
-			float Cos2 = cos(Angle2), Sin2 = sin(Angle2);
+		float Angle1 = (j / static_cast<float>(CircleSegments)) * 2.0f * M_PI;
+		float Angle2 = ((j + 1) / static_cast<float>(CircleSegments)) * 2.0f * M_PI;
+		float Cos1 = cos(Angle1), Sin1 = sin(Angle1);
+		float Cos2 = cos(Angle2), Sin2 = sin(Angle2);
 
-			// XY 평면
-			OutStartPoints.Add(Center + FVector(Cos1 * Body.Radius, Sin1 * Body.Radius, 0));
-			OutEndPoints.Add(Center + FVector(Cos2 * Body.Radius, Sin2 * Body.Radius, 0));
-			// XZ 평면
-			OutStartPoints.Add(Center + FVector(Cos1 * Body.Radius, 0, Sin1 * Body.Radius));
-			OutEndPoints.Add(Center + FVector(Cos2 * Body.Radius, 0, Sin2 * Body.Radius));
-			// YZ 평면
-			OutStartPoints.Add(Center + FVector(0, Cos1 * Body.Radius, Sin1 * Body.Radius));
-			OutEndPoints.Add(Center + FVector(0, Cos2 * Body.Radius, Sin2 * Body.Radius));
-		}
-		break;
+		// XY 평면
+		OutStartPoints.Add(Center + FVector(Cos1 * Radius, Sin1 * Radius, 0));
+		OutEndPoints.Add(Center + FVector(Cos2 * Radius, Sin2 * Radius, 0));
+		// XZ 평면
+		OutStartPoints.Add(Center + FVector(Cos1 * Radius, 0, Sin1 * Radius));
+		OutEndPoints.Add(Center + FVector(Cos2 * Radius, 0, Sin2 * Radius));
+		// YZ 평면
+		OutStartPoints.Add(Center + FVector(0, Cos1 * Radius, Sin1 * Radius));
+		OutEndPoints.Add(Center + FVector(0, Cos2 * Radius, Sin2 * Radius));
+	}
+}
 
-	case EPhysicsShapeType::Capsule:
-		{
-			FVector Up = ShapeTransform.Rotation.RotateVector(FVector(0, 0, 1));
-			FVector Top = Center + Up * Body.HalfHeight;
-			FVector Bottom = Center - Up * Body.HalfHeight;
+/**
+ * Box Shape 와이어프레임 라인 좌표 생성
+ */
+static void GenerateBoxLineCoordinates(
+	const FKBoxElem& Box,
+	const FTransform& BoneTransform,
+	TArray<FVector>& OutStartPoints,
+	TArray<FVector>& OutEndPoints)
+{
+	FVector Center = BoneTransform.Translation + BoneTransform.Rotation.RotateVector(Box.Center);
+	FQuat Rotation = BoneTransform.Rotation * Box.Rotation;
 
-			// 수직 라인들
-			for (int32 j = 0; j < CapsuleVerticalLines; ++j)
-			{
-				float Angle = (j / static_cast<float>(CapsuleVerticalLines)) * 2.0f * M_PI;
-				FVector Dir = ShapeTransform.Rotation.RotateVector(FVector(cos(Angle), sin(Angle), 0));
-				OutStartPoints.Add(Top + Dir * Body.Radius);
-				OutEndPoints.Add(Bottom + Dir * Body.Radius);
-			}
+	// Box.X, Box.Y, Box.Z는 지름이므로 반으로 나눔
+	FVector HalfExtent(Box.X * 0.5f, Box.Y * 0.5f, Box.Z * 0.5f);
 
-			// 상단/하단 원
-			for (int32 j = 0; j < CircleSegments; ++j)
-			{
-				float Angle1 = (j / static_cast<float>(CircleSegments)) * 2.0f * M_PI;
-				float Angle2 = ((j + 1) / static_cast<float>(CircleSegments)) * 2.0f * M_PI;
-				FVector Dir1 = ShapeTransform.Rotation.RotateVector(FVector(cos(Angle1), sin(Angle1), 0));
-				FVector Dir2 = ShapeTransform.Rotation.RotateVector(FVector(cos(Angle2), sin(Angle2), 0));
+	// 8개 코너 생성 (dx/dy/dz 패턴)
+	constexpr int dx[] = {-1, 1, 1, -1, -1, 1, 1, -1};
+	constexpr int dy[] = {-1, -1, 1, 1, -1, -1, 1, 1};
+	constexpr int dz[] = {-1, -1, -1, -1, 1, 1, 1, 1};
 
-				OutStartPoints.Add(Top + Dir1 * Body.Radius);
-				OutEndPoints.Add(Top + Dir2 * Body.Radius);
-				OutStartPoints.Add(Bottom + Dir1 * Body.Radius);
-				OutEndPoints.Add(Bottom + Dir2 * Body.Radius);
-			}
-		}
-		break;
+	FVector Corners[8];
+	for (int i = 0; i < 8; ++i)
+	{
+		Corners[i] = Center + Rotation.RotateVector(
+			FVector(HalfExtent.X * dx[i], HalfExtent.Y * dy[i], HalfExtent.Z * dz[i]));
+	}
 
-	case EPhysicsShapeType::Box:
-		{
-			const FVector& E = Body.Extent;
+	// 12개 엣지 (pair로 정의)
+	constexpr std::pair<int, int> Edges[] = {
+		{0,1}, {1,2}, {2,3}, {3,0},  // 하단 면
+		{4,5}, {5,6}, {6,7}, {7,4},  // 상단 면
+		{0,4}, {1,5}, {2,6}, {3,7}   // 수직 엣지
+	};
 
-			// 8개 코너 생성 (dx/dy/dz 패턴)
-			constexpr int dx[] = {-1, 1, 1, -1, -1, 1, 1, -1};
-			constexpr int dy[] = {-1, -1, 1, 1, -1, -1, 1, 1};
-			constexpr int dz[] = {-1, -1, -1, -1, 1, 1, 1, 1};
+	for (const auto& [a, b] : Edges)
+	{
+		OutStartPoints.Add(Corners[a]);
+		OutEndPoints.Add(Corners[b]);
+	}
+}
 
-			FVector Corners[8];
-			for (int i = 0; i < 8; ++i)
-			{
-				Corners[i] = Center + ShapeTransform.Rotation.RotateVector(
-					FVector(E.X * dx[i], E.Y * dy[i], E.Z * dz[i]));
-			}
+/**
+ * Capsule(Sphyl) Shape 와이어프레임 라인 좌표 생성
+ */
+static void GenerateCapsuleLineCoordinates(
+	const FKSphylElem& Capsule,
+	const FTransform& BoneTransform,
+	TArray<FVector>& OutStartPoints,
+	TArray<FVector>& OutEndPoints)
+{
+	FVector Center = BoneTransform.Translation + BoneTransform.Rotation.RotateVector(Capsule.Center);
+	FQuat Rotation = BoneTransform.Rotation * Capsule.Rotation;
 
-			// 12개 엣지 (pair로 정의)
-			constexpr std::pair<int, int> Edges[] = {
-				{0,1}, {1,2}, {2,3}, {3,0},  // 하단 면
-				{4,5}, {5,6}, {6,7}, {7,4},  // 상단 면
-				{0,4}, {1,5}, {2,6}, {3,7}   // 수직 엣지
-			};
+	float HalfLength = Capsule.Length * 0.5f;
+	float Radius = Capsule.Radius;
 
-			for (const auto& [a, b] : Edges)
-			{
-				OutStartPoints.Add(Corners[a]);
-				OutEndPoints.Add(Corners[b]);
-			}
-		}
-		break;
+	// 캡슐은 Z축 방향 (기존 엔진 규약)
+	FVector Up = Rotation.RotateVector(FVector(0, 0, 1));  // Z축이 길이 방향
+	FVector Top = Center + Up * HalfLength;
+	FVector Bottom = Center - Up * HalfLength;
+
+	// 수직 라인들
+	for (int32 j = 0; j < CapsuleVerticalLines; ++j)
+	{
+		float Angle = (j / static_cast<float>(CapsuleVerticalLines)) * 2.0f * M_PI;
+		FVector Dir = Rotation.RotateVector(FVector(cos(Angle), sin(Angle), 0));
+		OutStartPoints.Add(Top + Dir * Radius);
+		OutEndPoints.Add(Bottom + Dir * Radius);
+	}
+
+	// 상단/하단 원 (XY 평면, Z축이 길이 방향이므로)
+	for (int32 j = 0; j < CircleSegments; ++j)
+	{
+		float Angle1 = (j / static_cast<float>(CircleSegments)) * 2.0f * M_PI;
+		float Angle2 = ((j + 1) / static_cast<float>(CircleSegments)) * 2.0f * M_PI;
+		FVector Dir1 = Rotation.RotateVector(FVector(cos(Angle1), sin(Angle1), 0));
+		FVector Dir2 = Rotation.RotateVector(FVector(cos(Angle2), sin(Angle2), 0));
+
+		OutStartPoints.Add(Top + Dir1 * Radius);
+		OutEndPoints.Add(Top + Dir2 * Radius);
+		OutStartPoints.Add(Bottom + Dir1 * Radius);
+		OutEndPoints.Add(Bottom + Dir2 * Radius);
+	}
+}
+
+/**
+ * UBodySetup의 모든 Shape에 대해 와이어프레임 라인 좌표 생성
+ */
+static void GenerateBodyShapeLineCoordinates(
+	const UBodySetup* BodySetup,
+	const FTransform& BoneTransform,
+	TArray<FVector>& OutStartPoints,
+	TArray<FVector>& OutEndPoints)
+{
+	if (!BodySetup) return;
+
+	// Sphere shapes
+	for (const FKSphereElem& Sphere : BodySetup->AggGeom.SphereElems)
+	{
+		GenerateSphereLineCoordinates(Sphere, BoneTransform, OutStartPoints, OutEndPoints);
+	}
+
+	// Box shapes
+	for (const FKBoxElem& Box : BodySetup->AggGeom.BoxElems)
+	{
+		GenerateBoxLineCoordinates(Box, BoneTransform, OutStartPoints, OutEndPoints);
+	}
+
+	// Capsule shapes
+	for (const FKSphylElem& Capsule : BodySetup->AggGeom.SphylElems)
+	{
+		GenerateCapsuleLineCoordinates(Capsule, BoneTransform, OutStartPoints, OutEndPoints);
 	}
 }
 
@@ -780,22 +822,19 @@ void SPhysicsAssetEditorWindow::RenderLeftPanel(float PanelWidth)
 		{
 			for (int32 i = 0; i < static_cast<int32>(State->EditingAsset->BodySetups.size()); ++i)
 			{
-				const FBodySetup& Body = State->EditingAsset->BodySetups[i];
+				UBodySetup* Body = State->EditingAsset->BodySetups[i];
+				if (!Body) continue;
+
 				bool bSelected = (State->bBodySelectionMode && State->SelectedBodyIndex == i);
 
 				ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_SpanAvailWidth;
 				if (bSelected) flags |= ImGuiTreeNodeFlags_Selected;
 
-				const char* ShapeIcon = "";
-				switch (Body.ShapeType)
-				{
-				case EPhysicsShapeType::Sphere:  ShapeIcon = "[S]"; break;
-				case EPhysicsShapeType::Capsule: ShapeIcon = "[C]"; break;
-				case EPhysicsShapeType::Box:     ShapeIcon = "[B]"; break;
-				}
+				// Shape 개수 표시
+				int32 ShapeCount = Body->AggGeom.GetElementCount();
 
 				ImGui::PushStyleColor(ImGuiCol_Text, bSelected ? ImVec4(0.4f, 1.0f, 0.4f, 1.0f) : ImVec4(0.6f, 0.8f, 1.0f, 1.0f));
-				bool bOpen = ImGui::TreeNodeEx((void*)(intptr_t)(100 + i), flags, "%s %s", ShapeIcon, Body.BoneName.ToString().c_str());
+				bool bOpen = ImGui::TreeNodeEx((void*)(intptr_t)(100 + i), flags, "[%d] %s", ShapeCount, Body->BoneName.ToString().c_str());
 				ImGui::PopStyleColor();
 
 				if (ImGui::IsItemClicked())
@@ -823,9 +862,15 @@ void SPhysicsAssetEditorWindow::RenderLeftPanel(float PanelWidth)
 				FString ParentName = "?";
 				FString ChildName = "?";
 				if (Constraint.ParentBodyIndex >= 0 && Constraint.ParentBodyIndex < static_cast<int32>(State->EditingAsset->BodySetups.size()))
-					ParentName = State->EditingAsset->BodySetups[Constraint.ParentBodyIndex].BoneName.ToString();
+				{
+					UBodySetup* ParentBody = State->EditingAsset->BodySetups[Constraint.ParentBodyIndex];
+					if (ParentBody) ParentName = ParentBody->BoneName.ToString();
+				}
 				if (Constraint.ChildBodyIndex >= 0 && Constraint.ChildBodyIndex < static_cast<int32>(State->EditingAsset->BodySetups.size()))
-					ChildName = State->EditingAsset->BodySetups[Constraint.ChildBodyIndex].BoneName.ToString();
+				{
+					UBodySetup* ChildBody = State->EditingAsset->BodySetups[Constraint.ChildBodyIndex];
+					if (ChildBody) ChildName = ChildBody->BoneName.ToString();
+				}
 
 				ImGui::PushStyleColor(ImGuiCol_Text, bSelected ? ImVec4(1.0f, 1.0f, 0.4f, 1.0f) : ImVec4(1.0f, 0.7f, 0.4f, 1.0f));
 				bool bOpen = ImGui::TreeNodeEx((void*)(intptr_t)(200 + i), flags, "%s -> %s", ParentName.c_str(), ChildName.c_str());
@@ -1007,7 +1052,8 @@ void SPhysicsAssetEditorWindow::RebuildShapeLines()
 
 	for (int32 i = 0; i < static_cast<int32>(State->EditingAsset->BodySetups.size()); ++i)
 	{
-		const FBodySetup& Body = State->EditingAsset->BodySetups[i];
+		UBodySetup* Body = State->EditingAsset->BodySetups[i];
+		if (!Body) continue;
 
 		// 바디 라인 범위 시작
 		PhysicsAssetEditorState::FBodyLineRange& Range = State->BodyLineRanges[i];
@@ -1020,16 +1066,14 @@ void SPhysicsAssetEditorWindow::RebuildShapeLines()
 
 		// 본 트랜스폼 가져오기
 		FTransform BoneTransform;
-		if (MeshComp && Body.BoneIndex >= 0)
+		if (MeshComp && Body->BoneIndex >= 0)
 		{
-			BoneTransform = MeshComp->GetBoneWorldTransform(Body.BoneIndex);
+			BoneTransform = MeshComp->GetBoneWorldTransform(Body->BoneIndex);
 		}
 
-		FTransform ShapeTransform = BoneTransform.GetWorldTransform(Body.LocalTransform);
-
-		// 헬퍼 함수로 좌표 생성
+		// 헬퍼 함수로 좌표 생성 (AggGeom의 모든 Shape 처리)
 		TArray<FVector> StartPoints, EndPoints;
-		GenerateShapeLineCoordinates(Body, ShapeTransform, StartPoints, EndPoints);
+		GenerateBodyShapeLineCoordinates(Body, BoneTransform, StartPoints, EndPoints);
 
 		// FLinesBatch에 직접 추가 (NewObject 없음!)
 		for (int32 j = 0; j < StartPoints.Num(); ++j)
@@ -1066,13 +1110,13 @@ void SPhysicsAssetEditorWindow::RebuildShapeLines()
 			? FVector4(1.0f, 1.0f, 0.0f, 1.0f) : FVector4(1.0f, 0.5f, 0.0f, 1.0f);
 
 		FVector ParentPos, ChildPos;
-		const FBodySetup& ParentBody = State->EditingAsset->BodySetups[Constraint.ParentBodyIndex];
-		const FBodySetup& ChildBody = State->EditingAsset->BodySetups[Constraint.ChildBodyIndex];
+		UBodySetup* ParentBody = State->EditingAsset->BodySetups[Constraint.ParentBodyIndex];
+		UBodySetup* ChildBody = State->EditingAsset->BodySetups[Constraint.ChildBodyIndex];
 
-		if (MeshComp)
+		if (MeshComp && ParentBody && ChildBody)
 		{
-			ParentPos = MeshComp->GetBoneWorldTransform(ParentBody.BoneIndex).Translation;
-			ChildPos = MeshComp->GetBoneWorldTransform(ChildBody.BoneIndex).Translation;
+			ParentPos = MeshComp->GetBoneWorldTransform(ParentBody->BoneIndex).Translation;
+			ChildPos = MeshComp->GetBoneWorldTransform(ChildBody->BoneIndex).Translation;
 		}
 
 		State->ConstraintLinesBatch.Add(ParentPos, ChildPos, Color);
@@ -1095,22 +1139,21 @@ void SPhysicsAssetEditorWindow::UpdateSelectedBodyLines()
 	if (State->SelectedBodyIndex >= static_cast<int32>(State->EditingAsset->BodySetups.size())) return;
 	if (State->SelectedBodyIndex >= State->BodyLineRanges.Num()) return;
 
-	const FBodySetup& Body = State->EditingAsset->BodySetups[State->SelectedBodyIndex];
+	UBodySetup* Body = State->EditingAsset->BodySetups[State->SelectedBodyIndex];
+	if (!Body) return;
 	const PhysicsAssetEditorState::FBodyLineRange& Range = State->BodyLineRanges[State->SelectedBodyIndex];
 
 	// 본 트랜스폼 가져오기
 	FTransform BoneTransform;
 	USkeletalMeshComponent* MeshComp = State->GetPreviewMeshComponent();
-	if (MeshComp && Body.BoneIndex >= 0)
+	if (MeshComp && Body->BoneIndex >= 0)
 	{
-		BoneTransform = MeshComp->GetBoneWorldTransform(Body.BoneIndex);
+		BoneTransform = MeshComp->GetBoneWorldTransform(Body->BoneIndex);
 	}
 
-	FTransform ShapeTransform = BoneTransform.GetWorldTransform(Body.LocalTransform);
-
-	// 헬퍼 함수로 좌표 생성
+	// 헬퍼 함수로 좌표 생성 (AggGeom의 모든 Shape 처리)
 	TArray<FVector> StartPoints, EndPoints;
-	GenerateShapeLineCoordinates(Body, ShapeTransform, StartPoints, EndPoints);
+	GenerateBodyShapeLineCoordinates(Body, BoneTransform, StartPoints, EndPoints);
 
 	// FLinesBatch 직접 업데이트 (범위 내 라인 좌표만 변경)
 	for (int32 i = 0; i < Range.Count && i < StartPoints.Num(); ++i)
@@ -1297,10 +1340,15 @@ void SPhysicsAssetEditorWindow::AutoGenerateBodies()
 		int32 BodyIndex = Asset->AddBody(Bone.Name, i);
 		if (BodyIndex >= 0)
 		{
-			FBodySetup& Body = Asset->BodySetups[BodyIndex];
-			Body.ShapeType = EPhysicsShapeType::Capsule;
-			Body.Radius = BoneLength * 0.1f;       // 본 길이의 10%를 반지름으로
-			Body.HalfHeight = BoneLength * 0.35f;  // 본 길이의 35%를 반높이로
+			UBodySetup* Body = Asset->BodySetups[BodyIndex];
+			if (Body)
+			{
+				// AggGeom에 캡슐 Shape 추가
+				FKSphylElem NewCapsule;
+				NewCapsule.Radius = BoneLength * 0.1f;       // 본 길이의 10%를 반지름으로
+				NewCapsule.Length = BoneLength * 0.7f;       // 본 길이의 70%를 전체 길이로
+				Body->AggGeom.SphylElems.Add(NewCapsule);
+			}
 		}
 	}
 
@@ -1493,11 +1541,11 @@ void SPhysicsAssetEditorWindow::OnMouseDown(FVector2D MousePos, uint32 Button)
 						{
 							for (int32 i = 0; i < static_cast<int32>(State->EditingAsset->BodySetups.size()); ++i)
 							{
-								const FBodySetup& Body = State->EditingAsset->BodySetups[i];
-								if (Body.BoneIndex < 0) continue;
+								UBodySetup* Body = State->EditingAsset->BodySetups[i];
+								if (!Body || Body->BoneIndex < 0) continue;
 
 								// 본 월드 트랜스폼
-								FTransform BoneWorldTransform = SkelComp->GetBoneWorldTransform(Body.BoneIndex);
+								FTransform BoneWorldTransform = SkelComp->GetBoneWorldTransform(Body->BoneIndex);
 
 								float HitT;
 								if (IntersectRayBody(Ray, Body, BoneWorldTransform, HitT))
@@ -1662,24 +1710,45 @@ void SPhysicsAssetEditorWindow::RepositionAnchorToBody(int32 BodyIndex)
 	if (!MeshComp || !Anchor)
 		return;
 
-	const FBodySetup& Body = State->EditingAsset->BodySetups[BodyIndex];
+	UBodySetup* Body = State->EditingAsset->BodySetups[BodyIndex];
+	if (!Body) return;
 
-	// 바디의 월드 트랜스폼 계산: 본 월드 트랜스폼 * 바디 로컬 트랜스폼
+	// 바디의 월드 트랜스폼 계산: 본 월드 트랜스폼 기준
 	FTransform BoneWorldTransform;
-	if (Body.BoneIndex >= 0)
+	if (Body->BoneIndex >= 0)
 	{
-		BoneWorldTransform = MeshComp->GetBoneWorldTransform(Body.BoneIndex);
+		BoneWorldTransform = MeshComp->GetBoneWorldTransform(Body->BoneIndex);
 	}
 	else
 	{
 		BoneWorldTransform = MeshComp->GetWorldTransform();
 	}
 
-	FTransform BodyWorldTransform = BoneWorldTransform.GetWorldTransform(Body.LocalTransform);
+	// AggGeom의 첫 번째 Shape 중심을 기즈모 위치로 사용
+	FVector ShapeCenter = FVector(0.0f, 0.0f, 0.0f);
+	FQuat ShapeRotation = FQuat::Identity();
+	if (!Body->AggGeom.SphereElems.IsEmpty())
+	{
+		ShapeCenter = Body->AggGeom.SphereElems[0].Center;
+	}
+	else if (!Body->AggGeom.BoxElems.IsEmpty())
+	{
+		ShapeCenter = Body->AggGeom.BoxElems[0].Center;
+		ShapeRotation = Body->AggGeom.BoxElems[0].Rotation;
+	}
+	else if (!Body->AggGeom.SphylElems.IsEmpty())
+	{
+		ShapeCenter = Body->AggGeom.SphylElems[0].Center;
+		ShapeRotation = Body->AggGeom.SphylElems[0].Rotation;
+	}
+
+	// Shape의 로컬 트랜스폼을 본의 월드 트랜스폼으로 변환 (스케일 무시 - Shape Center는 스케일 독립적 오프셋)
+	FVector WorldCenter = BoneWorldTransform.Translation + BoneWorldTransform.Rotation.RotateVector(ShapeCenter);
+	FQuat WorldRotation = BoneWorldTransform.Rotation * ShapeRotation;
 
 	// 앵커를 바디의 월드 위치로 이동
-	Anchor->SetWorldLocation(BodyWorldTransform.Translation);
-	Anchor->SetWorldRotation(BodyWorldTransform.Rotation);
+	Anchor->SetWorldLocation(WorldCenter);
+	Anchor->SetWorldRotation(WorldRotation);
 
 	// 앵커 편집 가능 상태로 설정
 	if (UBoneAnchorComponent* BoneAnchor = Cast<UBoneAnchorComponent>(Anchor))
@@ -1721,7 +1790,8 @@ void SPhysicsAssetEditorWindow::UpdateBodyTransformFromGizmo()
 	if (!MeshComp || !Anchor || !Gizmo)
 		return;
 
-	FBodySetup& Body = State->EditingAsset->BodySetups[State->SelectedBodyIndex];
+	UBodySetup* Body = State->EditingAsset->BodySetups[State->SelectedBodyIndex];
+	if (!Body) return;
 
 	// 기즈모 모드 확인
 	EGizmoMode CurrentGizmoMode = Gizmo->GetGizmoMode();
@@ -1731,17 +1801,19 @@ void SPhysicsAssetEditorWindow::UpdateBodyTransformFromGizmo()
 
 	// 본의 월드 트랜스폼 가져오기 (바디의 부모)
 	FTransform BoneWorldTransform;
-	if (Body.BoneIndex >= 0)
+	if (Body->BoneIndex >= 0)
 	{
-		BoneWorldTransform = MeshComp->GetBoneWorldTransform(Body.BoneIndex);
+		BoneWorldTransform = MeshComp->GetBoneWorldTransform(Body->BoneIndex);
 	}
 	else
 	{
 		BoneWorldTransform = MeshComp->GetWorldTransform();
 	}
 
-	// 원하는 로컬 트랜스폼 계산: 본 월드 기준 앵커의 상대 트랜스폼
-	FTransform DesiredLocalTransform = BoneWorldTransform.GetRelativeTransform(AnchorWorldTransform);
+	// 원하는 로컬 트랜스폼 계산: 본 월드 기준 앵커의 상대 트랜스폼 (스케일 무시 - Shape Center는 스케일 독립적 오프셋)
+	FQuat InvBoneRotation = BoneWorldTransform.Rotation.Inverse();
+	FVector DesiredLocalCenter = InvBoneRotation.RotateVector(AnchorWorldTransform.Translation - BoneWorldTransform.Translation);
+	FQuat DesiredLocalRotation = InvBoneRotation * AnchorWorldTransform.Rotation;
 
 	// 벡터 비교 헬퍼 람다
 	auto VectorEquals = [](const FVector& A, const FVector& B, float Tolerance) -> bool
@@ -1753,32 +1825,67 @@ void SPhysicsAssetEditorWindow::UpdateBodyTransformFromGizmo()
 
 	bool bChanged = false;
 
-	// 기즈모 모드에 따라 해당 성분만 업데이트
+	// AggGeom의 첫 번째 Shape의 Center/Rotation 업데이트
+	// (기즈모는 첫 번째 Shape를 기준으로 위치함)
 	switch (CurrentGizmoMode)
 	{
 	case EGizmoMode::Translate:
-		if (!VectorEquals(DesiredLocalTransform.Translation, Body.LocalTransform.Translation, 0.001f))
 		{
-			Body.LocalTransform.Translation = DesiredLocalTransform.Translation;
-			bChanged = true;
+			FVector NewCenter = DesiredLocalCenter;
+			if (!Body->AggGeom.SphereElems.IsEmpty())
+			{
+				if (!VectorEquals(NewCenter, Body->AggGeom.SphereElems[0].Center, 0.001f))
+				{
+					Body->AggGeom.SphereElems[0].Center = NewCenter;
+					bChanged = true;
+				}
+			}
+			else if (!Body->AggGeom.BoxElems.IsEmpty())
+			{
+				if (!VectorEquals(NewCenter, Body->AggGeom.BoxElems[0].Center, 0.001f))
+				{
+					Body->AggGeom.BoxElems[0].Center = NewCenter;
+					bChanged = true;
+				}
+			}
+			else if (!Body->AggGeom.SphylElems.IsEmpty())
+			{
+				if (!VectorEquals(NewCenter, Body->AggGeom.SphylElems[0].Center, 0.001f))
+				{
+					Body->AggGeom.SphylElems[0].Center = NewCenter;
+					bChanged = true;
+				}
+			}
 		}
 		break;
 
 	case EGizmoMode::Rotate:
 		{
-			// 쿼터니언 비교 (내적으로 유사도 확인)
-			float Dot = std::abs(FQuat::Dot(Body.LocalTransform.Rotation, DesiredLocalTransform.Rotation));
-			if (Dot < 0.9999f)
+			FQuat NewRotation = DesiredLocalRotation;
+			// Box와 Capsule만 회전을 가짐 (Sphere는 회전 무의미)
+			if (!Body->AggGeom.BoxElems.IsEmpty())
 			{
-				Body.LocalTransform.Rotation = DesiredLocalTransform.Rotation;
-				bChanged = true;
+				float Dot = std::abs(FQuat::Dot(Body->AggGeom.BoxElems[0].Rotation, NewRotation));
+				if (Dot < 0.9999f)
+				{
+					Body->AggGeom.BoxElems[0].Rotation = NewRotation;
+					bChanged = true;
+				}
+			}
+			else if (!Body->AggGeom.SphylElems.IsEmpty())
+			{
+				float Dot = std::abs(FQuat::Dot(Body->AggGeom.SphylElems[0].Rotation, NewRotation));
+				if (Dot < 0.9999f)
+				{
+					Body->AggGeom.SphylElems[0].Rotation = NewRotation;
+					bChanged = true;
+				}
 			}
 		}
 		break;
 
 	case EGizmoMode::Scale:
-		// Scale은 LocalTransform에 없음 - Shape 크기를 조절하는 것이 더 적절
-		// 현재는 무시 (향후 Shape 크기 조절로 확장 가능)
+		// Scale 모드: Shape 크기 조절 (향후 구현 가능)
 		break;
 
 	default:

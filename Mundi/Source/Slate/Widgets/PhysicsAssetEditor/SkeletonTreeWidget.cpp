@@ -3,7 +3,7 @@
 #include "ImGui/imgui.h"
 #include "Source/Runtime/Engine/Viewer/PhysicsAssetEditorState.h"
 #include "Source/Runtime/Engine/PhysicsEngine/PhysicsAsset.h"
-#include "Source/Runtime/Engine/PhysicsEngine/FBodySetup.h"
+#include "Source/Runtime/Engine/PhysicsEngine/BodySetup.h"
 #include "Source/Runtime/Engine/PhysicsEngine/FConstraintSetup.h"
 #include "Source/Runtime/Core/Misc/VertexData.h"
 #include "SkeletalMesh.h"
@@ -90,10 +90,10 @@ void USkeletonTreeWidget::RebuildCache()
 	{
 		for (int32 i = 0; i < static_cast<int32>(EditorState->EditingAsset->BodySetups.size()); ++i)
 		{
-			int32 BoneIdx = EditorState->EditingAsset->BodySetups[i].BoneIndex;
-			if (BoneIdx >= 0)
+			UBodySetup* BodySetup = EditorState->EditingAsset->BodySetups[i];
+			if (BodySetup && BodySetup->BoneIndex >= 0)
 			{
-				Cache.BoneToBodyMap[BoneIdx] = i;
+				Cache.BoneToBodyMap[BodySetup->BoneIndex] = i;
 			}
 		}
 
@@ -103,10 +103,10 @@ void USkeletonTreeWidget::RebuildCache()
 			const FConstraintSetup& Constraint = EditorState->EditingAsset->ConstraintSetups[i];
 			if (Constraint.ChildBodyIndex >= 0 && Constraint.ChildBodyIndex < static_cast<int32>(EditorState->EditingAsset->BodySetups.size()))
 			{
-				int32 ChildBoneIdx = EditorState->EditingAsset->BodySetups[Constraint.ChildBodyIndex].BoneIndex;
-				if (ChildBoneIdx >= 0)
+				UBodySetup* ChildBody = EditorState->EditingAsset->BodySetups[Constraint.ChildBodyIndex];
+				if (ChildBody && ChildBody->BoneIndex >= 0)
 				{
-					Cache.BoneToConstraintMap[ChildBoneIdx].push_back(i);
+					Cache.BoneToConstraintMap[ChildBody->BoneIndex].push_back(i);
 				}
 			}
 		}
@@ -253,7 +253,8 @@ void USkeletonTreeWidget::RenderBodyNode(int32 BodyIndex)
 	if (!EditorState || !EditorState->EditingAsset) return;
 	if (BodyIndex < 0 || BodyIndex >= static_cast<int32>(EditorState->EditingAsset->BodySetups.size())) return;
 
-	const FBodySetup& Body = EditorState->EditingAsset->BodySetups[BodyIndex];
+	UBodySetup* Body = EditorState->EditingAsset->BodySetups[BodyIndex];
+	if (!Body) return;
 
 	ImGuiTreeNodeFlags NodeFlags = ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_SpanAvailWidth;
 	if (EditorState->bBodySelectionMode && EditorState->SelectedBodyIndex == BodyIndex)
@@ -261,11 +262,11 @@ void USkeletonTreeWidget::RenderBodyNode(int32 BodyIndex)
 		NodeFlags |= ImGuiTreeNodeFlags_Selected;
 	}
 
-	// Shape 타입 아이콘/이름
-	const char* ShapeName = GetShapeTypeName(Body.ShapeType);
+	// Shape 개수 표시
+	int32 ShapeCount = Body->AggGeom.GetElementCount();
 
 	ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.6f, 0.8f, 1.0f, 1.0f));
-	bool bNodeOpen = ImGui::TreeNodeEx((void*)(intptr_t)(1000 + BodyIndex), NodeFlags, "[%s]", ShapeName);
+	bool bNodeOpen = ImGui::TreeNodeEx((void*)(intptr_t)(1000 + BodyIndex), NodeFlags, "[%d shapes]", ShapeCount);
 	ImGui::PopStyleColor();
 
 	if (ImGui::IsItemClicked())
@@ -297,11 +298,13 @@ void USkeletonTreeWidget::RenderConstraintNode(int32 ConstraintIndex)
 	FString ChildName = "?";
 	if (Constraint.ParentBodyIndex >= 0 && Constraint.ParentBodyIndex < static_cast<int32>(EditorState->EditingAsset->BodySetups.size()))
 	{
-		ParentName = EditorState->EditingAsset->BodySetups[Constraint.ParentBodyIndex].BoneName.ToString();
+		UBodySetup* ParentBody = EditorState->EditingAsset->BodySetups[Constraint.ParentBodyIndex];
+		if (ParentBody) ParentName = ParentBody->BoneName.ToString();
 	}
 	if (Constraint.ChildBodyIndex >= 0 && Constraint.ChildBodyIndex < static_cast<int32>(EditorState->EditingAsset->BodySetups.size()))
 	{
-		ChildName = EditorState->EditingAsset->BodySetups[Constraint.ChildBodyIndex].BoneName.ToString();
+		UBodySetup* ChildBody = EditorState->EditingAsset->BodySetups[Constraint.ChildBodyIndex];
+		if (ChildBody) ChildName = ChildBody->BoneName.ToString();
 	}
 
 	// 선택 여부에 따라 색상 변경

@@ -5,7 +5,9 @@
 #include "PrimitiveComponent.h"
 
 FPhysScene::FPhysScene(UWorld* InOwningWorld)
-    : OwningWorld(InOwningWorld)
+    : PhysXScene(nullptr)
+    , OwningWorld(InOwningWorld)
+    , bPhysXSceneExecuting(false)
 {
 }
 
@@ -128,20 +130,33 @@ void FPhysScene::SyncComponentsToBodies()
 
     for (PxU32 i = 0; i < NbActiveActors; i++)
     {
+        if (!ActiveActors[i]) { continue; }
+
         PxRigidActor* RigidActor = ActiveActors[i]->is<PxRigidActor>();
 
         if (!RigidActor) { continue; }
 
-        if (RigidActor->userData)
+        // userData가 nullptr이면 이미 정리된 바디 (TermBody에서 클리어됨)
+        void* UserData = RigidActor->userData;
+        if (!UserData) { continue; }
+
+        FBodyInstance* BodyInstance = static_cast<FBodyInstance*>(UserData);
+
+        // BodyInstance 유효성 검사: RigidActor가 일치하는지 확인
+        // (정리 중인 바디이거나 잘못된 포인터인 경우 방지)
+        if (!BodyInstance->IsValidBodyInstance() || BodyInstance->RigidActor != RigidActor)
         {
-            FBodyInstance* BodyInstance = static_cast<FBodyInstance*>(RigidActor->userData);
-
-            if (BodyInstance && BodyInstance->OwnerComponent)
-            {
-                FTransform NewTransform = BodyInstance->GetUnrealWorldTransform();
-
-                BodyInstance->OwnerComponent->SetWorldTransform(NewTransform);
-            }
+            continue;
         }
+
+        // OwnerComponent가 유효한지 확인
+        UPrimitiveComponent* OwnerComp = BodyInstance->OwnerComponent;
+        if (!OwnerComp)
+        {
+            continue;
+        }
+
+        FTransform NewTransform = BodyInstance->GetUnrealWorldTransform();
+        OwnerComp->SetWorldTransform(NewTransform);
     }
 }

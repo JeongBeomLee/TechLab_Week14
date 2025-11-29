@@ -1133,6 +1133,8 @@
     <ClCompile Include="Source\Runtime\Engine\PhysicsEngine\PhysXSupport.cpp" />
     <ClCompile Include="Source\Runtime\Engine\PhysicsEngine\ShapeElem.cpp" />
     <ClCompile Include="Generated\FBodyInstance.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
     <ClCompile Include="Generated\AHudExampleGameMode.generated.cpp">
       <Filter>Generated</Filter>
     </ClCompile>
@@ -2395,6 +2397,8 @@
     <ClInclude Include="Source\Runtime\Engine\PhysicsEngine\PhysXSupport.h" />
     <ClInclude Include="Source\Runtime\Engine\PhysicsEngine\ShapeElem.h" />
     <ClInclude Include="Generated\FBodyInstance.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
     <ClInclude Include="Generated\AHudExampleGameMode.generated.h">
       <Filter>Generated</Filter>
     </ClInclude>

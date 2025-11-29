@@ -12,7 +12,12 @@ UBodySetup::UBodySetup()
 
 UBodySetup::~UBodySetup()
 {
-    // @todo 레퍼런스 카운팅 확인 (수명 관리 필요여부 확인)
+    // PhysX 머티리얼 해제 (레퍼런스 카운팅)
+    if (PhysMaterial)
+    {
+        PhysMaterial->release();
+        PhysMaterial = nullptr;
+    }
 }
 
 void UBodySetup::AddShapesToRigidActor_AssumesLocked(FBodyInstance* OwningInstance, const FVector& Scale3D, PxRigidActor* PDestActor)

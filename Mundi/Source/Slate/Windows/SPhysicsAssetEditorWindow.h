@@ -7,7 +7,7 @@ class FViewportClient;
 class UWorld;
 struct ID3D11Device;
 class UPhysicsAsset;
-struct FBodySetup;
+class UBodySetup;
 struct FConstraintSetup;
 
 // Sub Widgets (UWidget 기반)

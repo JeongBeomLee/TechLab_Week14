@@ -35,16 +35,16 @@ public:
 
     /** PhysX Scene 초기화 */
     void InitPhysScene();
-    
+
     /** PhysX Scene 종료 */
     void TermPhysScene();
-    
+
+    /** 시뮬레이션 종료를 대기한다. (BodyInstance::TermBody에서 호출) */
+    void WaitPhysScene();
+
 private:
     /** 실제 시뮬레이션 로직을 수행한다 (StartFrame 내부에서 호출). */
     void TickPhysScene(float DeltaTime);
-
-    /** 시뮬레이션 종료를 대기한다. */
-    void WaitPhysScene();
 
     /** 시뮬레이션 결과를 처리하고 동기화한다. */
     void ProcessPhysScene();

@@ -1,7 +1,7 @@
 #pragma once
 #include "ResourceBase.h"
 #include "PhysicsTypes.h"
-#include "FBodySetup.h"
+#include "BodySetup.h"
 #include "FConstraintSetup.h"
 #include "UPhysicsAsset.generated.h"
 
@@ -14,7 +14,7 @@ class USkeletalMesh;
  * UE의 UPhysicsAsset을 단순화하여 구현
  *
  * 주요 기능:
- * - 본별 충돌 바디 설정 (FBodySetup)
+ * - 본별 충돌 바디 설정 (UBodySetup with AggGeom)
  * - 바디 간 제약 조건 설정 (FConstraintSetup)
  * - 직렬화/역직렬화 지원
  */
@@ -37,7 +37,7 @@ public:
 
 	/** 스켈레탈 본에 연결된 바디 설정 목록 */
 	UPROPERTY(EditAnywhere, Category="PhysicsAsset")
-	TArray<FBodySetup> BodySetups;
+	TArray<UBodySetup*> BodySetups;
 
 	/** 바디 간 제약 조건 목록 */
 	UPROPERTY(EditAnywhere, Category="PhysicsAsset")

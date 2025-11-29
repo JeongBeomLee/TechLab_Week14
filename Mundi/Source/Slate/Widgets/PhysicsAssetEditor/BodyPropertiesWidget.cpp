@@ -1,9 +1,9 @@
-﻿#include "pch.h"
+#include "pch.h"
 #include "BodyPropertiesWidget.h"
 #include "ImGui/imgui.h"
 #include "Source/Runtime/Engine/Viewer/PhysicsAssetEditorState.h"
 #include "Source/Runtime/Engine/PhysicsEngine/PhysicsAsset.h"
-#include "Source/Runtime/Engine/PhysicsEngine/FBodySetup.h"
+#include "Source/Runtime/Engine/PhysicsEngine/BodySetup.h"
 
 IMPLEMENT_CLASS(UBodyPropertiesWidget);
 
@@ -30,148 +30,156 @@ void UBodyPropertiesWidget::RenderWidget()
 	if (!EditorState->bBodySelectionMode || EditorState->SelectedBodyIndex < 0) return;
 	if (EditorState->SelectedBodyIndex >= static_cast<int32>(EditorState->EditingAsset->BodySetups.size())) return;
 
-	FBodySetup& Body = EditorState->EditingAsset->BodySetups[EditorState->SelectedBodyIndex];
+	UBodySetup* Body = EditorState->EditingAsset->BodySetups[EditorState->SelectedBodyIndex];
+	if (!Body) return;
+
 	bWasModified = false;
 
-	ImGui::Text("Body: %s", Body.BoneName.ToString().c_str());
+	ImGui::Text("Body: %s", Body->BoneName.ToString().c_str());
 	ImGui::Separator();
 
 	// Shape 속성
-	if (ImGui::CollapsingHeader("Shape", ImGuiTreeNodeFlags_DefaultOpen))
+	if (ImGui::CollapsingHeader("Shapes", ImGuiTreeNodeFlags_DefaultOpen))
 	{
 		bWasModified |= RenderShapeProperties(Body);
 	}
-
-	// 물리 속성
-	if (ImGui::CollapsingHeader("Physics Properties"))
-	{
-		bWasModified |= RenderPhysicsProperties(Body);
-	}
 }
 
-bool UBodyPropertiesWidget::RenderShapeProperties(FBodySetup& Body)
+bool UBodyPropertiesWidget::RenderShapeProperties(UBodySetup* Body)
 {
 	bool bChanged = false;
 
-	// Shape 타입 선택 (타입 변경 시 라인 수가 달라지므로 전체 재구성)
-	const char* ShapeTypes[] = { "Sphere", "Capsule", "Box" };
-	int32 CurrentType = static_cast<int32>(Body.ShapeType);
-	EPhysicsShapeType OldType = Body.ShapeType;
+	// 현재 Shape 개수 표시
+	int32 SphereCount = Body->AggGeom.SphereElems.Num();
+	int32 BoxCount = Body->AggGeom.BoxElems.Num();
+	int32 SphylCount = Body->AggGeom.SphylElems.Num();
+	int32 TotalShapes = SphereCount + BoxCount + SphylCount;
 
-	if (ImGui::Combo("Shape Type", &CurrentType, ShapeTypes, IM_ARRAYSIZE(ShapeTypes)))
+	ImGui::Text("Total Shapes: %d", TotalShapes);
+
+	// Shape 추가 버튼
+	if (ImGui::Button("Add Sphere"))
 	{
-		EPhysicsShapeType NewType = static_cast<EPhysicsShapeType>(CurrentType);
-
-		// 타입 변환 시 파라미터 보존
-		if (OldType != NewType)
-		{
-			switch (OldType)
-			{
-			case EPhysicsShapeType::Sphere:
-				if (NewType == EPhysicsShapeType::Capsule)
-				{
-					// Sphere → Capsule: Radius 유지, HalfHeight = Radius
-					Body.HalfHeight = Body.Radius;
-				}
-				else if (NewType == EPhysicsShapeType::Box)
-				{
-					// Sphere → Box: Extent = (Radius, Radius, Radius)
-					Body.Extent = FVector(Body.Radius, Body.Radius, Body.Radius);
-				}
-				break;
-
-			case EPhysicsShapeType::Capsule:
-				if (NewType == EPhysicsShapeType::Sphere)
-				{
-					// Capsule → Sphere: Radius 유지
-				}
-				else if (NewType == EPhysicsShapeType::Box)
-				{
-					// Capsule → Box: Extent = (Radius, Radius, HalfHeight)
-					Body.Extent = FVector(Body.Radius, Body.Radius, Body.HalfHeight);
-				}
-				break;
-
-			case EPhysicsShapeType::Box:
-				if (NewType == EPhysicsShapeType::Sphere)
-				{
-					// Box → Sphere: Radius = 평균 크기
-					Body.Radius = (Body.Extent.X + Body.Extent.Y + Body.Extent.Z) / 3.0f;
-				}
-				else if (NewType == EPhysicsShapeType::Capsule)
-				{
-					// Box → Capsule: Radius = XY 평균, HalfHeight = Z
-					Body.Radius = (Body.Extent.X + Body.Extent.Y) / 2.0f;
-					Body.HalfHeight = Body.Extent.Z;
-				}
-				break;
-			}
-		}
-
-		Body.ShapeType = NewType;
+		FKSphereElem NewSphere;
+		NewSphere.Radius = 0.15f;
+		Body->AggGeom.SphereElems.Add(NewSphere);
 		EditorState->bIsDirty = true;
-		EditorState->RequestLinesRebuild();  // 타입 변경 시에만 전체 재구성
+		EditorState->RequestLinesRebuild();
+		bChanged = true;
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Add Box"))
+	{
+		FKBoxElem NewBox(0.3f, 0.3f, 0.3f);
+		Body->AggGeom.BoxElems.Add(NewBox);
+		EditorState->bIsDirty = true;
+		EditorState->RequestLinesRebuild();
+		bChanged = true;
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Add Capsule"))
+	{
+		FKSphylElem NewCapsule(0.15f, 0.5f);
+		Body->AggGeom.SphylElems.Add(NewCapsule);
+		EditorState->bIsDirty = true;
+		EditorState->RequestLinesRebuild();
 		bChanged = true;
 	}
 
-	// Shape 파라미터 (타입에 따라) - 좌표만 업데이트
-	switch (Body.ShapeType)
+	ImGui::Separator();
+
+	// Sphere 형태 편집
+	for (int32 i = 0; i < SphereCount; ++i)
 	{
-	case EPhysicsShapeType::Sphere:
-		if (ImGui::DragFloat("Radius", &Body.Radius, 0.1f, 0.1f, 1000.0f))
+		ImGui::PushID(i);
+		if (ImGui::TreeNode("Sphere", "Sphere [%d]", i))
 		{
-			EditorState->bIsDirty = true;
-			EditorState->RequestSelectedBodyLinesUpdate();
-			bChanged = true;
-		}
-		break;
+			bChanged |= RenderSphereShape(Body, i);
 
-	case EPhysicsShapeType::Capsule:
-		if (ImGui::DragFloat("Radius", &Body.Radius, 0.1f, 0.1f, 1000.0f))
-		{
-			EditorState->bIsDirty = true;
-			EditorState->RequestSelectedBodyLinesUpdate();
-			bChanged = true;
+			if (ImGui::Button("Remove"))
+			{
+				Body->AggGeom.SphereElems.RemoveAt(i);
+				EditorState->bIsDirty = true;
+				EditorState->RequestLinesRebuild();
+				bChanged = true;
+				ImGui::TreePop();
+				ImGui::PopID();
+				break;  // 배열이 변경되었으므로 루프 종료
+			}
+			ImGui::TreePop();
 		}
-		if (ImGui::DragFloat("Half Height", &Body.HalfHeight, 0.1f, 0.1f, 1000.0f))
-		{
-			EditorState->bIsDirty = true;
-			EditorState->RequestSelectedBodyLinesUpdate();
-			bChanged = true;
-		}
-		break;
-
-	case EPhysicsShapeType::Box:
-		float Extent[3] = { Body.Extent.X, Body.Extent.Y, Body.Extent.Z };
-		if (ImGui::DragFloat3("Extent", Extent, 0.1f, 0.1f, 1000.0f))
-		{
-			Body.Extent = FVector(Extent[0], Extent[1], Extent[2]);
-			EditorState->bIsDirty = true;
-			EditorState->RequestSelectedBodyLinesUpdate();
-			bChanged = true;
-		}
-		break;
+		ImGui::PopID();
 	}
 
-	// 로컬 트랜스폼 - 좌표만 업데이트
-	ImGui::Separator();
-	ImGui::Text("Local Transform");
-
-	FVector Location = Body.LocalTransform.Translation;
-	float Loc[3] = { Location.X, Location.Y, Location.Z };
-	if (ImGui::DragFloat3("Location", Loc, 0.1f))
+	// Box 형태 편집
+	for (int32 i = 0; i < BoxCount; ++i)
 	{
-		Body.LocalTransform.Translation = FVector(Loc[0], Loc[1], Loc[2]);
+		ImGui::PushID(SphereCount + i);
+		if (ImGui::TreeNode("Box", "Box [%d]", i))
+		{
+			bChanged |= RenderBoxShape(Body, i);
+
+			if (ImGui::Button("Remove"))
+			{
+				Body->AggGeom.BoxElems.RemoveAt(i);
+				EditorState->bIsDirty = true;
+				EditorState->RequestLinesRebuild();
+				bChanged = true;
+				ImGui::TreePop();
+				ImGui::PopID();
+				break;
+			}
+			ImGui::TreePop();
+		}
+		ImGui::PopID();
+	}
+
+	// Capsule 형태 편집
+	for (int32 i = 0; i < SphylCount; ++i)
+	{
+		ImGui::PushID(SphereCount + BoxCount + i);
+		if (ImGui::TreeNode("Capsule", "Capsule [%d]", i))
+		{
+			bChanged |= RenderSphylShape(Body, i);
+
+			if (ImGui::Button("Remove"))
+			{
+				Body->AggGeom.SphylElems.RemoveAt(i);
+				EditorState->bIsDirty = true;
+				EditorState->RequestLinesRebuild();
+				bChanged = true;
+				ImGui::TreePop();
+				ImGui::PopID();
+				break;
+			}
+			ImGui::TreePop();
+		}
+		ImGui::PopID();
+	}
+
+	return bChanged;
+}
+
+bool UBodyPropertiesWidget::RenderSphereShape(UBodySetup* Body, int32 ShapeIndex)
+{
+	if (ShapeIndex < 0 || ShapeIndex >= Body->AggGeom.SphereElems.Num()) return false;
+
+	bool bChanged = false;
+	FKSphereElem& Sphere = Body->AggGeom.SphereElems[ShapeIndex];
+
+	// Center
+	float Center[3] = { Sphere.Center.X, Sphere.Center.Y, Sphere.Center.Z };
+	if (ImGui::DragFloat3("Center", Center, 0.01f))
+	{
+		Sphere.Center = FVector(Center[0], Center[1], Center[2]);
 		EditorState->bIsDirty = true;
 		EditorState->RequestSelectedBodyLinesUpdate();
 		bChanged = true;
 	}
 
-	FVector RotEuler = Body.LocalTransform.Rotation.ToEulerZYXDeg();
-	float Rot[3] = { RotEuler.X, RotEuler.Y, RotEuler.Z };
-	if (ImGui::DragFloat3("Rotation", Rot, 1.0f))
+	// Radius
+	if (ImGui::DragFloat("Radius", &Sphere.Radius, 0.01f, 0.01f, 100.0f))
 	{
-		Body.LocalTransform.Rotation = FQuat::MakeFromEulerZYX(FVector(Rot[0], Rot[1], Rot[2]));
 		EditorState->bIsDirty = true;
 		EditorState->RequestSelectedBodyLinesUpdate();
 		bChanged = true;
@@ -180,31 +188,90 @@ bool UBodyPropertiesWidget::RenderShapeProperties(FBodySetup& Body)
 	return bChanged;
 }
 
-bool UBodyPropertiesWidget::RenderPhysicsProperties(FBodySetup& Body)
+bool UBodyPropertiesWidget::RenderBoxShape(UBodySetup* Body, int32 ShapeIndex)
 {
+	if (ShapeIndex < 0 || ShapeIndex >= Body->AggGeom.BoxElems.Num()) return false;
+
 	bool bChanged = false;
+	FKBoxElem& Box = Body->AggGeom.BoxElems[ShapeIndex];
 
-	if (ImGui::DragFloat("Mass", &Body.Mass, 0.1f, 0.01f, 10000.0f))
+	// Center
+	float Center[3] = { Box.Center.X, Box.Center.Y, Box.Center.Z };
+	if (ImGui::DragFloat3("Center", Center, 0.01f))
 	{
+		Box.Center = FVector(Center[0], Center[1], Center[2]);
 		EditorState->bIsDirty = true;
+		EditorState->RequestSelectedBodyLinesUpdate();
 		bChanged = true;
 	}
 
-	if (ImGui::DragFloat("Linear Damping", &Body.LinearDamping, 0.01f, 0.0f, 100.0f))
+	// Rotation (Euler)
+	FVector RotEuler = Box.Rotation.ToEulerZYXDeg();
+	float Rot[3] = { RotEuler.X, RotEuler.Y, RotEuler.Z };
+	if (ImGui::DragFloat3("Rotation", Rot, 1.0f))
 	{
+		Box.Rotation = FQuat::MakeFromEulerZYX(FVector(Rot[0], Rot[1], Rot[2]));
 		EditorState->bIsDirty = true;
+		EditorState->RequestSelectedBodyLinesUpdate();
 		bChanged = true;
 	}
 
-	if (ImGui::DragFloat("Angular Damping", &Body.AngularDamping, 0.01f, 0.0f, 100.0f))
+	// Extents (X, Y, Z are diameters)
+	float Extents[3] = { Box.X, Box.Y, Box.Z };
+	if (ImGui::DragFloat3("Size (XYZ)", Extents, 0.01f, 0.01f, 100.0f))
 	{
+		Box.X = Extents[0];
+		Box.Y = Extents[1];
+		Box.Z = Extents[2];
 		EditorState->bIsDirty = true;
+		EditorState->RequestSelectedBodyLinesUpdate();
 		bChanged = true;
 	}
 
-	if (ImGui::Checkbox("Enable Gravity", &Body.bEnableGravity))
+	return bChanged;
+}
+
+bool UBodyPropertiesWidget::RenderSphylShape(UBodySetup* Body, int32 ShapeIndex)
+{
+	if (ShapeIndex < 0 || ShapeIndex >= Body->AggGeom.SphylElems.Num()) return false;
+
+	bool bChanged = false;
+	FKSphylElem& Capsule = Body->AggGeom.SphylElems[ShapeIndex];
+
+	// Center
+	float Center[3] = { Capsule.Center.X, Capsule.Center.Y, Capsule.Center.Z };
+	if (ImGui::DragFloat3("Center", Center, 0.01f))
+	{
+		Capsule.Center = FVector(Center[0], Center[1], Center[2]);
+		EditorState->bIsDirty = true;
+		EditorState->RequestSelectedBodyLinesUpdate();
+		bChanged = true;
+	}
+
+	// Rotation (Euler)
+	FVector RotEuler = Capsule.Rotation.ToEulerZYXDeg();
+	float Rot[3] = { RotEuler.X, RotEuler.Y, RotEuler.Z };
+	if (ImGui::DragFloat3("Rotation", Rot, 1.0f))
+	{
+		Capsule.Rotation = FQuat::MakeFromEulerZYX(FVector(Rot[0], Rot[1], Rot[2]));
+		EditorState->bIsDirty = true;
+		EditorState->RequestSelectedBodyLinesUpdate();
+		bChanged = true;
+	}
+
+	// Radius
+	if (ImGui::DragFloat("Radius", &Capsule.Radius, 0.01f, 0.01f, 100.0f))
 	{
 		EditorState->bIsDirty = true;
+		EditorState->RequestSelectedBodyLinesUpdate();
+		bChanged = true;
+	}
+
+	// Length
+	if (ImGui::DragFloat("Length", &Capsule.Length, 0.01f, 0.01f, 100.0f))
+	{
+		EditorState->bIsDirty = true;
+		EditorState->RequestSelectedBodyLinesUpdate();
 		bChanged = true;
 	}
 

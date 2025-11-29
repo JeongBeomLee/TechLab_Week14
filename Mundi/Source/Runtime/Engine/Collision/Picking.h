@@ -81,14 +81,14 @@ bool IntersectRayOBB(const FRay& InRay,
                      float& OutT);
 
 // Forward declaration
-struct FBodySetup;
+class UBodySetup;
 struct FTransform;
 
-// Ray-Body intersection (dispatches based on ShapeType).
-// Transforms ray to body's local space and tests against the appropriate shape.
-// Returns true and the closest positive T if the ray hits the body.
+// Ray-Body intersection (tests against all shapes in AggGeom).
+// Transforms ray to body's local space and tests against all shapes.
+// Returns true and the closest positive T if the ray hits any shape in the body.
 bool IntersectRayBody(const FRay& WorldRay,
-                      const FBodySetup& Body,
+                      const UBodySetup* Body,
                       const FTransform& BoneWorldTransform,
                       float& OutT);
 

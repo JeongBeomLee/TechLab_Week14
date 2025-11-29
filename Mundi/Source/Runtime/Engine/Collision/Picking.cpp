@@ -10,7 +10,7 @@
 #include"Vector.h"
 #include "SelectionManager.h"
 #include "AABB.h"
-#include "Source/Runtime/Engine/PhysicsEngine/FBodySetup.h"
+#include "Source/Runtime/Engine/PhysicsEngine/BodySetup.h"
 #include <cmath>
 #include <algorithm>
 
@@ -421,34 +421,72 @@ bool IntersectRayOBB(const FRay& InRay, const FVector& InCenter, const FVector& 
 	return false;
 }
 
-bool IntersectRayBody(const FRay& WorldRay, const FBodySetup& Body, const FTransform& BoneWorldTransform, float& OutT)
+bool IntersectRayBody(const FRay& WorldRay, const UBodySetup* Body, const FTransform& BoneWorldTransform, float& OutT)
 {
-	// Calculate body's world transform: BoneWorld * BodyLocal
-	const FTransform BodyWorldTransform = BoneWorldTransform.GetWorldTransform(Body.LocalTransform);
-	const FVector BodyWorldPos = BodyWorldTransform.Translation;
-	const FQuat BodyWorldRot = BodyWorldTransform.Rotation;
+	if (!Body) return false;
 
-	switch (Body.ShapeType)
-	{
-	case EPhysicsShapeType::Sphere:
-		return IntersectRaySphere(WorldRay, BodyWorldPos, Body.Radius, OutT);
+	bool bHit = false;
+	float ClosestT = FLT_MAX;
 
-	case EPhysicsShapeType::Capsule:
+	// Test all Sphere shapes
+	for (const FKSphereElem& Sphere : Body->AggGeom.SphereElems)
 	{
-		// Capsule aligned along local Z-axis (up)
-		const FVector LocalUp = FVector(0.0f, 0.0f, 1.0f);
-		const FVector WorldUp = BodyWorldRot.RotateVector(LocalUp);
-		const FVector CapsuleStart = BodyWorldPos - WorldUp * Body.HalfHeight;
-		const FVector CapsuleEnd = BodyWorldPos + WorldUp * Body.HalfHeight;
-		return IntersectRayCapsule(WorldRay, CapsuleStart, CapsuleEnd, Body.Radius, OutT);
+		FVector WorldCenter = BoneWorldTransform.Translation + BoneWorldTransform.Rotation.RotateVector(Sphere.Center);
+		float HitT;
+		if (IntersectRaySphere(WorldRay, WorldCenter, Sphere.Radius, HitT))
+		{
+			if (HitT < ClosestT)
+			{
+				ClosestT = HitT;
+				bHit = true;
+			}
+		}
 	}
 
-	case EPhysicsShapeType::Box:
-		return IntersectRayOBB(WorldRay, BodyWorldPos, Body.Extent, BodyWorldRot, OutT);
-
-	default:
-		return false;
+	// Test all Box shapes
+	for (const FKBoxElem& Box : Body->AggGeom.BoxElems)
+	{
+		FVector WorldCenter = BoneWorldTransform.Translation + BoneWorldTransform.Rotation.RotateVector(Box.Center);
+		FQuat WorldRotation = BoneWorldTransform.Rotation * Box.Rotation;
+		FVector HalfExtent(Box.X * 0.5f, Box.Y * 0.5f, Box.Z * 0.5f);
+		float HitT;
+		if (IntersectRayOBB(WorldRay, WorldCenter, HalfExtent, WorldRotation, HitT))
+		{
+			if (HitT < ClosestT)
+			{
+				ClosestT = HitT;
+				bHit = true;
+			}
+		}
 	}
+
+	// Test all Capsule (Sphyl) shapes
+	for (const FKSphylElem& Capsule : Body->AggGeom.SphylElems)
+	{
+		FVector WorldCenter = BoneWorldTransform.Translation + BoneWorldTransform.Rotation.RotateVector(Capsule.Center);
+		FQuat WorldRotation = BoneWorldTransform.Rotation * Capsule.Rotation;
+		// Capsule is aligned along local Z-axis (engine convention)
+		FVector LocalAxis = FVector(0.0f, 0.0f, 1.0f);
+		FVector WorldAxis = WorldRotation.RotateVector(LocalAxis);
+		float HalfLength = Capsule.Length * 0.5f;
+		FVector CapsuleStart = WorldCenter - WorldAxis * HalfLength;
+		FVector CapsuleEnd = WorldCenter + WorldAxis * HalfLength;
+		float HitT;
+		if (IntersectRayCapsule(WorldRay, CapsuleStart, CapsuleEnd, Capsule.Radius, HitT))
+		{
+			if (HitT < ClosestT)
+			{
+				ClosestT = HitT;
+				bHit = true;
+			}
+		}
+	}
+
+	if (bHit)
+	{
+		OutT = ClosestT;
+	}
+	return bHit;
 }
 
 // PickingSystem 구현

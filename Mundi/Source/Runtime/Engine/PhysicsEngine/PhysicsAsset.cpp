@@ -17,8 +17,11 @@ int32 UPhysicsAsset::AddBody(const FName& BoneName, int32 BoneIndex)
 		return ExistingIndex;
 	}
 
-	// 새 바디 생성
-	FBodySetup NewBody(BoneName, BoneIndex);
+	// 새 바디 생성 (UObject이므로 NewObject 사용)
+	UBodySetup* NewBody = NewObject<UBodySetup>();
+	NewBody->BoneName = BoneName;
+	NewBody->BoneIndex = BoneIndex;
+
 	int32 NewIndex = static_cast<int32>(BodySetups.size());
 	BodySetups.Add(NewBody);
 
@@ -76,7 +79,7 @@ int32 UPhysicsAsset::FindBodyIndexByBone(int32 BoneIndex) const
 {
 	for (int32 i = 0; i < static_cast<int32>(BodySetups.size()); ++i)
 	{
-		if (BodySetups[i].BoneIndex == BoneIndex)
+		if (BodySetups[i] && BodySetups[i]->BoneIndex == BoneIndex)
 		{
 			return i;
 		}
@@ -149,10 +152,8 @@ void UPhysicsAsset::ClearAll()
 
 void UPhysicsAsset::ClearBodySelection()
 {
-	for (FBodySetup& Body : BodySetups)
-	{
-		Body.bSelected = false;
-	}
+	// 선택 상태는 에디터(PhysicsAssetEditorState)에서 관리
+	// UBodySetup은 데이터만 저장
 }
 
 void UPhysicsAsset::ClearConstraintSelection()
@@ -174,7 +175,10 @@ void UPhysicsAsset::RebuildIndexMap()
 	BodySetupIndexMap.Empty();
 	for (int32 i = 0; i < static_cast<int32>(BodySetups.size()); ++i)
 	{
-		BodySetupIndexMap.Add(BodySetups[i].BoneName, i);
+		if (BodySetups[i])
+		{
+			BodySetupIndexMap.Add(BodySetups[i]->BoneName, i);
+		}
 	}
 }
 
@@ -213,7 +217,20 @@ void UPhysicsAsset::DuplicateSubObjects()
 {
 	UObject::DuplicateSubObjects();
 
-	// FBodySetup과 FConstraintSetup은 값 타입이므로
-	// TArray 복사 시 자동으로 복제됨
-	// 추가 처리 불필요
+	// UBodySetup*은 포인터이므로 복제 필요
+	TArray<UBodySetup*> DuplicatedSetups;
+	for (UBodySetup* BodySetup : BodySetups)
+	{
+		if (BodySetup)
+		{
+			UBodySetup* Duplicate = NewObject<UBodySetup>();
+			Duplicate->BoneName = BodySetup->BoneName;
+			Duplicate->BoneIndex = BodySetup->BoneIndex;
+			Duplicate->AggGeom = BodySetup->AggGeom;
+			DuplicatedSetups.Add(Duplicate);
+		}
+	}
+	BodySetups = DuplicatedSetups;
+
+	// FConstraintSetup은 값 타입이므로 자동 복제됨
 }
