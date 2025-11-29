@@ -715,9 +715,17 @@ void SPhysicsAssetEditorWindow::RenderLeftPanel(float PanelWidth)
 			comp->SetVisibility(State->bShowMesh);
 	}
 	ImGui::SameLine(0.0f, 12.0f);
-	ImGui::Checkbox("Show Bodies", &State->bShowBodies);
+	if (ImGui::Checkbox("Show Bodies", &State->bShowBodies))
+	{
+		if (State->BodyPreviewLineComponent)
+			State->BodyPreviewLineComponent->SetLineVisible(State->bShowBodies);
+	}
 	ImGui::SameLine(0.0f, 12.0f);
-	ImGui::Checkbox("Show Constraints", &State->bShowConstraints);
+	if (ImGui::Checkbox("Show Constraints", &State->bShowConstraints))
+	{
+		if (State->ConstraintPreviewLineComponent)
+			State->ConstraintPreviewLineComponent->SetLineVisible(State->bShowConstraints);
+	}
 
 	ImGui::PopStyleColor(2);
 	ImGui::PopStyleVar();
@@ -960,9 +968,17 @@ void SPhysicsAssetEditorWindow::RenderToolbar()
 	ImGui::SameLine();
 
 	// 표시 옵션
-	ImGui::Checkbox("Bodies", &State->bShowBodies);
+	if (ImGui::Checkbox("Bodies", &State->bShowBodies))
+	{
+		if (State->BodyPreviewLineComponent)
+			State->BodyPreviewLineComponent->SetLineVisible(State->bShowBodies);
+	}
 	ImGui::SameLine();
-	ImGui::Checkbox("Constraints", &State->bShowConstraints);
+	if (ImGui::Checkbox("Constraints", &State->bShowConstraints))
+	{
+		if (State->ConstraintPreviewLineComponent)
+			State->ConstraintPreviewLineComponent->SetLineVisible(State->bShowConstraints);
+	}
 }
 
 // ────────────────────────────────────────────────────────────────
