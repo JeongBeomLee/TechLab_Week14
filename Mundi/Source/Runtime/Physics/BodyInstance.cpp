@@ -1,6 +1,7 @@
-﻿#include "pch.h"
+#include "pch.h"
 #include "BodyInstance.h"
 #include "PhysicalMaterial.h"
+#include "PhysXConversion.h"
 using namespace physx;
 
 // --- 생성자/소멸자 ---
@@ -32,7 +33,9 @@ void FBodyInstance::InitBody(const FTransform& Transform, const PxGeometry& Geom
     FPhysicsSystem& System = FPhysicsSystem::Get();
     PxPhysics* Physics = System.GetPhysics();
     PxScene* Scene = System.GetScene();
-    PxTransform PTransform = Transform;
+
+    // 좌표계 변환 적용
+    PxTransform PTransform = PhysXConvert::ToPx(Transform);
 
     // Actor 생성 (Static vs Dynamic)
     if (bSimulatePhysics)
@@ -100,7 +103,7 @@ void FBodyInstance::InitBody(const FTransform& Transform, const PxGeometry& Geom
     // DOF 잠금 적용
     ApplyDOFLock();
 
-    // UserData 연결 (변환해서 사용하면 편함)
+    // UserData 연결
     RigidActor->userData = static_cast<void*>(this);
 
     // 씬에 추가
@@ -124,7 +127,8 @@ FTransform FBodyInstance::GetWorldTransform() const
 {
     if (RigidActor)
     {
-        return RigidActor->getGlobalPose();
+        // PhysX → 프로젝트 좌표계 변환
+        return PhysXConvert::FromPx(RigidActor->getGlobalPose());
     }
     return FTransform();
 }
@@ -133,7 +137,8 @@ void FBodyInstance::SetWorldTransform(const FTransform& NewTransform, bool bTele
 {
     if (!RigidActor) return;
 
-    PxTransform PTransform = NewTransform;
+    // 프로젝트 → PhysX 좌표계 변환
+    PxTransform PTransform = PhysXConvert::ToPx(NewTransform);
 
     if (PxRigidDynamic* DynamicActor = GetDynamicActor())
     {
@@ -156,8 +161,7 @@ FVector FBodyInstance::GetWorldLocation() const
 {
     if (RigidActor)
     {
-        PxVec3 Pos = RigidActor->getGlobalPose().p;
-        return FVector(Pos.x, Pos.y, Pos.z);
+        return PhysXConvert::FromPx(RigidActor->getGlobalPose().p);
     }
     return FVector::Zero();
 }
@@ -166,8 +170,7 @@ FQuat FBodyInstance::GetWorldRotation() const
 {
     if (RigidActor)
     {
-        PxQuat Q = RigidActor->getGlobalPose().q;
-        return FQuat(Q.x, Q.y, Q.z, Q.w);
+        return PhysXConvert::FromPx(RigidActor->getGlobalPose().q);
     }
     return FQuat::Identity();
 }
@@ -210,7 +213,7 @@ void FBodyInstance::AddForce(const FVector& Force, bool bAccelChange)
 {
     if (PxRigidDynamic* DynamicActor = GetDynamicActor())
     {
-        PxVec3 PForce(Force.X, Force.Y, Force.Z);
+        PxVec3 PForce = PhysXConvert::ToPx(Force);
         PxForceMode::Enum Mode = bAccelChange ? PxForceMode::eACCELERATION : PxForceMode::eFORCE;
         DynamicActor->addForce(PForce, Mode);
     }
@@ -220,8 +223,8 @@ void FBodyInstance::AddForceAtLocation(const FVector& Force, const FVector& Loca
 {
     if (PxRigidDynamic* DynamicActor = GetDynamicActor())
     {
-        PxVec3 PForce(Force.X, Force.Y, Force.Z);
-        PxVec3 PLocation(Location.X, Location.Y, Location.Z);
+        PxVec3 PForce = PhysXConvert::ToPx(Force);
+        PxVec3 PLocation = PhysXConvert::ToPx(Location);
         PxRigidBodyExt::addForceAtPos(*DynamicActor, PForce, PLocation);
     }
 }
@@ -230,7 +233,7 @@ void FBodyInstance::AddTorque(const FVector& Torque, bool bAccelChange)
 {
     if (PxRigidDynamic* DynamicActor = GetDynamicActor())
     {
-        PxVec3 PTorque(Torque.X, Torque.Y, Torque.Z);
+        PxVec3 PTorque = PhysXConvert::AngularToPx(Torque);
         PxForceMode::Enum Mode = bAccelChange ? PxForceMode::eACCELERATION : PxForceMode::eFORCE;
         DynamicActor->addTorque(PTorque, Mode);
     }
@@ -240,7 +243,7 @@ void FBodyInstance::AddImpulse(const FVector& Impulse, bool bVelChange)
 {
     if (PxRigidDynamic* DynamicActor = GetDynamicActor())
     {
-        PxVec3 PImpulse(Impulse.X, Impulse.Y, Impulse.Z);
+        PxVec3 PImpulse = PhysXConvert::ToPx(Impulse);
         PxForceMode::Enum Mode = bVelChange ? PxForceMode::eVELOCITY_CHANGE : PxForceMode::eIMPULSE;
         DynamicActor->addForce(PImpulse, Mode);
     }
@@ -250,8 +253,8 @@ void FBodyInstance::AddImpulseAtLocation(const FVector& Impulse, const FVector& 
 {
     if (PxRigidDynamic* DynamicActor = GetDynamicActor())
     {
-        PxVec3 PImpulse(Impulse.X, Impulse.Y, Impulse.Z);
-        PxVec3 PLocation(Location.X, Location.Y, Location.Z);
+        PxVec3 PImpulse = PhysXConvert::ToPx(Impulse);
+        PxVec3 PLocation = PhysXConvert::ToPx(Location);
         PxRigidBodyExt::addForceAtPos(*DynamicActor, PImpulse, PLocation, PxForceMode::eIMPULSE);
     }
 }
@@ -260,7 +263,7 @@ void FBodyInstance::AddAngularImpulse(const FVector& AngularImpulse, bool bVelCh
 {
     if (PxRigidDynamic* DynamicActor = GetDynamicActor())
     {
-        PxVec3 PImpulse(AngularImpulse.X, AngularImpulse.Y, AngularImpulse.Z);
+        PxVec3 PImpulse = PhysXConvert::AngularToPx(AngularImpulse);
         PxForceMode::Enum Mode = bVelChange ? PxForceMode::eVELOCITY_CHANGE : PxForceMode::eIMPULSE;
         DynamicActor->addTorque(PImpulse, Mode);
     }
@@ -270,8 +273,7 @@ FVector FBodyInstance::GetLinearVelocity() const
 {
     if (PxRigidDynamic* DynamicActor = GetDynamicActor())
     {
-        PxVec3 Vel = DynamicActor->getLinearVelocity();
-        return FVector(Vel.x, Vel.y, Vel.z);
+        return PhysXConvert::FromPx(DynamicActor->getLinearVelocity());
     }
     return FVector::Zero();
 }
@@ -280,7 +282,7 @@ void FBodyInstance::SetLinearVelocity(const FVector& Velocity, bool bAddToCurren
 {
     if (PxRigidDynamic* DynamicActor = GetDynamicActor())
     {
-        PxVec3 PVel(Velocity.X, Velocity.Y, Velocity.Z);
+        PxVec3 PVel = PhysXConvert::ToPx(Velocity);
         if (bAddToCurrent)
         {
             PVel += DynamicActor->getLinearVelocity();
@@ -293,8 +295,7 @@ FVector FBodyInstance::GetAngularVelocity() const
 {
     if (PxRigidDynamic* DynamicActor = GetDynamicActor())
     {
-        PxVec3 Vel = DynamicActor->getAngularVelocity();
-        return FVector(Vel.x, Vel.y, Vel.z);
+        return PhysXConvert::AngularFromPx(DynamicActor->getAngularVelocity());
     }
     return FVector::Zero();
 }
@@ -303,7 +304,7 @@ void FBodyInstance::SetAngularVelocity(const FVector& AngularVelocity, bool bAdd
 {
     if (PxRigidDynamic* DynamicActor = GetDynamicActor())
     {
-        PxVec3 PVel(AngularVelocity.X, AngularVelocity.Y, AngularVelocity.Z);
+        PxVec3 PVel = PhysXConvert::AngularToPx(AngularVelocity);
         if (bAddToCurrent)
         {
             PVel += DynamicActor->getAngularVelocity();
@@ -334,8 +335,8 @@ FVector FBodyInstance::GetBodyInertiaTensor() const
 {
     if (PxRigidDynamic* DynamicActor = GetDynamicActor())
     {
-        PxVec3 Inertia = DynamicActor->getMassSpaceInertiaTensor();
-        return FVector(Inertia.x, Inertia.y, Inertia.z);
+        // 관성 텐서도 좌표계 변환 필요
+        return PhysXConvert::FromPx(DynamicActor->getMassSpaceInertiaTensor());
     }
     return FVector::Zero();
 }
@@ -381,6 +382,8 @@ void FBodyInstance::SetEnableGravity(bool bNewEnableGravity)
 }
 
 // --- DOF 잠금 ---
+// 주의: DOF 잠금은 PhysX 좌표계 기준으로 적용됨
+// 프로젝트 좌표계와 다르므로 축 매핑 필요
 
 void FBodyInstance::ApplyDOFLock()
 {
@@ -389,33 +392,43 @@ void FBodyInstance::ApplyDOFLock()
 
     PxRigidDynamicLockFlags LockFlags;
 
-    // 프리셋 모드
+    // 프로젝트 좌표계 → PhysX 좌표계 축 매핑
+    // 프로젝트 X → PhysX Z
+    // 프로젝트 Y → PhysX X
+    // 프로젝트 Z → PhysX Y
+
     switch (DOFMode)
     {
     case EDOFMode::YZPlane:
-        LockFlags |= PxRigidDynamicLockFlag::eLOCK_LINEAR_X;
-        LockFlags |= PxRigidDynamicLockFlag::eLOCK_ANGULAR_Y;
-        LockFlags |= PxRigidDynamicLockFlag::eLOCK_ANGULAR_Z;
-        break;
-    case EDOFMode::XZPlane:
-        LockFlags |= PxRigidDynamicLockFlag::eLOCK_LINEAR_Y;
-        LockFlags |= PxRigidDynamicLockFlag::eLOCK_ANGULAR_X;
-        LockFlags |= PxRigidDynamicLockFlag::eLOCK_ANGULAR_Z;
-        break;
-    case EDOFMode::XYPlane:
+        // 프로젝트 X축 고정 → PhysX Z축 고정
         LockFlags |= PxRigidDynamicLockFlag::eLOCK_LINEAR_Z;
         LockFlags |= PxRigidDynamicLockFlag::eLOCK_ANGULAR_X;
         LockFlags |= PxRigidDynamicLockFlag::eLOCK_ANGULAR_Y;
         break;
+    case EDOFMode::XZPlane:
+        // 프로젝트 Y축 고정 → PhysX X축 고정
+        LockFlags |= PxRigidDynamicLockFlag::eLOCK_LINEAR_X;
+        LockFlags |= PxRigidDynamicLockFlag::eLOCK_ANGULAR_Y;
+        LockFlags |= PxRigidDynamicLockFlag::eLOCK_ANGULAR_Z;
+        break;
+    case EDOFMode::XYPlane:
+        // 프로젝트 Z축 고정 → PhysX Y축 고정
+        LockFlags |= PxRigidDynamicLockFlag::eLOCK_LINEAR_Y;
+        LockFlags |= PxRigidDynamicLockFlag::eLOCK_ANGULAR_X;
+        LockFlags |= PxRigidDynamicLockFlag::eLOCK_ANGULAR_Z;
+        break;
     case EDOFMode::SixDOF:
     case EDOFMode::CustomPlane:
-        // 개별 플래그 사용
-        if (bLockXLinear) LockFlags |= PxRigidDynamicLockFlag::eLOCK_LINEAR_X;
-        if (bLockYLinear) LockFlags |= PxRigidDynamicLockFlag::eLOCK_LINEAR_Y;
-        if (bLockZLinear) LockFlags |= PxRigidDynamicLockFlag::eLOCK_LINEAR_Z;
-        if (bLockXAngular) LockFlags |= PxRigidDynamicLockFlag::eLOCK_ANGULAR_X;
-        if (bLockYAngular) LockFlags |= PxRigidDynamicLockFlag::eLOCK_ANGULAR_Y;
-        if (bLockZAngular) LockFlags |= PxRigidDynamicLockFlag::eLOCK_ANGULAR_Z;
+        // 개별 플래그 사용 (축 매핑 적용)
+        // 프로젝트 X → PhysX Z
+        if (bLockXLinear) LockFlags |= PxRigidDynamicLockFlag::eLOCK_LINEAR_Z;
+        if (bLockXAngular) LockFlags |= PxRigidDynamicLockFlag::eLOCK_ANGULAR_Z;
+        // 프로젝트 Y → PhysX X
+        if (bLockYLinear) LockFlags |= PxRigidDynamicLockFlag::eLOCK_LINEAR_X;
+        if (bLockYAngular) LockFlags |= PxRigidDynamicLockFlag::eLOCK_ANGULAR_X;
+        // 프로젝트 Z → PhysX Y
+        if (bLockZLinear) LockFlags |= PxRigidDynamicLockFlag::eLOCK_LINEAR_Y;
+        if (bLockZAngular) LockFlags |= PxRigidDynamicLockFlag::eLOCK_ANGULAR_Y;
         break;
     default:
         break;
@@ -461,7 +474,7 @@ void FBodyInstance::ApplyPhysicsSettings()
         if (MaxAngularVelocity > 0.0f)
         {
             // PhysX는 rad/s 사용
-            DynamicActor->setMaxAngularVelocity(MaxAngularVelocity * (PI / 180.0f));
+            DynamicActor->setMaxAngularVelocity(PhysXConvert::DegreesToRadians(MaxAngularVelocity));
         }
     }
 }
