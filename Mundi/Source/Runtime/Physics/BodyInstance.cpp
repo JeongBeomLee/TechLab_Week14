@@ -2,6 +2,7 @@
 #include "BodyInstance.h"
 #include "PhysicalMaterial.h"
 #include "PhysXConversion.h"
+#include "BodySetup.h"
 using namespace physx;
 
 // --- 생성자/소멸자 ---
@@ -108,6 +109,77 @@ void FBodyInstance::InitBody(const FTransform& Transform, const PxGeometry& Geom
 
     // 씬에 추가
     Scene->addActor(*RigidActor);
+}
+
+void FBodyInstance::InitBodyFromSetup(const FTransform& Transform, UBodySetup* InBodySetup,
+                                       UPhysicalMaterial* PhysMat, const FVector& Scale3D)
+{
+    if (!InBodySetup || !InBodySetup->HasValidShapes())
+    {
+        UE_LOG("[FBodyInstance] InitBodyFromSetup failed: Invalid BodySetup or no shapes");
+        return;
+    }
+
+    // 이미 있으면 삭제하고 다시 생성
+    TermBody();
+
+    FPhysicsSystem& System = FPhysicsSystem::Get();
+    PxPhysics* Physics = System.GetPhysics();
+    PxScene* Scene = System.GetScene();
+
+    // 좌표계 변환 적용
+    PxTransform PTransform = PhysXConvert::ToPx(Transform);
+
+    // Actor 생성 (Static vs Dynamic)
+    if (bSimulatePhysics)
+    {
+        PxRigidDynamic* DynamicActor = Physics->createRigidDynamic(PTransform);
+        DynamicActor->setLinearDamping(LinearDamping);
+        DynamicActor->setAngularDamping(AngularDamping);
+        DynamicActor->setActorFlag(PxActorFlag::eDISABLE_GRAVITY, !bEnableGravity);
+
+        // CCD 설정
+        if (bUseCCD)
+        {
+            DynamicActor->setRigidBodyFlag(PxRigidBodyFlag::eENABLE_CCD, true);
+        }
+
+        // 시작 상태
+        if (!bStartAwake)
+        {
+            DynamicActor->putToSleep();
+        }
+
+        RigidActor = DynamicActor;
+    }
+    else
+    {
+        RigidActor = Physics->createRigidStatic(PTransform);
+    }
+
+    if (!RigidActor)
+    {
+        UE_LOG("[FBodyInstance] InitBodyFromSetup failed: Could not create RigidActor");
+        return;
+    }
+
+    // BodySetup에서 모든 Shape 생성 및 부착
+    InBodySetup->CreatePhysicsShapes(this, Scale3D, PhysMat);
+
+    // 질량 계산
+    UpdateMassProperties();
+
+    // DOF 잠금 적용
+    ApplyDOFLock();
+
+    // UserData 연결
+    RigidActor->userData = static_cast<void*>(this);
+
+    // 씬에 추가
+    Scene->addActor(*RigidActor);
+
+    UE_LOG("[FBodyInstance] InitBodyFromSetup success: %d shapes created",
+           Shapes.Num());
 }
 
 void FBodyInstance::TermBody()

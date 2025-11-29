@@ -7,6 +7,7 @@ class UPhysicalMaterial;
 class UBodySetup;
 
 // DOF(Degree of Freedom) 잠금 플래그
+UENUM()
 enum class EDOFMode : uint8
 {
     None,           // 잠금 없음
@@ -16,6 +17,9 @@ enum class EDOFMode : uint8
     XYPlane,        // Z축 고정 (XY 평면에서만 이동)
     CustomPlane     // 커스텀 평면
 };
+
+// NOTE: FBodyInstance는 PhysX 리소스를 직접 관리하며 복사/이동이 금지된 런타임 객체입니다.
+// USTRUCT 리플렉션을 적용하지 않습니다. (TArray 조작 불가)
 
 struct FBodyInstance
 {
@@ -81,8 +85,9 @@ public:
     // 단일 Geometry로 초기화 (기존 호환)
     void InitBody(const FTransform& Transform, const physx::PxGeometry& Geometry, UPhysicalMaterial* PhysMat = nullptr);
 
-    // UBodySetup으로 초기화 (다중 Shape 지원) - UBodySetup 구현 후 활성화
-    // void InitBody(UBodySetup* Setup, const FTransform& Transform, UPhysicalMaterial* PhysMat = nullptr);
+    // UBodySetup으로 초기화 (다중 Shape 지원)
+    void InitBodyFromSetup(const FTransform& Transform, class UBodySetup* InBodySetup,
+                           UPhysicalMaterial* PhysMat = nullptr, const FVector& Scale3D = FVector::One());
 
     void TermBody();
     bool IsValidBodyInstance() const { return RigidActor != nullptr; }
