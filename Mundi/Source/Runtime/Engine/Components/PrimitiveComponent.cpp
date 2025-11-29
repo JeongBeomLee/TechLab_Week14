@@ -90,13 +90,32 @@ bool UPrimitiveComponent::IsOverlappingActor(const AActor* Other) const
     return false;
 }
 
+void UPrimitiveComponent::SyncComponentToPhysics()
+{
+    // 물리가 켜져 있고, 바디 인스턴스가 유효한 경우에만 동기화
+    if (bSimulatePhysics && BodyInstance)
+    {
+        // 1. 물리 엔진에서 계산된 최신 Transform을 가져옴
+        FTransform NewTransform = BodyInstance->GetWorldTransform();
+
+        // 2. 컴포넌트의 월드 트랜스폼 업데이트
+        SetWorldTransform(NewTransform);
+    }
+}
+
 void UPrimitiveComponent::CreatePhysicsState()
 {
     if (!BodyInstance) { BodyInstance = new FBodyInstance(this); }
 
     BodyInstance->bSimulatePhysics = bSimulatePhysics;
     BodyInstance->MassInKg = Mass;
-    physx::PxGeometry* Geom = GetPhysicsGeometry();
+
+    // NOTE: 임시로 그냥 모든 Primitive 박스로 처리
+    FVector WorldScale = GetWorldScale();
+    float X = std::abs(WorldScale.X);
+    float Y = std::abs(WorldScale.Y);
+    float Z = std::abs(WorldScale.Z);
+    physx::PxGeometry* Geom = new physx::PxBoxGeometry(X, Y, Z);
     
     if (Geom)
     {

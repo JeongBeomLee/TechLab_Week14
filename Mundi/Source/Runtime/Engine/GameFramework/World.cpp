@@ -275,6 +275,26 @@ void UWorld::Tick(float DeltaSeconds)
 		LuaManager->Tick(GetDeltaTime(EDeltaTime::Game));
 	}
 
+	// -------------------------------[Test 물리 반영 코드]-----------------------------------
+	// 물리 결과 동기화 (Sync) - 필수
+	// 시뮬레이션된 모든 강체의 위치를 PrimitiveComponent에 반영
+	for (AActor* Actor : Level->GetActors())
+	{
+		if (Actor && Actor->IsActorActive())
+		{
+			// RootComponent가 PrimitiveComponent인지 확인
+			if (UPrimitiveComponent* PrimComp = Cast<UPrimitiveComponent>(Actor->GetRootComponent()))
+			{
+				// 물리 시뮬레이션이 켜져 있다면 동기화 수행
+				if (PrimComp->IsSimulatingPhysics())
+				{
+					PrimComp->SyncComponentToPhysics(); // 이전 답변에서 정의된 함수
+				}
+			}
+		}
+	}
+	// ------------------------------------------------------------------
+	
 	// 지연 삭제 처리
 	ProcessPendingKillActors();
 

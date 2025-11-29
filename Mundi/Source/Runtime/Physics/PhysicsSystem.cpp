@@ -15,26 +15,10 @@ void FPhysicsSystem::CreateTestObjects()
 {
     if (!mPhysics || !mScene) return;
 
-    // 1. 바닥 만들기 (Static Plane)
+    // 바닥 만들기 (Static Plane)
     // 노멀(0,1,0), 거리 0 -> XZ 평면
     PxRigidStatic* ground = PxCreatePlane(*mPhysics, PxPlane(0, 1, 0, 0), *mMaterial);
     mScene->addActor(*ground);
-
-    // 2. 박스 만들기 (Dynamic RigidBody)
-    // 공중 10미터 위 (0, 10, 0)
-    PxTransform t(PxVec3(0, 10, 0));
-    PxRigidDynamic* box = mPhysics->createRigidDynamic(t);
-    
-    // 모양: 가로세로 1.0 박스
-    PxShape* shape = mPhysics->createShape(PxBoxGeometry(1.0f, 1.0f, 1.0f), *mMaterial);
-    box->attachShape(*shape);
-    shape->release(); // 연결했으니 포인터 해제
-
-    // 질량 계산 (이거 안하면 물리 이상하게 튐)
-    PxRigidBodyExt::updateMassAndInertia(*box, 10.0f);
-
-    // 씬에 추가 (★이걸 해야 PVD에 보임)
-    mScene->addActor(*box);
 }
 
 void FPhysicsSystem::Initialize()
