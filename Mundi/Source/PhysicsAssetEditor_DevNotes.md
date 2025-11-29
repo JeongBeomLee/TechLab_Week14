@@ -71,6 +71,9 @@
 - `Slate/Widgets/PhysicsAssetEditor/BodyPropertiesWidget.h/cpp` - 바디 속성 편집 UI
 - `Slate/Widgets/PhysicsAssetEditor/ConstraintPropertiesWidget.h/cpp` - 제약 조건 속성 편집 UI
 
+### 새로 생성된 파일 (Phase 2.5 리팩토링)
+- `Runtime/AssetManagement/LinesBatch.h` - FLinesBatch DOD 구조 (라인 배치 렌더링)
+
 ### 수정된 파일
 - `Runtime/Core/Misc/Enums.h` - EViewerType::PhysicsAsset 추가
 - `Runtime/Engine/Viewer/ViewerState.h` - PhysicsAssetEditorState.h include
@@ -97,9 +100,23 @@
 
 ### UPhysicsAsset
 - SkeletalMeshPath
-- SkeletalBodySetups[]
-- ConstraintSetup[]
+- BodySetups[]
+- ConstraintSetups[]
 - BodySetupIndexMap (캐시)
+- `ClearAll()`: 모든 데이터 및 캐시 초기화
+
+### PhysicsAssetEditorState (주요 멤버)
+- EditingAsset, CurrentFilePath, bIsDirty
+- SelectedBodyIndex, SelectedConstraintIndex, bBodySelectionMode
+- bShowBodies, bShowConstraints
+- BodyPreviewLineComponent, ConstraintPreviewLineComponent
+- **FLinesBatch 기반 렌더링**:
+  - BodyLinesBatch, ConstraintLinesBatch (DOD 구조)
+  - BodyLineRanges[] (바디별 라인 인덱스 범위)
+- **헬퍼 메서드**:
+  - `GetPreviewSkeletalActor()`, `GetPreviewMeshComponent()`
+  - `HideGizmo()`, `SelectBody()`, `SelectConstraint()`, `ClearSelection()`
+  - `RequestLinesRebuild()`, `RequestSelectedBodyLinesUpdate()`
 
 ---
 
@@ -143,6 +160,25 @@
      - Capsule → Box: Extent = (Radius, Radius, HalfHeight)
      - Box → Sphere: Radius = 평균 크기
      - Box → Capsule: Radius = XY 평균, HalfHeight = Z
+
+### Phase 2.5 리팩토링 완료
+- 상태: **완료**
+- 코드 품질 개선:
+  1. **FLinesBatch DOD 구조**: 라인 렌더링 효율화
+     - `Runtime/AssetManagement/LinesBatch.h` 신규 생성
+     - SOA(Structure of Arrays) 패턴으로 캐시 효율성 향상
+     - ULine 객체 생성/삭제 없이 좌표/색상만 업데이트
+  2. **PhysicsAssetEditorState 헬퍼 메서드 추가**:
+     - `GetPreviewSkeletalActor()`: 반복 캐스팅 제거
+     - `GetPreviewMeshComponent()`: 반복 캐스팅 제거
+     - `HideGizmo()`: 기즈모 숨기기 로직 통합 (4곳에서 호출)
+  3. **컨테이너 일관성**: `std::vector<FBodyLineRange>` → `TArray<FBodyLineRange>`
+  4. **UPhysicsAsset::ClearAll() 추가**:
+     - BodySetups, ConstraintSetups, BodySetupIndexMap 모두 초기화
+     - Auto-generate 2회 실행 시 크래시 수정
+  5. **미사용 코드 제거**:
+     - `LoadToolbarIcons()`, `RenderConstraintGraph()`, `RenderViewportArea()` 함수 제거
+     - 10개 아이콘 멤버 변수 제거
 
 ### Phase 3 이후
 - Constraint 편집 고도화
