@@ -10,10 +10,10 @@ class UPhysicsAsset;
 struct FBodySetup;
 struct FConstraintSetup;
 
-// Sub Widgets
-class SkeletonTreeWidget;
-class BodyPropertiesWidget;
-class ConstraintPropertiesWidget;
+// Sub Widgets (UWidget 기반)
+class USkeletonTreeWidget;
+class UBodyPropertiesWidget;
+class UConstraintPropertiesWidget;
 
 /**
  * SPhysicsAssetEditorWindow
@@ -38,6 +38,10 @@ public:
 	virtual void PreRenderViewportUpdate() override;
 	virtual void OnSave() override;
 
+	// 마우스 입력 오버라이드 (베이스 클래스의 bone picking 제거)
+	virtual void OnMouseDown(FVector2D MousePos, uint32 Button) override;
+	virtual void OnMouseUp(FVector2D MousePos, uint32 Button) override;
+
 	// 파일 경로 기반 탭 검색 오버라이드
 	void OpenOrFocusTab(UEditorAssetPreviewContext* Context) override;
 
@@ -60,18 +64,19 @@ private:
 	// 툴바
 	// ────────────────────────────────────────────────
 	void RenderToolbar();
-	void LoadToolbarIcons();
 
 	// ────────────────────────────────────────────────
-	// 하단 패널 (제약 조건 그래프)
+	// Shape 라인 관리 (캐시 기반)
 	// ────────────────────────────────────────────────
-	void RenderConstraintGraph();
+	void RebuildShapeLines();           // 라인 재구성 (바디 추가/제거 시)
+	void UpdateSelectedBodyLines();     // 선택된 바디의 라인 좌표만 업데이트 (속성 변경 시)
+	void UpdateSelectionColors();       // 선택 색상만 업데이트
 
 	// ────────────────────────────────────────────────
-	// 뷰포트
+	// 기즈모 연동
 	// ────────────────────────────────────────────────
-	void RenderViewportArea(float width, float height);
-	void UpdateShapePreview();
+	void RepositionAnchorToBody(int32 BodyIndex);   // 기즈모 앵커를 바디 위치로 이동
+	void UpdateBodyTransformFromGizmo();            // 기즈모에서 바디 LocalTransform 업데이트
 
 	// ────────────────────────────────────────────────
 	// 파일 작업
@@ -83,6 +88,7 @@ private:
 	// ────────────────────────────────────────────────
 	// 바디/제약 조건 작업
 	// ────────────────────────────────────────────────
+	void AutoGenerateBodies();
 	void AddBodyToBone(int32 BoneIndex);
 	void RemoveSelectedBody();
 	void AddConstraintBetweenBodies(int32 ParentBodyIndex, int32 ChildBodyIndex);
@@ -93,22 +99,17 @@ private:
 	// ────────────────────────────────────────────────
 	float LeftPanelWidth = 250.f;    // 좌측 트리 패널 너비
 	float RightPanelWidth = 300.f;   // 우측 속성 패널 너비
-	float BottomPanelHeight = 200.f; // 하단 그래프 패널 높이
-	bool bShowBottomPanel = false;   // 하단 패널 표시 여부
 
 	// ────────────────────────────────────────────────
-	// 툴바 아이콘
+	// Sub Widget 인스턴스 (UWidget 기반)
 	// ────────────────────────────────────────────────
-	UTexture* IconSave = nullptr;
-	UTexture* IconSaveAs = nullptr;
-	UTexture* IconLoad = nullptr;
-	UTexture* IconAddBody = nullptr;
-	UTexture* IconRemoveBody = nullptr;
-	UTexture* IconAddConstraint = nullptr;
-	UTexture* IconRemoveConstraint = nullptr;
-	UTexture* IconSimulate = nullptr;
-	UTexture* IconShowBodies = nullptr;
-	UTexture* IconShowConstraints = nullptr;
+	USkeletonTreeWidget* SkeletonTreeWidget = nullptr;
+	UBodyPropertiesWidget* BodyPropertiesWidget = nullptr;
+	UConstraintPropertiesWidget* ConstraintPropertiesWidget = nullptr;
+
+	void CreateSubWidgets();
+	void DestroySubWidgets();
+	void UpdateSubWidgetEditorState();
 
 	// ────────────────────────────────────────────────
 	// 헬퍼 함수

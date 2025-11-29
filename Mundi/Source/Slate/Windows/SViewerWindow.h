@@ -3,6 +3,10 @@
 #include "Source/Runtime/Engine/Viewer/ViewerState.h"
 
 class UEditorAssetPreviewContext;
+
+// TODO: SViewerWindow는 현재 Skeletal Mesh 전용 기능(본 트랜스폼, 애니메이션 브라우저, 뷰어 전환 버튼 등)을 포함하고 있음.
+// 올바른 구조: SViewerWindow(generic) -> SSkeletalViewerBaseWindow(Skeletal 전용) -> 각 Skeletal 뷰어들
+// 현재는 ParticleEditor, PhysicsAssetEditor 등이 베이스 클래스 호출을 우회하여 처리 중.
 class SViewerWindow : public SWindow
 {
 public:

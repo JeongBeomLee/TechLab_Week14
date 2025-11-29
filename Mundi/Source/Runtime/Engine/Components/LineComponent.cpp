@@ -1,5 +1,6 @@
 ﻿#include "pch.h"
 #include "LineComponent.h"
+#include "LinesBatch.h"
 #include "Renderer.h"
 
 IMPLEMENT_CLASS(ULineComponent)
@@ -93,27 +94,52 @@ void ULineComponent::ClearLines()
     Lines.Empty();
 }
 
+void ULineComponent::SetDirectBatch(const TArray<FVector>& StartPoints, const TArray<FVector>& EndPoints, const TArray<FVector4>& Colors)
+{
+    DirectStartPoints = StartPoints;
+    DirectEndPoints = EndPoints;
+    DirectColors = Colors;
+}
+
+void ULineComponent::SetDirectBatch(const FLinesBatch& Batch)
+{
+    DirectStartPoints = Batch.StartPoints;
+    DirectEndPoints = Batch.EndPoints;
+    DirectColors = Batch.Colors;
+}
+
+void ULineComponent::ClearDirectBatch()
+{
+    DirectStartPoints.clear();
+    DirectEndPoints.clear();
+    DirectColors.clear();
+}
+
 void ULineComponent::CollectLineBatches(URenderer* Renderer)
 {
     if (!HasVisibleLines() || !Renderer)
         return;
 
-    TArray<FVector> startPoints, endPoints;
-    TArray<FVector4> colors;
-    
-    // Extract world coordinate line data efficiently
-    GetWorldLineData(startPoints, endPoints, colors);
-    
-    // Add all lines to renderer batch at once
-    if (!startPoints.empty())
+    // Direct batch mode (DOD - 우선)
+    if (!DirectStartPoints.empty())
     {
-        Renderer->AddLines(startPoints, endPoints, colors);
+        Renderer->AddLines(DirectStartPoints, DirectEndPoints, DirectColors);
     }
-    startPoints.clear();
-    startPoints.Shrink();
-    endPoints.clear();
-    endPoints.Shrink();
-    colors.clear();
-    colors.Shrink();
+
+    // ULine 기반 모드 (기존 호환성)
+    if (!Lines.empty())
+    {
+        TArray<FVector> startPoints, endPoints;
+        TArray<FVector4> colors;
+
+        // Extract world coordinate line data efficiently
+        GetWorldLineData(startPoints, endPoints, colors);
+
+        // Add all lines to renderer batch at once
+        if (!startPoints.empty())
+        {
+            Renderer->AddLines(startPoints, endPoints, colors);
+        }
+    }
 }
 

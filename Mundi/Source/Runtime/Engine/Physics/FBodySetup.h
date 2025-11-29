@@ -39,13 +39,13 @@ public:
 	// Capsule: Radius, HalfHeight 사용
 	// Box: Extent 사용
 	UPROPERTY(EditAnywhere, Category="Shape", Tooltip="반지름 (Sphere, Capsule)")
-	float Radius = 10.0f;
+	float Radius = 0.15f;
 
 	UPROPERTY(EditAnywhere, Category="Shape", Tooltip="캡슐 반높이 (Capsule)")
-	float HalfHeight = 20.0f;
+	float HalfHeight = 0.25f;
 
 	UPROPERTY(EditAnywhere, Category="Shape", Tooltip="박스 크기 (Box)")
-	FVector Extent = FVector(10.0f, 10.0f, 10.0f);
+	FVector Extent = FVector(0.15f, 0.15f, 0.15f);
 
 	// ────────────────────────────────────────────────
 	// 물리 속성

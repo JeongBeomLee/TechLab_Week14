@@ -9,6 +9,8 @@
 #include "MeshLoader.h"
 #include"Vector.h"
 #include "SelectionManager.h"
+#include "AABB.h"
+#include "Source/Runtime/Engine/Physics/FBodySetup.h"
 #include <cmath>
 #include <algorithm>
 
@@ -272,6 +274,181 @@ float DistanceRayToLineSegment(const FRay& Ray, const FVector& LineStart, const 
 	FVector PointOnSegment = LineStart + v * OutSegmentT;
 
 	return (PointOnRay - PointOnSegment).Size();
+}
+
+bool IntersectRayCapsule(const FRay& InRay, const FVector& InCapsuleStart, const FVector& InCapsuleEnd, float InRadius, float& OutT)
+{
+	// Capsule = cylinder with hemispherical caps at both ends
+	// Algorithm:
+	// 1. Test infinite cylinder along capsule axis
+	// 2. Clamp hit point to capsule segment
+	// 3. If clamped, test spheres at caps
+
+	const FVector CapsuleAxis = InCapsuleEnd - InCapsuleStart;
+	const float CapsuleLength = CapsuleAxis.Size();
+
+	// Degenerate capsule (sphere)
+	if (CapsuleLength < KINDA_SMALL_NUMBER)
+	{
+		return IntersectRaySphere(InRay, InCapsuleStart, InRadius, OutT);
+	}
+
+	const FVector CapsuleDir = CapsuleAxis / CapsuleLength;
+	const FVector OriginToStart = InRay.Origin - InCapsuleStart;
+
+	// Project ray direction and origin onto plane perpendicular to capsule axis
+	const float DdotA = FVector::Dot(InRay.Direction, CapsuleDir);
+	const float OdotA = FVector::Dot(OriginToStart, CapsuleDir);
+
+	const FVector DPerp = InRay.Direction - CapsuleDir * DdotA;
+	const FVector OPerp = OriginToStart - CapsuleDir * OdotA;
+
+	// Quadratic equation for infinite cylinder intersection
+	const float QuadA = FVector::Dot(DPerp, DPerp);
+	const float QuadB = 2.0f * FVector::Dot(DPerp, OPerp);
+	const float QuadC = FVector::Dot(OPerp, OPerp) - InRadius * InRadius;
+
+	float BestT = FLT_MAX;
+	bool bHit = false;
+
+	// Check cylinder intersection
+	if (QuadA > KINDA_SMALL_NUMBER)
+	{
+		const float Discriminant = QuadB * QuadB - 4.0f * QuadA * QuadC;
+		if (Discriminant >= 0.0f)
+		{
+			const float SqrtD = std::sqrt(Discriminant);
+			const float Inv2A = 1.0f / (2.0f * QuadA);
+
+			float T0 = (-QuadB - SqrtD) * Inv2A;
+			float T1 = (-QuadB + SqrtD) * Inv2A;
+
+			// Check both cylinder hits
+			for (float T : { T0, T1 })
+			{
+				if (T > KINDA_SMALL_NUMBER && T < BestT)
+				{
+					// Check if hit is within capsule segment (not in cap region)
+					const float HitAlongAxis = OdotA + T * DdotA;
+					if (HitAlongAxis >= 0.0f && HitAlongAxis <= CapsuleLength)
+					{
+						BestT = T;
+						bHit = true;
+					}
+				}
+			}
+		}
+	}
+
+	// Check hemispherical caps
+	float TSphere;
+	if (IntersectRaySphere(InRay, InCapsuleStart, InRadius, TSphere))
+	{
+		if (TSphere > KINDA_SMALL_NUMBER && TSphere < BestT)
+		{
+			// Verify hit is on the correct hemisphere (behind start)
+			const FVector HitPoint = InRay.Origin + InRay.Direction * TSphere;
+			const float HitAlongAxis = FVector::Dot(HitPoint - InCapsuleStart, CapsuleDir);
+			if (HitAlongAxis <= 0.0f)
+			{
+				BestT = TSphere;
+				bHit = true;
+			}
+		}
+	}
+
+	if (IntersectRaySphere(InRay, InCapsuleEnd, InRadius, TSphere))
+	{
+		if (TSphere > KINDA_SMALL_NUMBER && TSphere < BestT)
+		{
+			// Verify hit is on the correct hemisphere (beyond end)
+			const FVector HitPoint = InRay.Origin + InRay.Direction * TSphere;
+			const float HitAlongAxis = FVector::Dot(HitPoint - InCapsuleStart, CapsuleDir);
+			if (HitAlongAxis >= CapsuleLength)
+			{
+				BestT = TSphere;
+				bHit = true;
+			}
+		}
+	}
+
+	if (bHit)
+	{
+		OutT = BestT;
+		return true;
+	}
+
+	return false;
+}
+
+bool IntersectRayOBB(const FRay& InRay, const FVector& InCenter, const FVector& InHalfExtent, const FQuat& InOrientation, float& OutT)
+{
+	// Transform ray to OBB's local space (where OBB becomes an AABB)
+	const FQuat InvOrientation = InOrientation.Inverse();
+
+	// Transform ray origin to local space
+	const FVector LocalOrigin = InvOrientation.RotateVector(InRay.Origin - InCenter);
+	const FVector LocalDirection = InvOrientation.RotateVector(InRay.Direction);
+
+	// Create AABB centered at origin with the given half-extents
+	FAABB LocalAABB;
+	LocalAABB.Min = -InHalfExtent;
+	LocalAABB.Max = InHalfExtent;
+
+	// Create local ray
+	FRay LocalRay;
+	LocalRay.Origin = LocalOrigin;
+	LocalRay.Direction = LocalDirection;
+
+	// Test intersection with AABB
+	float EnterT, ExitT;
+	if (LocalAABB.IntersectsRay(LocalRay, EnterT, ExitT))
+	{
+		// Return the entry point if it's in front of the ray
+		if (EnterT > KINDA_SMALL_NUMBER)
+		{
+			OutT = EnterT;
+			return true;
+		}
+		// Ray starts inside the box - return exit point
+		if (ExitT > KINDA_SMALL_NUMBER)
+		{
+			OutT = ExitT;
+			return true;
+		}
+	}
+
+	return false;
+}
+
+bool IntersectRayBody(const FRay& WorldRay, const FBodySetup& Body, const FTransform& BoneWorldTransform, float& OutT)
+{
+	// Calculate body's world transform: BoneWorld * BodyLocal
+	const FTransform BodyWorldTransform = BoneWorldTransform.GetWorldTransform(Body.LocalTransform);
+	const FVector BodyWorldPos = BodyWorldTransform.Translation;
+	const FQuat BodyWorldRot = BodyWorldTransform.Rotation;
+
+	switch (Body.ShapeType)
+	{
+	case EPhysicsShapeType::Sphere:
+		return IntersectRaySphere(WorldRay, BodyWorldPos, Body.Radius, OutT);
+
+	case EPhysicsShapeType::Capsule:
+	{
+		// Capsule aligned along local Z-axis (up)
+		const FVector LocalUp = FVector(0.0f, 0.0f, 1.0f);
+		const FVector WorldUp = BodyWorldRot.RotateVector(LocalUp);
+		const FVector CapsuleStart = BodyWorldPos - WorldUp * Body.HalfHeight;
+		const FVector CapsuleEnd = BodyWorldPos + WorldUp * Body.HalfHeight;
+		return IntersectRayCapsule(WorldRay, CapsuleStart, CapsuleEnd, Body.Radius, OutT);
+	}
+
+	case EPhysicsShapeType::Box:
+		return IntersectRayOBB(WorldRay, BodyWorldPos, Body.Extent, BodyWorldRot, OutT);
+
+	default:
+		return false;
+	}
 }
 
 // PickingSystem 구현

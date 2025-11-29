@@ -140,6 +140,13 @@ int32 UPhysicsAsset::FindConstraintIndex(int32 ParentBodyIndex, int32 ChildBodyI
 // 유틸리티
 // ────────────────────────────────────────────────────────────────
 
+void UPhysicsAsset::ClearAll()
+{
+	BodySetups.Empty();
+	ConstraintSetups.Empty();
+	BodySetupIndexMap.Empty();
+}
+
 void UPhysicsAsset::ClearBodySelection()
 {
 	for (FBodySetup& Body : BodySetups)

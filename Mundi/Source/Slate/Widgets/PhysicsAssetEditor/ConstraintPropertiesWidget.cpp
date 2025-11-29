@@ -2,13 +2,36 @@
 #include "ConstraintPropertiesWidget.h"
 #include "ImGui/imgui.h"
 #include "Source/Runtime/Engine/Viewer/PhysicsAssetEditorState.h"
+#include "Source/Runtime/Engine/Physics/PhysicsAsset.h"
 #include "Source/Runtime/Engine/Physics/FConstraintSetup.h"
 
-bool ConstraintPropertiesWidget::Render(PhysicsAssetEditorState* State, FConstraintSetup& Constraint)
-{
-	if (!State) return false;
+IMPLEMENT_CLASS(UConstraintPropertiesWidget);
 
-	bool bChanged = false;
+UConstraintPropertiesWidget::UConstraintPropertiesWidget()
+	: UWidget("ConstraintPropertiesWidget")
+{
+}
+
+void UConstraintPropertiesWidget::Initialize()
+{
+	bWasModified = false;
+}
+
+void UConstraintPropertiesWidget::Update()
+{
+	// 필요시 업데이트 로직 추가
+}
+
+void UConstraintPropertiesWidget::RenderWidget()
+{
+	if (!EditorState || !EditorState->EditingAsset) return;
+
+	// 선택된 제약조건이 없으면 렌더링하지 않음
+	if (EditorState->bBodySelectionMode || EditorState->SelectedConstraintIndex < 0) return;
+	if (EditorState->SelectedConstraintIndex >= static_cast<int32>(EditorState->EditingAsset->ConstraintSetups.size())) return;
+
+	FConstraintSetup& Constraint = EditorState->EditingAsset->ConstraintSetups[EditorState->SelectedConstraintIndex];
+	bWasModified = false;
 
 	ImGui::Text("Constraint: %s", Constraint.JointName.ToString().c_str());
 	ImGui::Separator();
@@ -19,14 +42,14 @@ bool ConstraintPropertiesWidget::Render(PhysicsAssetEditorState* State, FConstra
 	if (ImGui::Combo("Type", &CurrentType, ConstraintTypes, IM_ARRAYSIZE(ConstraintTypes)))
 	{
 		Constraint.ConstraintType = static_cast<EConstraintType>(CurrentType);
-		State->bIsDirty = true;
-		bChanged = true;
+		EditorState->bIsDirty = true;
+		bWasModified = true;
 	}
 
 	// 각도 제한
 	if (ImGui::CollapsingHeader("Limits", ImGuiTreeNodeFlags_DefaultOpen))
 	{
-		bChanged |= RenderLimitProperties(State, Constraint);
+		bWasModified |= RenderLimitProperties(Constraint);
 	}
 
 	// 강도/댐핑
@@ -34,26 +57,24 @@ bool ConstraintPropertiesWidget::Render(PhysicsAssetEditorState* State, FConstra
 	{
 		if (ImGui::DragFloat("Stiffness", &Constraint.Stiffness, 0.1f, 0.0f, 10000.0f))
 		{
-			State->bIsDirty = true;
-			bChanged = true;
+			EditorState->bIsDirty = true;
+			bWasModified = true;
 		}
 		if (ImGui::DragFloat("Damping", &Constraint.Damping, 0.1f, 0.0f, 1000.0f))
 		{
-			State->bIsDirty = true;
-			bChanged = true;
+			EditorState->bIsDirty = true;
+			bWasModified = true;
 		}
 	}
-
-	return bChanged;
 }
 
-bool ConstraintPropertiesWidget::RenderLimitProperties(PhysicsAssetEditorState* State, FConstraintSetup& Constraint)
+bool UConstraintPropertiesWidget::RenderLimitProperties(FConstraintSetup& Constraint)
 {
 	bool bChanged = false;
 
 	if (ImGui::DragFloat("Swing1 Limit", &Constraint.Swing1Limit, 1.0f, 0.0f, 180.0f))
 	{
-		State->bIsDirty = true;
+		EditorState->bIsDirty = true;
 		bChanged = true;
 	}
 
@@ -62,19 +83,19 @@ bool ConstraintPropertiesWidget::RenderLimitProperties(PhysicsAssetEditorState* 
 	{
 		if (ImGui::DragFloat("Swing2 Limit", &Constraint.Swing2Limit, 1.0f, 0.0f, 180.0f))
 		{
-			State->bIsDirty = true;
+			EditorState->bIsDirty = true;
 			bChanged = true;
 		}
 
 		if (ImGui::DragFloat("Twist Min", &Constraint.TwistLimitMin, 1.0f, -180.0f, 0.0f))
 		{
-			State->bIsDirty = true;
+			EditorState->bIsDirty = true;
 			bChanged = true;
 		}
 
 		if (ImGui::DragFloat("Twist Max", &Constraint.TwistLimitMax, 1.0f, 0.0f, 180.0f))
 		{
-			State->bIsDirty = true;
+			EditorState->bIsDirty = true;
 			bChanged = true;
 		}
 	}

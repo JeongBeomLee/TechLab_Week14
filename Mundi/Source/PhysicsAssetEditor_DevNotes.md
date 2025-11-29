@@ -128,15 +128,25 @@
      - ConstraintPropertiesWidget: 제약 조건 속성 편집
   4. **PhysicsTypes.h 정리**: enum과 interface만 유지
 
-### 다음 단계 (Phase 2)
-- Body 편집 기능 강화
-  - 기즈모 연동 (크기/위치 조절)
-  - 본 자동 Shape 크기 계산
-  - Shape 타입 변환 시 파라미터 보존
+### Phase 2 완료
+- 상태: **완료**
+- 구현 내용:
+  1. **기즈모 연동**: 선택된 바디의 위치/회전 조절
+     - `RepositionAnchorToBody()`: 기즈모를 바디 월드 위치로 이동
+     - `UpdateBodyTransformFromGizmo()`: 기즈모 드래그 시 바디 LocalTransform 업데이트
+     - `PhysicsAssetEditorState::bWasGizmoDragging` 추가 (첫 프레임 감지용)
+  2. **본 자동 Shape 크기 계산**: AutoGenerateBodies()에서 본 길이 기반 크기 설정 (이미 구현됨)
+  3. **Shape 타입 변환 시 파라미터 보존**:
+     - Sphere → Capsule: Radius 유지, HalfHeight = Radius
+     - Sphere → Box: Extent = (Radius, Radius, Radius)
+     - Capsule → Sphere: Radius 유지
+     - Capsule → Box: Extent = (Radius, Radius, HalfHeight)
+     - Box → Sphere: Radius = 평균 크기
+     - Box → Capsule: Radius = XY 평균, HalfHeight = Z
 
 ### Phase 3 이후
 - Constraint 편집 고도화
-- Auto-generate 기능
+- Auto-generate 옵션 다양화
 - 시뮬레이션 UI (PhysX 팀 연동 후)
 - Show Flag / Debug 렌더링
 

@@ -37,6 +37,9 @@ public:
     // Position the anchor
     void RepositionAnchorToBone(int32 BoneIndex);
 
+    // Lazily create viewer-only components (BoneLineComponent, BoneAnchor) if in preview world
+    void EnsureViewerComponents();
+
     // Bone picking with ray
     // Returns bone index if hit, -1 otherwise
     int32 PickBone(const FRay& Ray, float& OutDistance) const;
@@ -75,9 +78,6 @@ protected:
     void BuildBoneLinesCache();
     void UpdateBoneSubtreeTransforms(int32 BoneIndex);
     void UpdateBoneSelectionHighlight(int32 SelectedBoneIndex);
-
-    // Lazily create viewer-only components (BoneLineComponent, BoneAnchor) if in preview world
-    void EnsureViewerComponents();
 
     // ------- TEST ------- 
     // -- Preview-only SM test toggler (for viewer demonstration)

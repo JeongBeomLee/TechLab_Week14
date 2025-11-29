@@ -8,11 +8,52 @@
 #include "Source/Runtime/Core/Misc/VertexData.h"
 #include "SkeletalMesh.h"
 
-void SkeletonTreeWidget::Render(PhysicsAssetEditorState* State)
-{
-	if (!State || !State->CurrentMesh) return;
+IMPLEMENT_CLASS(USkeletonTreeWidget);
 
-	const FSkeleton* Skeleton = State->CurrentMesh->GetSkeleton();
+USkeletonTreeWidget::USkeletonTreeWidget()
+	: UWidget("SkeletonTreeWidget")
+{
+}
+
+void USkeletonTreeWidget::Initialize()
+{
+	bCacheValid = false;
+}
+
+void USkeletonTreeWidget::Update()
+{
+	if (!EditorState || !EditorState->CurrentMesh) return;
+
+	const FSkeleton* Skeleton = EditorState->CurrentMesh->GetSkeleton();
+	if (!Skeleton) return;
+
+	// 변경 감지: 본/바디/제약조건 수가 변경되면 캐시 무효화
+	size_t CurrentBoneCount = Skeleton->Bones.size();
+	size_t CurrentBodyCount = EditorState->EditingAsset ? EditorState->EditingAsset->BodySetups.size() : 0;
+	size_t CurrentConstraintCount = EditorState->EditingAsset ? EditorState->EditingAsset->ConstraintSetups.size() : 0;
+
+	if (CurrentBoneCount != CachedBoneCount ||
+		CurrentBodyCount != CachedBodyCount ||
+		CurrentConstraintCount != CachedConstraintCount)
+	{
+		bCacheValid = false;
+		CachedBoneCount = CurrentBoneCount;
+		CachedBodyCount = CurrentBodyCount;
+		CachedConstraintCount = CurrentConstraintCount;
+	}
+
+	// 캐시가 무효화되었으면 재구축
+	if (!bCacheValid)
+	{
+		RebuildCache();
+	}
+}
+
+void USkeletonTreeWidget::RenderWidget()
+{
+	if (!EditorState || !EditorState->CurrentMesh) return;
+
+	const FSkeleton* Skeleton = EditorState->CurrentMesh->GetSkeleton();
 	if (!Skeleton || Skeleton->Bones.IsEmpty()) return;
 
 	// 루트 본부터 시작 (부모가 -1인 본)
@@ -20,99 +61,158 @@ void SkeletonTreeWidget::Render(PhysicsAssetEditorState* State)
 	{
 		if (Skeleton->Bones[i].ParentIndex == -1)
 		{
-			RenderBoneNode(State, i, 0);
+			RenderBoneNode(i, 0);
 		}
 	}
 }
 
-void SkeletonTreeWidget::RenderBoneNode(PhysicsAssetEditorState* State, int32 BoneIndex, int32 Depth)
+void USkeletonTreeWidget::RebuildCache()
 {
-	if (!State || !State->CurrentMesh || !State->EditingAsset) return;
+	Cache.Clear();
 
-	const FSkeleton* Skeleton = State->CurrentMesh->GetSkeleton();
-	if (!Skeleton || BoneIndex < 0 || BoneIndex >= static_cast<int32>(Skeleton->Bones.size())) return;
+	if (!EditorState || !EditorState->CurrentMesh) return;
 
-	const FBone& Bone = Skeleton->Bones[BoneIndex];
-	UPhysicsAsset* Asset = State->EditingAsset;
+	const FSkeleton* Skeleton = EditorState->CurrentMesh->GetSkeleton();
+	if (!Skeleton) return;
 
-	// 이 본에 연결된 바디 찾기
-	int32 BodyIndex = Asset->FindBodyIndexByBone(BoneIndex);
-	bool bHasBody = (BodyIndex >= 0);
-
-	// 자식 본 찾기
-	TArray<int32> ChildIndices;
+	// 부모 -> 자식 맵 구축
 	for (int32 i = 0; i < static_cast<int32>(Skeleton->Bones.size()); ++i)
 	{
-		if (Skeleton->Bones[i].ParentIndex == BoneIndex)
+		int32 ParentIdx = Skeleton->Bones[i].ParentIndex;
+		if (ParentIdx >= 0)
 		{
-			ChildIndices.Add(i);
+			Cache.ChildrenMap[ParentIdx].push_back(i);
 		}
 	}
 
-	// 트리 노드 플래그
+	// 본 -> 바디 맵 구축
+	if (EditorState->EditingAsset)
+	{
+		for (int32 i = 0; i < static_cast<int32>(EditorState->EditingAsset->BodySetups.size()); ++i)
+		{
+			int32 BoneIdx = EditorState->EditingAsset->BodySetups[i].BoneIndex;
+			if (BoneIdx >= 0)
+			{
+				Cache.BoneToBodyMap[BoneIdx] = i;
+			}
+		}
+
+		// 본 -> 제약조건 맵 구축 (자식 바디의 본 인덱스 기준)
+		for (int32 i = 0; i < static_cast<int32>(EditorState->EditingAsset->ConstraintSetups.size()); ++i)
+		{
+			const FConstraintSetup& Constraint = EditorState->EditingAsset->ConstraintSetups[i];
+			if (Constraint.ChildBodyIndex >= 0 && Constraint.ChildBodyIndex < static_cast<int32>(EditorState->EditingAsset->BodySetups.size()))
+			{
+				int32 ChildBoneIdx = EditorState->EditingAsset->BodySetups[Constraint.ChildBodyIndex].BoneIndex;
+				if (ChildBoneIdx >= 0)
+				{
+					Cache.BoneToConstraintMap[ChildBoneIdx].push_back(i);
+				}
+			}
+		}
+	}
+
+	bCacheValid = true;
+}
+
+void USkeletonTreeWidget::RenderBoneNode(int32 BoneIndex, int32 Depth)
+{
+	if (!EditorState || !EditorState->CurrentMesh) return;
+
+	const FSkeleton* Skeleton = EditorState->CurrentMesh->GetSkeleton();
+	if (!Skeleton || BoneIndex < 0 || BoneIndex >= static_cast<int32>(Skeleton->Bones.size())) return;
+
+	const FBone& Bone = Skeleton->Bones[BoneIndex];
+
+	// 이 본에 연결된 바디 찾기 (캐시 사용 - O(1))
+	int32 BodyIndex = -1;
+	auto BodyIt = Cache.BoneToBodyMap.find(BoneIndex);
+	if (BodyIt != Cache.BoneToBodyMap.end())
+	{
+		BodyIndex = BodyIt->second;
+	}
+	bool bHasBody = (BodyIndex >= 0);
+
+	// 자식 본 가져오기 (캐시 사용 - O(1))
+	const std::vector<int32>* ChildIndices = nullptr;
+	auto ChildIt = Cache.ChildrenMap.find(BoneIndex);
+	if (ChildIt != Cache.ChildrenMap.end())
+	{
+		ChildIndices = &ChildIt->second;
+	}
+	bool bHasChildBones = (ChildIndices != nullptr && !ChildIndices->empty());
+
+	// 이 본에 연결된 제약조건 가져오기 (캐시 사용 - O(1))
+	const std::vector<int32>* ConstraintIndices = nullptr;
+	auto ConstraintIt = Cache.BoneToConstraintMap.find(BoneIndex);
+	if (ConstraintIt != Cache.BoneToConstraintMap.end())
+	{
+		ConstraintIndices = &ConstraintIt->second;
+	}
+	bool bHasConstraints = (ConstraintIndices != nullptr && !ConstraintIndices->empty());
+
+	// 트리 노드 플래그 (자식 본과 제약조건이 모두 없으면 리프)
+	bool bHasChildren = bHasChildBones || bHasConstraints;
 	ImGuiTreeNodeFlags NodeFlags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth;
-	if (ChildIndices.IsEmpty() && !bHasBody)
+	if (!bHasChildren)
 	{
 		NodeFlags |= ImGuiTreeNodeFlags_Leaf;
 	}
-	if (State->SelectedBoneIndex == BoneIndex)
+	if (EditorState->SelectedBoneIndex == BoneIndex)
 	{
 		NodeFlags |= ImGuiTreeNodeFlags_Selected;
 	}
 
 	// 확장 상태 확인
-	bool bIsExpanded = State->ExpandedBoneIndices.count(BoneIndex) > 0;
+	bool bIsExpanded = EditorState->ExpandedBoneIndices.count(BoneIndex) > 0;
 	if (bIsExpanded)
 	{
 		ImGui::SetNextItemOpen(true, ImGuiCond_Once);
 	}
 
-	// 노드 색상 (바디가 있으면 강조)
+	// 노드 색상 (바디가 있으면 녹색으로 강조)
 	if (bHasBody)
 	{
 		ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.4f, 0.8f, 0.4f, 1.0f));
 	}
 
-	// 트리 노드 렌더링
-	FString NodeLabel = Bone.Name;
-	if (bHasBody)
-	{
-		NodeLabel += " [Body]";
-	}
-
-	bool bNodeOpen = ImGui::TreeNodeEx((void*)(intptr_t)BoneIndex, NodeFlags, "%s", NodeLabel.c_str());
+	// 트리 노드 렌더링 (본 이름만 표시)
+	bool bNodeOpen = ImGui::TreeNodeEx((void*)(intptr_t)BoneIndex, NodeFlags, "%s", Bone.Name.c_str());
 
 	if (bHasBody)
 	{
 		ImGui::PopStyleColor();
 	}
 
-	// 클릭 처리
+	// 클릭 처리: 본 선택 시 해당 바디도 함께 선택
 	if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen())
 	{
-		State->SelectedBoneIndex = BoneIndex;
+		EditorState->SelectedBoneIndex = BoneIndex;
 		if (bHasBody)
 		{
-			State->SelectBody(BodyIndex);
+			EditorState->SelectBody(BodyIndex);
 		}
 	}
 
-	// 컨텍스트 메뉴 (바디 추가/제거는 외부에서 처리하므로 여기서는 표시만)
+	// 컨텍스트 메뉴
 	if (ImGui::BeginPopupContextItem())
 	{
 		if (!bHasBody)
 		{
 			if (ImGui::MenuItem("Add Body"))
 			{
-				// 외부에서 처리하도록 상태만 설정
-				State->SelectedBoneIndex = BoneIndex;
+				EditorState->SelectedBoneIndex = BoneIndex;
 			}
 		}
 		else
 		{
 			if (ImGui::MenuItem("Select Body"))
 			{
-				State->SelectBody(BodyIndex);
+				EditorState->SelectBody(BodyIndex);
+			}
+			if (ImGui::MenuItem("Remove Body"))
+			{
+				// TODO: 바디 제거 기능
 			}
 		}
 		ImGui::EndPopup();
@@ -120,47 +220,43 @@ void SkeletonTreeWidget::RenderBoneNode(PhysicsAssetEditorState* State, int32 Bo
 
 	if (bNodeOpen)
 	{
-		State->ExpandedBoneIndices.insert(BoneIndex);
+		EditorState->ExpandedBoneIndices.insert(BoneIndex);
 
-		// 바디 노드 렌더링
-		if (bHasBody)
+		// 이 본에 연결된 제약조건 먼저 표시
+		if (ConstraintIndices)
 		{
-			RenderBodyNode(State, BodyIndex);
-
-			// 이 바디와 연결된 제약 조건 렌더링
-			for (int32 i = 0; i < static_cast<int32>(Asset->ConstraintSetups.size()); ++i)
+			for (int32 ConstraintIndex : *ConstraintIndices)
 			{
-				const FConstraintSetup& Constraint = Asset->ConstraintSetups[i];
-				if (Constraint.ChildBodyIndex == BodyIndex)
-				{
-					RenderConstraintNode(State, i);
-				}
+				RenderConstraintNode(ConstraintIndex);
 			}
 		}
 
 		// 자식 본 렌더링
-		for (int32 ChildIndex : ChildIndices)
+		if (ChildIndices)
 		{
-			RenderBoneNode(State, ChildIndex, Depth + 1);
+			for (int32 ChildIndex : *ChildIndices)
+			{
+				RenderBoneNode(ChildIndex, Depth + 1);
+			}
 		}
 
 		ImGui::TreePop();
 	}
 	else
 	{
-		State->ExpandedBoneIndices.erase(BoneIndex);
+		EditorState->ExpandedBoneIndices.erase(BoneIndex);
 	}
 }
 
-void SkeletonTreeWidget::RenderBodyNode(PhysicsAssetEditorState* State, int32 BodyIndex)
+void USkeletonTreeWidget::RenderBodyNode(int32 BodyIndex)
 {
-	if (!State || !State->EditingAsset) return;
-	if (BodyIndex < 0 || BodyIndex >= static_cast<int32>(State->EditingAsset->BodySetups.size())) return;
+	if (!EditorState || !EditorState->EditingAsset) return;
+	if (BodyIndex < 0 || BodyIndex >= static_cast<int32>(EditorState->EditingAsset->BodySetups.size())) return;
 
-	const FBodySetup& Body = State->EditingAsset->BodySetups[BodyIndex];
+	const FBodySetup& Body = EditorState->EditingAsset->BodySetups[BodyIndex];
 
 	ImGuiTreeNodeFlags NodeFlags = ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_SpanAvailWidth;
-	if (State->bBodySelectionMode && State->SelectedBodyIndex == BodyIndex)
+	if (EditorState->bBodySelectionMode && EditorState->SelectedBodyIndex == BodyIndex)
 	{
 		NodeFlags |= ImGuiTreeNodeFlags_Selected;
 	}
@@ -174,7 +270,7 @@ void SkeletonTreeWidget::RenderBodyNode(PhysicsAssetEditorState* State, int32 Bo
 
 	if (ImGui::IsItemClicked())
 	{
-		State->SelectBody(BodyIndex);
+		EditorState->SelectBody(BodyIndex);
 	}
 
 	if (bNodeOpen)
@@ -183,29 +279,41 @@ void SkeletonTreeWidget::RenderBodyNode(PhysicsAssetEditorState* State, int32 Bo
 	}
 }
 
-void SkeletonTreeWidget::RenderConstraintNode(PhysicsAssetEditorState* State, int32 ConstraintIndex)
+void USkeletonTreeWidget::RenderConstraintNode(int32 ConstraintIndex)
 {
-	if (!State || !State->EditingAsset) return;
-	if (ConstraintIndex < 0 || ConstraintIndex >= static_cast<int32>(State->EditingAsset->ConstraintSetups.size())) return;
+	if (!EditorState || !EditorState->EditingAsset) return;
+	if (ConstraintIndex < 0 || ConstraintIndex >= static_cast<int32>(EditorState->EditingAsset->ConstraintSetups.size())) return;
 
-	const FConstraintSetup& Constraint = State->EditingAsset->ConstraintSetups[ConstraintIndex];
+	const FConstraintSetup& Constraint = EditorState->EditingAsset->ConstraintSetups[ConstraintIndex];
 
 	ImGuiTreeNodeFlags NodeFlags = ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_SpanAvailWidth;
-	if (!State->bBodySelectionMode && State->SelectedConstraintIndex == ConstraintIndex)
+	if (!EditorState->bBodySelectionMode && EditorState->SelectedConstraintIndex == ConstraintIndex)
 	{
 		NodeFlags |= ImGuiTreeNodeFlags_Selected;
 	}
 
-	const char* ConstraintName = GetConstraintTypeName(Constraint.ConstraintType);
+	// 부모-자식 바디 이름 가져오기
+	FString ParentName = "?";
+	FString ChildName = "?";
+	if (Constraint.ParentBodyIndex >= 0 && Constraint.ParentBodyIndex < static_cast<int32>(EditorState->EditingAsset->BodySetups.size()))
+	{
+		ParentName = EditorState->EditingAsset->BodySetups[Constraint.ParentBodyIndex].BoneName.ToString();
+	}
+	if (Constraint.ChildBodyIndex >= 0 && Constraint.ChildBodyIndex < static_cast<int32>(EditorState->EditingAsset->BodySetups.size()))
+	{
+		ChildName = EditorState->EditingAsset->BodySetups[Constraint.ChildBodyIndex].BoneName.ToString();
+	}
 
-	ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.8f, 0.4f, 1.0f));
-	bool bNodeOpen = ImGui::TreeNodeEx((void*)(intptr_t)(2000 + ConstraintIndex), NodeFlags, "[%s] %s",
-		ConstraintName, Constraint.JointName.ToString().c_str());
+	// 선택 여부에 따라 색상 변경
+	bool bSelected = (!EditorState->bBodySelectionMode && EditorState->SelectedConstraintIndex == ConstraintIndex);
+	ImGui::PushStyleColor(ImGuiCol_Text, bSelected ? ImVec4(1.0f, 1.0f, 0.4f, 1.0f) : ImVec4(1.0f, 0.7f, 0.4f, 1.0f));
+	bool bNodeOpen = ImGui::TreeNodeEx((void*)(intptr_t)(2000 + ConstraintIndex), NodeFlags, "[Constraint] %s -> %s",
+		ParentName.c_str(), ChildName.c_str());
 	ImGui::PopStyleColor();
 
 	if (ImGui::IsItemClicked())
 	{
-		State->SelectConstraint(ConstraintIndex);
+		EditorState->SelectConstraint(ConstraintIndex);
 	}
 
 	if (bNodeOpen)

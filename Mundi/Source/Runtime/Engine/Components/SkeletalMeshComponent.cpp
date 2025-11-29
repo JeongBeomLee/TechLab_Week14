@@ -255,7 +255,15 @@ FTransform USkeletalMeshComponent::GetBoneWorldTransform(int32 BoneIndex)
     if (CurrentLocalSpacePose.Num() > BoneIndex && BoneIndex >= 0)
     {
         // 뼈의 컴포넌트 공간 트랜스폼 * 컴포넌트의 월드 트랜스폼
-        return GetWorldTransform().GetWorldTransform(CurrentComponentSpacePose[BoneIndex]);
+        FTransform Result = GetWorldTransform().GetWorldTransform(CurrentComponentSpacePose[BoneIndex]);
+
+        // TODO: Leaf 노드 본에서 Scale3D가 0이 되는 근본 원인 분석 필요
+        // Scale3D가 0인 경우 (1,1,1)로 보정 (유효하지 않은 Scale 방지)
+        if (Result.Scale3D.X == 0.0f) Result.Scale3D.X = 1.0f;
+        if (Result.Scale3D.Y == 0.0f) Result.Scale3D.Y = 1.0f;
+        if (Result.Scale3D.Z == 0.0f) Result.Scale3D.Z = 1.0f;
+
+        return Result;
     }
     return GetWorldTransform(); // 실패 시 컴포넌트 위치 반환
 }

@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "PhysicsAssetEditorBootstrap.h"
+#include "PhysicsAssetEditorState.h"
 #include "ViewerState.h"
 #include "CameraActor.h"
 #include "FViewport.h"
@@ -13,6 +14,8 @@
 #include "EditorAssetPreviewContext.h"
 #include "PathUtils.h"
 #include "Source/Runtime/Engine/Components/LineComponent.h"
+#include "Source/Runtime/Engine/Components/BoneAnchorComponent.h"
+#include "SelectionManager.h"
 
 ViewerState* PhysicsAssetEditorBootstrap::CreateViewerState(const char* Name, UWorld* InWorld,
 	ID3D11Device* InDevice, UEditorAssetPreviewContext* Context)
@@ -41,9 +44,8 @@ ViewerState* PhysicsAssetEditorBootstrap::CreateViewerState(const char* Name, UW
 	Client->SetViewportType(EViewportType::Perspective);
 	Client->SetViewMode(EViewMode::VMI_Lit_Phong);
 
-	// 카메라 설정 (스켈레탈 메시를 볼 수 있는 위치)
-	Client->GetCamera()->SetActorLocation(FVector(200.f, 0.f, 100.f));
-	Client->GetCamera()->SetRotationFromEulerAngles(FVector(0.f, 15.f, 180.f));
+	// 카메라 설정 (스켈레탈 메시를 볼 수 있는 위치 - SkeletalViewer와 동일하게 가까이)
+	Client->GetCamera()->SetActorLocation(FVector(3.f, 0.f, 2.f));
 
 	State->Client = Client;
 	State->Viewport->SetViewportClient(Client);
@@ -86,6 +88,9 @@ ViewerState* PhysicsAssetEditorBootstrap::CreateViewerState(const char* Name, UW
 			{
 				Asset = CreateDefaultPhysicsAsset();
 				UE_LOG("[PhysicsAssetEditorBootstrap] 기본 Physics Asset 생성");
+
+				// USkeletalMeshComponent 생성자에서 기본 메시를 로드하므로 State에 저장
+				State->CurrentMesh = PreviewActor->GetSkeletalMeshComponent()->GetSkeletalMesh();
 			}
 
 			State->EditingAsset = Asset;
@@ -240,4 +245,37 @@ UPhysicsAsset* PhysicsAssetEditorBootstrap::LoadPhysicsAsset(const FString& File
 
 	UE_LOG("[PhysicsAssetEditorBootstrap] LoadPhysicsAsset: 로드 성공: %s", NormalizedFilePath.c_str());
 	return LoadedAsset;
+}
+
+// ────────────────────────────────────────────────────────────────
+// PhysicsAssetEditorState 헬퍼 메서드 구현
+// ────────────────────────────────────────────────────────────────
+
+ASkeletalMeshActor* PhysicsAssetEditorState::GetPreviewSkeletalActor() const
+{
+	return static_cast<ASkeletalMeshActor*>(PreviewActor);
+}
+
+USkeletalMeshComponent* PhysicsAssetEditorState::GetPreviewMeshComponent() const
+{
+	ASkeletalMeshActor* SkelActor = GetPreviewSkeletalActor();
+	return SkelActor ? SkelActor->GetSkeletalMeshComponent() : nullptr;
+}
+
+void PhysicsAssetEditorState::HideGizmo()
+{
+	ASkeletalMeshActor* SkelActor = GetPreviewSkeletalActor();
+	if (SkelActor)
+	{
+		SkelActor->EnsureViewerComponents();
+		if (UBoneAnchorComponent* Anchor = SkelActor->GetBoneGizmoAnchor())
+		{
+			Anchor->SetVisibility(false);
+			Anchor->SetEditability(false);
+		}
+	}
+	if (World)
+	{
+		World->GetSelectionManager()->ClearSelection();
+	}
 }
