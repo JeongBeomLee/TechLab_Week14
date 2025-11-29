@@ -18,8 +18,8 @@ enum class EDOFMode : uint8
     CustomPlane     // 커스텀 평면
 };
 
-// NOTE: FBodyInstance는 PhysX 리소스를 직접 관리하며 복사/이동이 금지된 런타임 객체입니다.
-// USTRUCT 리플렉션을 적용하지 않습니다. (TArray 조작 불가)
+// NOTE: FBodyInstance는 PhysX 리소스를 직접 관리하며 복사/이동이 금지된 런타임 객체임
+// USTRUCT 리플렉션을 적용하지 않는다. (TArray 조작 불가)
 
 struct FBodyInstance
 {

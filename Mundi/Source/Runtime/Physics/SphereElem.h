@@ -1,15 +1,22 @@
-﻿#pragma once
+#pragma once
 #include "ShapeElem.h"
+#include "FKSphereElem.generated.h"
 
 /** 충돌용 Sphere Shape */
+USTRUCT(DisplayName="Sphere Element", Description="충돌용 구체 Shape")
 struct FKSphereElem : public FKShapeElem
 {
+    GENERATED_REFLECTION_BODY()
+
 public:
     // 정적 Shape 타입
     static constexpr EAggCollisionShape StaticShapeType = EAggCollisionShape::Sphere;
 
     // 데이터 멤버
+    UPROPERTY(EditAnywhere, Category="Shape")
     FVector Center;     // 중심 위치
+
+    UPROPERTY(EditAnywhere, Category="Shape")
     float Radius;       // 반지름
 
     // 생성자

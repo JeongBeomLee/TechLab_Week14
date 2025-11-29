@@ -1,17 +1,28 @@
-#pragma once
+﻿#pragma once
 #include "ShapeElem.h"
+#include "FKSphylElem.generated.h"
 
 /** 충돌용 Capsule Shape (Z축이 캡슐 축) */
+//USTRUCT(DisplayName="Sphyl Element", Description="충돌용 캡슐 Shape")
 struct FKSphylElem : public FKShapeElem
 {
+    GENERATED_REFLECTION_BODY()
+
 public:
     // 정적 Shape 타입
     static constexpr EAggCollisionShape StaticShapeType = EAggCollisionShape::Sphyl;
 
     // 데이터 멤버
+    UPROPERTY(EditAnywhere, Category="Shape")
     FVector Center;     // 중심 위치
+
+    UPROPERTY(EditAnywhere, Category="Shape")
     FQuat Rotation;     // 회전
+
+    UPROPERTY(EditAnywhere, Category="Shape")
     float Radius;       // 반지름
+
+    UPROPERTY(EditAnywhere, Category="Shape")
     float Length;       // 원통 부분 길이 (반구 제외, 전체 높이 = Length + 2*Radius)
 
     // 생성자

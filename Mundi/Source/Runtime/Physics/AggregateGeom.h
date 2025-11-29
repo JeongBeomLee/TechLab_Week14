@@ -2,14 +2,23 @@
 #include "SphereElem.h"
 #include "BoxElem.h"
 #include "SphylElem.h"
+#include "FKAggregateGeom.generated.h"
 
 /** 충돌 Shape들의 컨테이너 */
+//USTRUCT(DisplayName="Aggregate Geometry", Description="충돌 Shape 컨테이너")
 struct FKAggregateGeom
 {
+    GENERATED_REFLECTION_BODY()
+
 public:
     // Shape 배열
+    UPROPERTY(EditAnywhere, Category="Shapes")
     TArray<FKSphereElem> SphereElems;
+
+    UPROPERTY(EditAnywhere, Category="Shapes")
     TArray<FKBoxElem> BoxElems;
+
+    UPROPERTY(EditAnywhere, Category="Shapes")
     TArray<FKSphylElem> SphylElems;
 
     // 생성자

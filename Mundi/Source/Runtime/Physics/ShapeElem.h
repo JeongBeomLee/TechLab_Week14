@@ -3,11 +3,13 @@
 #include "Vector.h"
 #include "Color.h"
 #include "Name.h"
+#include "FKShapeElem.generated.h"
 
 // 전방 선언
 class FPrimitiveDrawInterface;
 
 // Shape 타입 열거형
+UENUM()
 enum class EAggCollisionShape : uint8
 {
     Sphere,
@@ -18,6 +20,7 @@ enum class EAggCollisionShape : uint8
 };
 
 // 충돌 활성화 타입 (나중에 CollisionTypes.h로 이동 가능)
+UENUM()
 enum class ECollisionEnabled : uint8
 {
     NoCollision,        // 충돌 없음
@@ -27,8 +30,11 @@ enum class ECollisionEnabled : uint8
 };
 
 /** 모든 충돌 Shape의 기본 클래스 */
+//USTRUCT(DisplayName="Shape Element", Description="충돌 Shape 기본 클래스")
 struct FKShapeElem
 {
+    GENERATED_REFLECTION_BODY()
+
 public:
     FKShapeElem()
         : ShapeType(EAggCollisionShape::Unknown)
@@ -109,11 +115,19 @@ public:
 public:
     // 접촉점 생성 시 오프셋 (Minkowski sum 스무딩)
     // 여유 공간을 조정해서 물리 안정성을 높임
+    UPROPERTY(EditAnywhere, Category="Physics")
     float RestOffset;
 
 protected:
+    UPROPERTY(EditAnywhere, Category="Identity")
     FName Name;                                     // 사용자 정의 이름
+
+    UPROPERTY(VisibleAnywhere, Category="Physics")
     EAggCollisionShape ShapeType;                   // Shape 타입
+
+    UPROPERTY(EditAnywhere, Category="Physics")
     bool bContributeToMass;                         // 질량 기여 여부
+
+    UPROPERTY(EditAnywhere, Category="Collision")
     ECollisionEnabled CollisionEnabled;             // 충돌 활성화 상태
 };

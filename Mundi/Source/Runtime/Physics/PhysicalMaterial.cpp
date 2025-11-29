@@ -1,4 +1,4 @@
-#include "pch.h"
+﻿#include "pch.h"
 #include "PhysicalMaterial.h"
 #include "PhysicsSystem.h"
 using namespace physx;
@@ -57,7 +57,7 @@ PxCombineMode::Enum UPhysicalMaterial::ToPxCombineMode(EFrictionCombineMode Mode
     }
 }
 
-// --- 프리셋 생성 함수 ---
+// --- 프리셋 생성 함수 for Claude ---
 
 UPhysicalMaterial* UPhysicalMaterial::CreateDefaultMaterial()
 {

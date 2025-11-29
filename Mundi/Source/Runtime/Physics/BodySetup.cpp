@@ -6,7 +6,7 @@
 
 using namespace physx;
 
-// --- 내부 헬퍼 함수 (전방 선언) ---
+// --- 내부 헬퍼 함수 ---
 
 namespace
 {
@@ -61,7 +61,6 @@ UBodySetup::UBodySetup()
 
 UBodySetup::~UBodySetup()
 {
-    // AggGeom은 자동으로 정리됨
 }
 
 // --- PhysX Shape 생성 ---
@@ -284,28 +283,28 @@ void UBodySetup::Serialize(const bool bInIsLoading, JSON& InOutHandle)
 {
     Super::Serialize(bInIsLoading, InOutHandle);
 
-    if (bInIsLoading)
-    {
-        // 로드
-        if (InOutHandle.hasKey("BoneName"))
-        {
-            BoneName = FName(InOutHandle["BoneName"].ToString().c_str());
-        }
+    //if (bInIsLoading)
+    //{
+    //    // 로드
+    //    if (InOutHandle.hasKey("BoneName"))
+    //    {
+    //        BoneName = FName(InOutHandle["BoneName"].ToString().c_str());
+    //    }
 
-        if (InOutHandle.hasKey("DefaultCollisionEnabled"))
-        {
-            DefaultCollisionEnabled = static_cast<ECollisionEnabled>(InOutHandle["DefaultCollisionEnabled"].ToInt());
-        }
+    //    if (InOutHandle.hasKey("DefaultCollisionEnabled"))
+    //    {
+    //        DefaultCollisionEnabled = static_cast<ECollisionEnabled>(InOutHandle["DefaultCollisionEnabled"].ToInt());
+    //    }
 
-        // TODO: AggGeom 직렬화 (Shape 배열)
-    }
-    else
-    {
-        // 저장
-        InOutHandle["BoneName"] = BoneName.ToString().c_str();
-        InOutHandle["DefaultCollisionEnabled"] = static_cast<int>(DefaultCollisionEnabled);
+    //    // TODO: AggGeom 직렬화 (Shape 배열)
+    //}
+    //else
+    //{
+    //    // 저장
+    //    InOutHandle["BoneName"] = BoneName.ToString().c_str();
+    //    InOutHandle["DefaultCollisionEnabled"] = static_cast<int>(DefaultCollisionEnabled);
 
-        // TODO: AggGeom 직렬화 (Shape 배열)
-    }
+    //    // TODO: AggGeom 직렬화 (Shape 배열)
+    //}
 }
 

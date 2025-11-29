@@ -19,7 +19,7 @@ class UPhysicalMaterial;
  * - PhysX Shape 생성 팩토리 기능 제공
  * - 본 이름으로 SkeletalMesh 물리와 연동
  */
-UCLASS(DisplayName="바디 셋업", Description="물리 바디의 충돌 형태 정의")
+//UCLASS(DisplayName="바디 셋업", Description="물리 바디의 충돌 형태 정의")
 class UBodySetup : public UObject
 {
     GENERATED_REFLECTION_BODY()
