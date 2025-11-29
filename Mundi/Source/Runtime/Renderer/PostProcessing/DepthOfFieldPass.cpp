@@ -78,6 +78,13 @@ void FDepthOfFieldPass::ExecuteCoCPass(const FPostProcessModifier& M, FSceneView
 	UDepthOfFieldComponent* DofComponent = Cast<UDepthOfFieldComponent>(M.SourceObject);
 	if (!DofComponent) { return; }
 
+	// 이전 패스의 RTV/SRV 완전히 언바인드
+	ID3D11RenderTargetView* nullRTV = nullptr;
+	RHIDevice->GetDeviceContext()->OMSetRenderTargets(1, &nullRTV, nullptr);
+
+	ID3D11ShaderResourceView* nullSRVs[2] = { nullptr, nullptr };
+	RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 2, nullSRVs);
+
 	// 1) 스왑 + SRV 언바인드 관리
 	FSwapGuard Swap(RHIDevice, /*FirstSlot*/0, /*NumSlotsToUnbind*/2);
 
@@ -160,14 +167,137 @@ void FDepthOfFieldPass::ExecuteDilationPass(FSceneView* View, D3D11RHI* RHIDevic
 
 void FDepthOfFieldPass::ExecuteHexBlurPass1(FSceneView* View, D3D11RHI* RHIDevice)
 {
+	// 이전 패스의 RTV/SRV 완전히 언바인드
+	ID3D11RenderTargetView* nullRTV = nullptr;
+	RHIDevice->GetDeviceContext()->OMSetRenderTargets(1, &nullRTV, nullptr);
+
+	ID3D11ShaderResourceView* nullSRVs[2] = { nullptr, nullptr };
+	RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 2, nullSRVs);
+
+	// SwapGuard가 SwapRenderTargets()를 호출
+	FSwapGuard Swap(RHIDevice, 0, 2);
+
+	// 새로운 RTV 설정
+	RHIDevice->OMSetRenderTargets(ERTVMode::DofBlurTarget);
+
+	RHIDevice->OMSetDepthStencilState(EComparisonFunc::Always);
+	RHIDevice->OMSetBlendState(false);
+
+	UShader* VS = UResourceManager::GetInstance().Load<UShader>("Shaders/Utility/FullScreenTriangle_VS.hlsl");
+	UShader* PS = UResourceManager::GetInstance().Load<UShader>("Shaders/PostProcess/DoF_HexBlur1_PS.hlsl");
+	if (!VS || !VS->GetVertexShader() || !PS || !PS->GetPixelShader())
+	{
+		UE_LOG("DoF HexBlur1 셰이더 없음!\n");
+		return;
+	}
+
+	RHIDevice->PrepareShader(VS, PS);
+
+	ID3D11ShaderResourceView* Srvs[2] = {
+		RHIDevice->GetSRV(RHI_SRV_Index::SceneColorSource),
+		RHIDevice->GetSRV(RHI_SRV_Index::DofCocMap)
+	};
+	ID3D11SamplerState* LinearClampSampler = RHIDevice->GetSamplerState(RHI_Sampler_Index::LinearClamp);
+	if (!Srvs[0] || !Srvs[1] || !LinearClampSampler)
+	{
+		UE_LOG("DoF HexBlur1: Required SRVs or Samplers are null!\n");
+		return;
+	}
+
+	RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 2, Srvs);
+	RHIDevice->GetDeviceContext()->PSSetSamplers(0, 1, &LinearClampSampler);
+
+	RHIDevice->DrawFullScreenQuad();
+
+	Swap.Commit();
 }
 
 void FDepthOfFieldPass::ExecuteHexBlurPass2(FSceneView* View, D3D11RHI* RHIDevice)
 {
+	// 이전 패스의 RTV/SRV 완전히 언바인드
+	ID3D11RenderTargetView* nullRTV = nullptr;
+	RHIDevice->GetDeviceContext()->OMSetRenderTargets(1, &nullRTV, nullptr);
+
+	ID3D11ShaderResourceView* nullSRVs[2] = { nullptr, nullptr };
+	RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 2, nullSRVs);
+
+	// SwapGuard가 SwapRenderTargets()를 호출
+	FSwapGuard Swap(RHIDevice, 0, 2);
+
+	// DofCoCTarget을 덮어쓰면 안됨! SceneColorTarget을 임시 타겟으로 활용
+	RHIDevice->OMSetRenderTargets(ERTVMode::SceneColorTargetWithoutDepth);
+
+	RHIDevice->OMSetDepthStencilState(EComparisonFunc::Always);
+	RHIDevice->OMSetBlendState(false);
+
+	UShader* VS = UResourceManager::GetInstance().Load<UShader>("Shaders/Utility/FullScreenTriangle_VS.hlsl");
+	UShader* PS = UResourceManager::GetInstance().Load<UShader>("Shaders/PostProcess/DoF_HexBlur2_PS.hlsl");
+	if (!VS || !VS->GetVertexShader() || !PS || !PS->GetPixelShader())
+	{
+		UE_LOG("DoF HexBlur2 셰이더 없음!\n");
+		return;
+	}
+
+	RHIDevice->PrepareShader(VS, PS);
+
+	ID3D11ShaderResourceView* Srvs[2] = {
+		RHIDevice->GetSRV(RHI_SRV_Index::DofBlurMap), // Pass1의 결과
+		RHIDevice->GetSRV(RHI_SRV_Index::DofCocMap)
+	};
+	ID3D11SamplerState* LinearClampSampler = RHIDevice->GetSamplerState(RHI_Sampler_Index::LinearClamp);
+	if (!Srvs[0] || !Srvs[1] || !LinearClampSampler)
+	{
+		UE_LOG("DoF HexBlur2: Required SRVs or Samplers are null!\n");
+		return;
+	}
+
+	RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 2, Srvs);
+	RHIDevice->GetDeviceContext()->PSSetSamplers(0, 1, &LinearClampSampler);
+
+	RHIDevice->DrawFullScreenQuad();
+
+	Swap.Commit();
 }
 
 void FDepthOfFieldPass::ExecuteHexBlurPass3(FSceneView* View, D3D11RHI* RHIDevice)
 {
+	// 이전 패스의 RTV/SRV 완전히 언바인드
+	ID3D11RenderTargetView* nullRTV = nullptr;
+	RHIDevice->GetDeviceContext()->OMSetRenderTargets(1, &nullRTV, nullptr);
+
+	ID3D11ShaderResourceView* nullSRVs[2] = { nullptr, nullptr };
+	RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 2, nullSRVs);
+
+	// SwapGuard가 SwapRenderTargets()를 호출
+	FSwapGuard Swap(RHIDevice, 0, 2);
+
+	// 새로운 RTV 설정
+	RHIDevice->OMSetRenderTargets(ERTVMode::DofBlurTarget);
+
+	RHIDevice->OMSetDepthStencilState(EComparisonFunc::Always);
+	RHIDevice->OMSetBlendState(false);
+
+	UShader* VS = UResourceManager::GetInstance().Load<UShader>("Shaders/Utility/FullScreenTriangle_VS.hlsl");
+	UShader* PS = UResourceManager::GetInstance().Load<UShader>("Shaders/PostProcess/DoF_HexBlur3_PS.hlsl");
+	if (!VS || !VS->GetVertexShader() || !PS || !PS->GetPixelShader())
+	{
+		UE_LOG("DoF HexBlur3 셰이더 없음!\n");
+		return;
+	}
+
+	RHIDevice->PrepareShader(VS, PS);
+
+	ID3D11ShaderResourceView* Srvs[2] = {
+		RHIDevice->GetSRV(RHI_SRV_Index::SceneColorSource), // Pass2의 결과
+		RHIDevice->GetSRV(RHI_SRV_Index::DofCocMap)
+	};
+	ID3D11SamplerState* LinearClampSampler = RHIDevice->GetSamplerState(RHI_Sampler_Index::LinearClamp);
+	RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 2, Srvs);
+	RHIDevice->GetDeviceContext()->PSSetSamplers(0, 1, &LinearClampSampler);
+
+	RHIDevice->DrawFullScreenQuad();
+
+	Swap.Commit();
 }
 
 void FDepthOfFieldPass::ExecuteUpscalePass(FSceneView* View, D3D11RHI* RHIDevice)
@@ -183,6 +313,13 @@ void FDepthOfFieldPass::ExecuteCompositePass(const FPostProcessModifier& M, FSce
 	// Composite 패스: 원본 씬과 블러 결과를 CoC 맵을 기준으로 블렌딩하여 최종 결과를 SceneColorTarget에 저장
 	UDepthOfFieldComponent* DofComponent = Cast<UDepthOfFieldComponent>(M.SourceObject);
 	if (!DofComponent) { return; }
+
+	// 이전 단계의 RTV와 SRV 상태를 완전히 끊어줍니다.
+	ID3D11RenderTargetView* nullRTV = nullptr;
+	RHIDevice->GetDeviceContext()->OMSetRenderTargets(1, &nullRTV, nullptr);
+
+	ID3D11ShaderResourceView* nullSRVs[3] = { nullptr, nullptr, nullptr };
+	RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 3, nullSRVs);
 
 	// 1) 스왑 + SRV 언바인드 관리
 	FSwapGuard Swap(RHIDevice, /*FirstSlot*/0, /*NumSlotsToUnbind*/3);

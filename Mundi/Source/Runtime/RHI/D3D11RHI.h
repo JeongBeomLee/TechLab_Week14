@@ -202,6 +202,7 @@ private:
 	void CreateDeviceAndSwapChain(HWND hWindow); // 여기서 디바이스, 디바이스 컨택스트, 스왑체인, 뷰포트를 초기화한다
 	void CreateFrameBuffer();
 	void CreateIdBuffer();
+	void CreateDepthOfFieldBuffers();
 	void CreateRasterizerState();
 	void CreateConstantBuffer(ID3D11Buffer** ConstantBuffer, uint32 Size);
 	void CreateDepthStencilState();
@@ -213,6 +214,7 @@ private:
 	void ReleaseRasterizerState(); // rs
 	void ReleaseFrameBuffer(); // fb, rtv
 	void ReleaseIdBuffer();
+	void ReleaseDepthOfFieldBuffers();
 	void ReleaseDeviceAndSwapChain();
 
 	// FSwapGuard 클래스가 D3D11RHI의 private 멤버에 접근할 수 있도록 허용

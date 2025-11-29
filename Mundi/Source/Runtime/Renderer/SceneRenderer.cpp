@@ -35,7 +35,6 @@
 #include "AmbientLightComponent.h"
 #include "PointLightComponent.h"
 #include "SpotLightComponent.h"
-#include "DepthOfFieldComponent.h"
 #include "SwapGuard.h"
 #include "MeshBatchElement.h"
 #include "SceneView.h"

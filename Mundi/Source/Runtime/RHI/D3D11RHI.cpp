@@ -9,6 +9,7 @@ void D3D11RHI::Initialize(HWND hWindow)
     CreateDeviceAndSwapChain(hWindow);
     CreateFrameBuffer();
     CreateIdBuffer();
+    CreateDepthOfFieldBuffers();
     CreateRasterizerState();
     CreateBlendState();
     CONSTANT_BUFFER_LIST(CREATE_CONSTANT_BUFFER);
@@ -84,6 +85,7 @@ void D3D11RHI::Release()
     // RTV/DSV/FrameBuffer
     ReleaseFrameBuffer();
     ReleaseIdBuffer();
+    ReleaseDepthOfFieldBuffers();
 
     // Device + SwapChain
     ReleaseDeviceAndSwapChain();
@@ -509,6 +511,16 @@ void D3D11RHI::OMSetRenderTargets(ERTVMode RTVMode)
         DeviceContext->OMSetRenderTargets(1, &CurrentTargetRTV, nullptr);
         break;
     }
+    case ERTVMode::DofCoCTarget:
+    {
+        DeviceContext->OMSetRenderTargets(1, &DofCoCRTV, nullptr);
+        break;
+    }
+    case ERTVMode::DofBlurTarget:
+    {
+        DeviceContext->OMSetRenderTargets(1, &DofBlurRTV, nullptr);
+        break;
+    }
     default:
         break;
     }
@@ -724,6 +736,106 @@ void D3D11RHI::CreateIdBuffer()
     TextureDesc.BindFlags = 0;
 
     Device->CreateTexture2D(&TextureDesc, nullptr, &IdStagingBuffer);
+}
+
+void D3D11RHI::CreateDepthOfFieldBuffers()
+{
+	DXGI_SWAP_CHAIN_DESC SwapDesc;
+	SwapChain->GetDesc(&SwapDesc);
+
+	// =====================================
+	// DoF CoC Map (Circle of Confusion)
+	// =====================================
+	D3D11_TEXTURE2D_DESC CoCDesc = {};
+	CoCDesc.Width = SwapDesc.BufferDesc.Width;
+	CoCDesc.Height = SwapDesc.BufferDesc.Height;
+	CoCDesc.MipLevels = 1;
+	CoCDesc.ArraySize = 1;
+	CoCDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT; // CoC 값 + 원본 색상
+	CoCDesc.SampleDesc.Count = 1;
+	CoCDesc.SampleDesc.Quality = 0;
+	CoCDesc.Usage = D3D11_USAGE_DEFAULT;
+	CoCDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+	CoCDesc.CPUAccessFlags = 0;
+	CoCDesc.MiscFlags = 0;
+
+	HRESULT Result = Device->CreateTexture2D(&CoCDesc, nullptr, &DofCoCTexture);
+	if (FAILED(Result))
+	{
+		UE_LOG("DeviceResources: DoF CoC Texture 생성 실패");
+		return;
+	}
+
+	D3D11_RENDER_TARGET_VIEW_DESC CoCRtvDesc = {};
+	CoCRtvDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
+	CoCRtvDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+	CoCRtvDesc.Texture2D.MipSlice = 0;
+
+	Result = Device->CreateRenderTargetView(DofCoCTexture, &CoCRtvDesc, &DofCoCRTV);
+	if (FAILED(Result))
+	{
+		UE_LOG("DeviceResources: DoF CoC RTV 생성 실패");
+		return;
+	}
+
+	D3D11_SHADER_RESOURCE_VIEW_DESC CoCSrvDesc = {};
+	CoCSrvDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+	CoCSrvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+	CoCSrvDesc.Texture2D.MostDetailedMip = 0;
+	CoCSrvDesc.Texture2D.MipLevels = 1;
+
+	Result = Device->CreateShaderResourceView(DofCoCTexture, &CoCSrvDesc, &DofCoCMapSRV);
+	if (FAILED(Result))
+	{
+		UE_LOG("DeviceResources: DoF CoC SRV 생성 실패");
+	}
+
+	// =====================================
+	// DoF Blur Map
+	// =====================================
+	D3D11_TEXTURE2D_DESC BlurDesc = {};
+	BlurDesc.Width = SwapDesc.BufferDesc.Width;
+	BlurDesc.Height = SwapDesc.BufferDesc.Height;
+	BlurDesc.MipLevels = 1;
+	BlurDesc.ArraySize = 1;
+	BlurDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+	BlurDesc.SampleDesc.Count = 1;
+	BlurDesc.SampleDesc.Quality = 0;
+	BlurDesc.Usage = D3D11_USAGE_DEFAULT;
+	BlurDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+	BlurDesc.CPUAccessFlags = 0;
+	BlurDesc.MiscFlags = 0;
+
+	Result = Device->CreateTexture2D(&BlurDesc, nullptr, &DofBlurTexture);
+	if (FAILED(Result))
+	{
+		UE_LOG("DeviceResources: DoF Blur Texture 생성 실패");
+		return;
+	}
+
+	D3D11_RENDER_TARGET_VIEW_DESC BlurRtvDesc = {};
+	BlurRtvDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
+	BlurRtvDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+	BlurRtvDesc.Texture2D.MipSlice = 0;
+
+	Result = Device->CreateRenderTargetView(DofBlurTexture, &BlurRtvDesc, &DofBlurRTV);
+	if (FAILED(Result))
+	{
+		UE_LOG("DeviceResources: DoF Blur RTV 생성 실패");
+		return;
+	}
+
+	D3D11_SHADER_RESOURCE_VIEW_DESC BlurSrvDesc = {};
+	BlurSrvDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+	BlurSrvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+	BlurSrvDesc.Texture2D.MostDetailedMip = 0;
+	BlurSrvDesc.Texture2D.MipLevels = 1;
+
+	Result = Device->CreateShaderResourceView(DofBlurTexture, &BlurSrvDesc, &DofBlurMapSRV);
+	if (FAILED(Result))
+	{
+		UE_LOG("DeviceResources: DoF Blur SRV 생성 실패");
+	}
 }
 
 void D3D11RHI::CreateRasterizerState()
@@ -967,6 +1079,41 @@ void D3D11RHI::ReleaseIdBuffer()
     }
 }
 
+void D3D11RHI::ReleaseDepthOfFieldBuffers()
+{
+    if (DofCoCMapSRV)
+    {
+        DofCoCMapSRV->Release();
+        DofCoCMapSRV = nullptr;
+    }
+    if (DofCoCRTV)
+    {
+        DofCoCRTV->Release();
+        DofCoCRTV = nullptr;
+    }
+    if (DofCoCTexture)
+    {
+        DofCoCTexture->Release();
+        DofCoCTexture = nullptr;
+    }
+
+    if (DofBlurMapSRV)
+    {
+        DofBlurMapSRV->Release();
+        DofBlurMapSRV = nullptr;
+    }
+    if (DofBlurRTV)
+    {
+        DofBlurRTV->Release();
+        DofBlurRTV = nullptr;
+    }
+    if (DofBlurTexture)
+    {
+        DofBlurTexture->Release();
+        DofBlurTexture = nullptr;
+    }
+}
+
 void D3D11RHI::ReleaseDeviceAndSwapChain()
 {
     if (SwapChain)
@@ -1074,6 +1221,7 @@ void D3D11RHI::OnResize(UINT NewWidth, UINT NewHeight)
     // 기존 리소스 해제
     ReleaseFrameBuffer();
     ReleaseIdBuffer();
+    ReleaseDepthOfFieldBuffers();
 
     // 스왑체인 버퍼 리사이즈
     HRESULT hr = SwapChain->ResizeBuffers(
@@ -1092,6 +1240,7 @@ void D3D11RHI::OnResize(UINT NewWidth, UINT NewHeight)
     // 새 프레임버퍼/RTV/DSV 생성
     CreateFrameBuffer();
     CreateIdBuffer();
+    CreateDepthOfFieldBuffers();
 
     // 뷰포트 갱신
     ViewportInfo.TopLeftX = 0.0f;
