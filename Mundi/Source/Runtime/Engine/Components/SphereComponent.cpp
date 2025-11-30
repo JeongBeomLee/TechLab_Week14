@@ -17,12 +17,20 @@
 
 USphereComponent::USphereComponent()
 {
-	SphereRadius = 50.0f;
+	SphereRadius = 0.5f;
 	UpdateBounds();
+
+	SphereBodySetup = NewObject<UBodySetup>();
+	UpdateBodySetup();
 }
 
 USphereComponent::~USphereComponent()
 {
+	if (SphereBodySetup)
+	{
+		DeleteObject(SphereBodySetup);
+		SphereBodySetup = nullptr;
+	}
 }
 
 void USphereComponent::DuplicateSubObjects()
@@ -37,6 +45,14 @@ void USphereComponent::DuplicateSubObjects()
 void USphereComponent::SetSphereRadius(float InRadius, bool bUpdateBoundsNow)
 {
 	SphereRadius = InRadius;
+
+	UpdateBodySetup();
+	
+	if (BodyInstance.IsValidBodyInstance())
+	{
+		OnDestroyPhysicsState();
+		OnCreatePhysicsState();
+	}
 
 	if (bUpdateBoundsNow)
 	{
@@ -70,6 +86,24 @@ float USphereComponent::GetScaledSphereRadius() const
 FVector USphereComponent::GetSphereCenter() const
 {
 	return GetWorldLocation();
+}
+
+// ────────────────────────────────────────────────
+// UPrimitiveComponent 인터페이스 구현
+// ────────────────────────────────────────────────
+
+void USphereComponent::UpdateBodySetup()
+{
+	if (!SphereBodySetup) { return; }
+
+	SphereBodySetup->AggGeom.EmptyElements();
+
+	FKSphereElem SphereElem;
+
+	SphereElem.Radius = SphereRadius;
+	SphereElem.Center = FVector::Zero();
+
+	SphereBodySetup->AggGeom.SphereElems.Add(SphereElem);
 }
 
 // ────────────────────────────────────────────────────────────────────────────

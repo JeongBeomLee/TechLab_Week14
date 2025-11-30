@@ -20,10 +20,18 @@ UCapsuleComponent::UCapsuleComponent()
 	CapsuleRadius = 50.0f;
 	CapsuleHalfHeight = 100.0f;
 	UpdateBounds();
+
+	CapsuleBodySetup = NewObject<UBodySetup>();
+	UpdateBodySetup();
 }
 
 UCapsuleComponent::~UCapsuleComponent()
 {
+	if (CapsuleBodySetup)
+	{
+		DeleteObject(CapsuleBodySetup);
+		CapsuleBodySetup = nullptr;
+	}
 }
 
 void UCapsuleComponent::DuplicateSubObjects()
@@ -37,23 +45,36 @@ void UCapsuleComponent::DuplicateSubObjects()
 
 void UCapsuleComponent::SetCapsuleSize(float InRadius, float InHalfHeight, bool bUpdateBoundsNow)
 {
-	CapsuleRadius = InRadius;
-	CapsuleHalfHeight = InHalfHeight;
+	InRadius = FMath::Min(InRadius, InHalfHeight);
 
-	if (bUpdateBoundsNow)
+	if (CapsuleRadius != InRadius || CapsuleHalfHeight != InHalfHeight)
 	{
-		UpdateBounds();
+		CapsuleRadius = InRadius;
+		CapsuleHalfHeight = InHalfHeight;
 
-		// BVH 업데이트를 위해 dirty 마킹
-		if (UWorld* World = GetWorld())
+		UpdateBodySetup();
+	
+		if (BodyInstance.IsValidBodyInstance())
 		{
-			if (UCollisionManager* Manager = World->GetCollisionManager())
+			OnDestroyPhysicsState();
+			OnCreatePhysicsState();
+		}
+
+		if (bUpdateBoundsNow)
+		{
+			UpdateBounds();
+
+			// BVH 업데이트를 위해 dirty 마킹
+			if (UWorld* World = GetWorld())
 			{
-				Manager->MarkComponentDirty(this);
-			}
-			if (UWorldPartitionManager* Partition = World->GetPartitionManager())
-			{
-				Partition->MarkDirty(this);
+				if (UCollisionManager* Manager = World->GetCollisionManager())
+				{
+					Manager->MarkComponentDirty(this);
+				}
+				if (UWorldPartitionManager* Partition = World->GetPartitionManager())
+				{
+					Partition->MarkDirty(this);
+				}
 			}
 		}
 	}
@@ -310,6 +331,28 @@ void UCapsuleComponent::RenderDebugVolume(URenderer* Renderer) const
 	}
 
 	Renderer->AddLines(StartPoints, EndPoints, Colors);
+}
+
+// ────────────────────────────────────────────────
+// UPrimitiveComponent 인터페이스 구현
+// ────────────────────────────────────────────────
+
+void UCapsuleComponent::UpdateBodySetup()
+{
+	if (!CapsuleBodySetup) { return; }
+
+	CapsuleBodySetup->AggGeom.EmptyElements();
+
+	FKSphylElem SphylElem;
+	SphylElem.Center = FVector::Zero();
+	SphylElem.Rotation = FQuat::Identity();
+	SphylElem.Radius = CapsuleRadius;
+
+	float CylinderLength = (CapsuleHalfHeight - CapsuleRadius) * 2.0f;
+
+	SphylElem.Length = FMath::Max(0.0f, CylinderLength);
+
+	CapsuleBodySetup->AggGeom.SphylElems.Add(SphylElem);
 }
 
 // ────────────────────────────────────────────────────────────────────────────

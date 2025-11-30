@@ -42,11 +42,11 @@ public:
 
 	/** Capsule의 반지름 (로컬 스페이스) */
 	UPROPERTY(EditAnywhere, Category="CapsuleRadius")
-	float CapsuleRadius = 50.0f;
+	float CapsuleRadius = 0.5f;
 
 	/** Capsule의 반 높이 (로컬 스페이스, 중심에서 끝까지, 반지름 제외) */
 	UPROPERTY(EditAnywhere, Category="CapsuleHalfHeight")
-	float CapsuleHalfHeight = 100.0f;
+	float CapsuleHalfHeight = 1.0f;
 
 	/**
 	 * Capsule 크기를 설정합니다.
@@ -106,6 +106,16 @@ public:
 	void RenderDebugVolume(class URenderer* Renderer) const override;
 
 	// ────────────────────────────────────────────────
+	// UPrimitiveComponent 인터페이스 구현
+	// ────────────────────────────────────────────────
+
+	/** PhysX용 BodySetup 업데이트합니다. */
+	void UpdateBodySetup();
+
+	/** BodySetup을 반환합니다. */
+	virtual UBodySetup* GetBodySetup() override { return CapsuleBodySetup; }
+	
+	// ────────────────────────────────────────────────
 	// Capsule 전용 충돌 감지 함수
 	// ────────────────────────────────────────────────
 
@@ -132,6 +142,9 @@ public:
 private:
 	/** 현재 Bounds (캐시됨) */
 	FBoxSphereBounds CachedBounds;
+
+	/** PhysX 형태 정의 데이터 */
+	UBodySetup* CapsuleBodySetup;
 
 	/**
 	 * Capsule의 선분 끝점을 계산합니다 (월드 스페이스).

@@ -61,6 +61,12 @@ void UBoxComponent::SetBoxExtent(const FVector& InExtent, bool bUpdateBoundsNow)
 
 	UpdateBodySetup();
 
+	if (BodyInstance.IsValidBodyInstance())
+	{
+		OnDestroyPhysicsState();
+		OnCreatePhysicsState();
+	}
+
 	if (bUpdateBoundsNow)
 	{
 		UpdateBounds();

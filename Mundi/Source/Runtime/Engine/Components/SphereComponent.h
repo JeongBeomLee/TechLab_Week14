@@ -62,6 +62,16 @@ public:
 	 * 월드 스페이스의 Sphere 중심을 반환합니다.
 	 */
 	FVector GetSphereCenter() const;
+	
+	// ────────────────────────────────────────────────
+	// UPrimitiveComponent 인터페이스 구현
+	// ────────────────────────────────────────────────
+
+	/** PhysX용 BodySetup 업데이트합니다. */
+	void UpdateBodySetup();
+
+	/** BodySetup을 반환합니다. */
+	virtual UBodySetup* GetBodySetup() override { return SphereBodySetup; }
 
 	// ────────────────────────────────────────────────
 	// UShapeComponent 인터페이스 구현
@@ -112,4 +122,7 @@ public:
 private:
 	/** 현재 Bounds (캐시됨) */
 	FBoxSphereBounds CachedBounds;
+
+	/** PhysX 형태 정의 데이터 */
+	UBodySetup* SphereBodySetup;
 };
