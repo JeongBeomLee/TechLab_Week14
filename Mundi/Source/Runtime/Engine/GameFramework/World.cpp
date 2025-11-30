@@ -56,6 +56,7 @@ UWorld::UWorld() : Partition(nullptr)  // Will be created in Initialize() based 
 	TimeStopDuration = 0;
 	TimeDuration = 0;
 
+	GEngine.GetPhysicsSystem()->ReconnectPVD();
 	PhysicsScene = new FPhysicsScene();
 	PhysicsScene->Initialize(GEngine.GetPhysicsSystem());
 }
@@ -285,26 +286,6 @@ void UWorld::Tick(float DeltaSeconds)
 	{
 		LuaManager->Tick(GetDeltaTime(EDeltaTime::Game));
 	}
-
-	// -------------------------------[Test 물리 반영 코드]-----------------------------------
-	// 물리 결과 동기화 (Sync) - 필수
-	// 시뮬레이션된 모든 강체의 위치를 PrimitiveComponent에 반영
-	for (AActor* Actor : Level->GetActors())
-	{
-		if (Actor && Actor->IsActorActive())
-		{
-			// RootComponent가 PrimitiveComponent인지 확인
-			if (UPrimitiveComponent* PrimComp = Cast<UPrimitiveComponent>(Actor->GetRootComponent()))
-			{
-				// 물리 시뮬레이션이 켜져 있다면 동기화 수행
-				if (PrimComp->IsSimulatingPhysics())
-				{
-					PrimComp->SyncComponentToPhysics(); // 이전 답변에서 정의된 함수
-				}
-			}
-		}
-	}
-	// ------------------------------------------------------------------
 	
 	// 지연 삭제 처리
 	ProcessPendingKillActors();
@@ -316,9 +297,29 @@ void UWorld::Tick(float DeltaSeconds)
 	}
 
 	// 물리 업데이트 (위치 다시 고민해보기)
-	if (PhysicsScene)
+	if (PhysicsScene && bPie)
 	{
 		PhysicsScene->Tick(DeltaSeconds);
+		
+		// 물리 결과 동기화 (Sync) - 필수
+		// 시뮬레이션된 모든 강체의 위치를 PrimitiveComponent에 반영
+		for (AActor* Actor : Level->GetActors())
+		{
+			if (Actor && Actor->IsActorActive())
+			{
+				for (UActorComponent* Component: Actor->GetSceneComponents())
+				{
+					if (UPrimitiveComponent* PrimComp = Cast<UPrimitiveComponent>(Component))
+					{
+						// 물리 시뮬레이션이 켜져 있다면 동기화 수행
+						if (PrimComp->IsSimulatingPhysics())
+						{
+							PrimComp->SyncComponentToPhysics(); // 이전 답변에서 정의된 함수
+						}
+					}
+				}
+			}
+		}
 	}
 }
 
@@ -566,7 +567,8 @@ void UWorld::SetLevel(std::unique_ptr<ULevel> InLevel)
 			{
 				Actor->SetWorld(this);
 				Actor->RegisterAllComponents(this);
-}
+				Actor->BeginPlay();
+			}
         }
     }
 

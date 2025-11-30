@@ -46,6 +46,13 @@ void UPrimitiveComponent::OnUnregister()
     Super::OnUnregister();
 }
 
+void UPrimitiveComponent::OnTransformUpdated()
+{
+    Super::OnTransformUpdated();
+    if (bIsSyncingPhysicsToComponent) { return; }
+    BodyInstance.SetWorldTransform(GetWorldTransform(), false);
+}
+
 void UPrimitiveComponent::SetMaterialByName(uint32 InElementIndex, const FString& InMaterialName)
 {
     SetMaterial(InElementIndex, UResourceManager::GetInstance().Load<UMaterial>(InMaterialName));
@@ -54,6 +61,7 @@ void UPrimitiveComponent::SetMaterialByName(uint32 InElementIndex, const FString
 void UPrimitiveComponent::DuplicateSubObjects()
 {
     Super::DuplicateSubObjects();
+    BodyInstance = BodyInstance.DuplicateBodyInstance();
 }
 
 void UPrimitiveComponent::Serialize(const bool bInIsLoading, JSON& InOutHandle)
@@ -87,19 +95,29 @@ bool UPrimitiveComponent::IsOverlappingActor(const AActor* Other) const
 
 void UPrimitiveComponent::SyncComponentToPhysics()
 {
+    bIsSyncingPhysicsToComponent = true; 
+
     // 물리가 켜져 있고, 바디 인스턴스가 유효한 경우에만 동기화
     if (BodyInstance.IsValidBodyInstance() && IsSimulatingPhysics())
     {
-        // 1. 물리 엔진에서 계산된 최신 Transform을 가져옴
-        FTransform NewTransform = BodyInstance.GetWorldTransform();
-
-        // 2. 컴포넌트의 월드 트랜스폼 업데이트
-        SetWorldTransform(NewTransform);
+        FTransform PxWorldTransform = BodyInstance.GetWorldTransform();
+        SetWorldTransform(PxWorldTransform); 
     }
+    bIsSyncingPhysicsToComponent = false;
 }
 
 void UPrimitiveComponent::CreatePhysicsState()
 {
     FPhysicsScene* PhysScene = GetWorld() ? GetWorld()->GetPhysicsScene() : nullptr;
     BodyInstance.InitBody(GetBodySetup(), GetWorldTransform(), this, PhysScene);
+}
+
+void UPrimitiveComponent::RecreatePhysicsState()
+{
+    if (BodyInstance.IsValidBodyInstance())
+    {
+        BodyInstance.TermBody();
+    }
+
+    CreatePhysicsState();
 }

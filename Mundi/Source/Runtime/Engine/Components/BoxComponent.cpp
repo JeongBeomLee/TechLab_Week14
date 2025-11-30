@@ -38,6 +38,11 @@ void UBoxComponent::DuplicateSubObjects()
 
 void UBoxComponent::SetBoxExtent(const FVector& InExtent, bool bUpdateBoundsNow)
 {
+	if (BoxExtent.Equals(InExtent))
+	{
+		return; 
+	}
+	
 	BoxExtent = InExtent;
 
 	if (bUpdateBoundsNow)
@@ -56,6 +61,7 @@ void UBoxComponent::SetBoxExtent(const FVector& InExtent, bool bUpdateBoundsNow)
 				Partition->MarkDirty(this);
 			}
 		}
+		RecreatePhysicsState();
 	}
 }
 
@@ -287,9 +293,9 @@ UBodySetup* UBoxComponent::GetBodySetup()
 
 	FKBoxElem BoxElem;
     
-	BoxElem.X = BoxExtent.X * 2.0f;
-	BoxElem.Y = BoxExtent.Y * 2.0f;
-	BoxElem.Z = BoxExtent.Z * 2.0f;
+	BoxElem.X = BoxExtent.X;
+	BoxElem.Y = BoxExtent.Y;
+	BoxElem.Z = BoxExtent.Z;
     
 	BoxElem.Center = FVector::Zero();
 	BoxElem.Rotation = FQuat::Identity();

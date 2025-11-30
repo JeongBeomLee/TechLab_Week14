@@ -257,8 +257,5 @@ FAABB UShapeComponent::GetWorldAABB() const
 void UShapeComponent::DuplicateSubObjects()
 {
     Super::DuplicateSubObjects();
+    BodySetup = nullptr; 
 }
-
-
-
-

@@ -32,6 +32,8 @@ public:
     void OnRegister(UWorld* InWorld) override;
     void OnUnregister() override;
 
+    void OnTransformUpdated() override;
+
     virtual FAABB GetWorldAABB() const { return {}; }
 
     // 이 프리미티브를 렌더링하는 데 필요한 FMeshBatchElement를 수집합니다.
@@ -70,14 +72,20 @@ public:
 
     UPROPERTY(EditAnywhere, Category="Shape")
     bool bBlockComponent;
-    
+
 protected:
     void CreatePhysicsState();
+    
+public:
+    void RecreatePhysicsState();
     virtual class UBodySetup* GetBodySetup() { return nullptr; }
 
 public:
     UPROPERTY(EditAnywhere, Category="Physics")
     FBodyInstance BodyInstance;
+
+protected:
+    bool bIsSyncingPhysicsToComponent = false;
 
 public:
     // ───── 복사 관련 ────────────────────────────

@@ -13,6 +13,47 @@ FBodyInstance::~FBodyInstance()
     TermBody();
 }
 
+FBodyInstance FBodyInstance::DuplicateBodyInstance() const
+{
+    // --- 1. 기본 식별 및 재질 ---
+    FBodyInstance Other;
+    Other.BoneName = BoneName;
+    Other.PhysMaterialOverride = PhysMaterialOverride;
+    Other.Scale3D = Scale3D;
+
+    // --- 2. 시뮬레이션 설정 ---
+    Other.bSimulatePhysics = bSimulatePhysics;
+    Other.bEnableGravity = bEnableGravity;
+    Other.bStartAwake = bStartAwake;
+
+    // --- 3. 질량 설정 ---
+    Other.bOverrideMass = bOverrideMass;
+    Other.MassInKg = MassInKg;
+
+    // --- 4. 감쇠(Damping) ---
+    Other.LinearDamping = LinearDamping;
+    Other.AngularDamping = AngularDamping;
+
+    // --- 5. 충돌 설정 ---
+    Other.bCollisionEnabled = bCollisionEnabled;
+    Other.bIsTrigger = bIsTrigger;
+    Other.bNotifyRigidBodyCollision = bNotifyRigidBodyCollision;
+    Other.bUseCCD = bUseCCD;
+
+    // --- 6. 자유도 잠금(DOF Lock) ---
+    Other.bLockXLinear = bLockXLinear;
+    Other.bLockYLinear = bLockYLinear;
+    Other.bLockZLinear = bLockZLinear;
+    
+    Other.bLockXAngular = bLockXAngular;
+    Other.bLockYAngular = bLockYAngular;
+    Other.bLockZAngular = bLockZAngular;
+    
+    // --- 7. 기타 설정 ---
+    Other.SleepThresholdMultiplier = SleepThresholdMultiplier;
+    return Other;
+}
+
 void FBodyInstance::InitBody(UBodySetup* Setup, const FTransform& Transform, UPrimitiveComponent* PrimComp, FPhysicsScene* InRBScene)
 {
     if (!Setup || !Setup->HasValidShapes())
@@ -30,8 +71,6 @@ void FBodyInstance::InitBody(UBodySetup* Setup, const FTransform& Transform, UPr
     UPhysicalMaterial* MatToUse = PhysMaterialOverride ? PhysMaterialOverride : Setup->PhysMaterial;
     Setup->CreatePhysicsShapes(this, Scale3D, MatToUse);
     ApplyBodySetupSettings(Setup);
-
-    // 나중에는 InRBScene을 Finalize 함수에 넘겨줘야 함
     FinalizeInternalActor(InRBScene);
 }
 
@@ -49,7 +88,6 @@ void FBodyInstance::TermBody()
     }
     Shapes.Empty();
 }
-
 
 PxRigidDynamic* FBodyInstance::GetDynamicActor() const
 {
@@ -106,14 +144,32 @@ FTransform FBodyInstance::GetWorldTransform() const
 {
     if (RigidActor)
     {
-        // PhysX → 프로젝트 좌표계 변환
-        return PhysXConvert::FromPx(RigidActor->getGlobalPose());
+        physx::PxTransform PxT = RigidActor->getGlobalPose();
+        FTransform WorldTransform = PhysXConvert::FromPx(PxT); 
+        WorldTransform.Scale3D = Scale3D; 
+        
+        return WorldTransform;
     }
     return {};
 }
 
 void FBodyInstance::SetWorldTransform(const FTransform& NewTransform, bool bTeleport)
 {
+    FVector NewScale = NewTransform.Scale3D;
+    
+    if (!Scale3D.Equals(NewScale) < 1.e-4f) 
+    {
+        Scale3D = NewScale;
+        if (OwnerComponent)
+        {
+            // 컴포넌트한테 "나 다시 만들어줘!" 요청
+            // (내부적으로 TermBody() -> InitBody() 호출)
+            OwnerComponent->RecreatePhysicsState();
+        }
+        
+        return; 
+    }
+    
     if (!RigidActor) return;
 
     // 프로젝트 → PhysX 좌표계 변환
@@ -121,17 +177,21 @@ void FBodyInstance::SetWorldTransform(const FTransform& NewTransform, bool bTele
 
     if (PxRigidDynamic* DynamicActor = GetDynamicActor())
     {
-        if (bTeleport)
-        {
-            DynamicActor->setGlobalPose(PTransform);
-        }
-        else
+        bool bIsKinematic = DynamicActor->getRigidBodyFlags().isSet(PxRigidBodyFlag::eKINEMATIC);
+        // 키네마틱 상태이고 텔레포트(강제이동)가 아닐 때만 Target 사용
+        if (bIsKinematic && !bTeleport)
         {
             DynamicActor->setKinematicTarget(PTransform);
+        }
+        // 그 외 (물리 시뮬레이션 중이거나, 텔레포트 요청 시)
+        else
+        {
+            DynamicActor->setGlobalPose(PTransform);
         }
     }
     else
     {
+        // Static Actor는 무조건 GlobalPose
         RigidActor->setGlobalPose(PTransform);
     }
 }

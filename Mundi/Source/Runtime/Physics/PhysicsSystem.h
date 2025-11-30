@@ -12,6 +12,7 @@ public:
 
     void Initialize();
     void Shutdown();
+    void ReconnectPVD();
 
     // 공용 자원 접근자 (Getter)
     PxPhysics* GetPhysics() const { return mPhysics; }

@@ -57,3 +57,23 @@ void FPhysicsSystem::Shutdown()
 
     UE_LOG("[FPhysicsSystem] Shutdown Complete");
 }
+
+void FPhysicsSystem::ReconnectPVD()
+{
+    if (!mPvd) return;
+
+    if (mPvd->isConnected()) { mPvd->disconnect(); }
+
+    PxPvdTransport* transport = mPvd->getTransport();
+    
+    if (!transport || !transport->isConnected())
+    {
+        if (transport) transport->release();
+        transport = PxDefaultPvdSocketTransportCreate("127.0.0.1", 5425, 10);
+    }
+
+    if (transport)
+    {
+        mPvd->connect(*transport, PxPvdInstrumentationFlag::eALL);
+    }
+}

@@ -20,6 +20,9 @@ public:
     // 복사/이동 방지 (PhysX 리소스 관리)
     // FBodyInstance(const FBodyInstance&) = delete;
     // FBodyInstance& operator=(const FBodyInstance&) = delete;
+
+    // 다른 바디 인스턴스의 설정값만 복사 (PhysX 리소스는 건드리지 않음)
+    FBodyInstance DuplicateBodyInstance() const;
     
 // --- 초기화/해제 ---
 public:
@@ -60,9 +63,9 @@ public:
     bool IsSimulatePhysics() const { return bSimulatePhysics; }
     void SetSimulatePhysics(bool bInSimulatePhysics);
 private:
-    bool bSimulatePhysics = false;  // true=Dynamic, false=Static/Kinematic
+    bool bSimulatePhysics = true;  // true=Dynamic, false=Static/Kinematic
     
-// --- Simulate Physics ---
+// --- Gravity ---
 public:
     bool IsEnabledGravity() const { return bEnableGravity; }
     void SetEnableGravity(bool bInEnableGravity);
