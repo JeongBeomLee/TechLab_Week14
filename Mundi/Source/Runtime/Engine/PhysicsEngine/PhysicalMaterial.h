@@ -23,7 +23,7 @@ public:
     GENERATED_REFLECTION_BODY()
 
     UPhysicalMaterial();
-    virtual ~UPhysicalMaterial() override;
+    virtual ~UPhysicalMaterial();
 
 public:
     // ==============================================================================
@@ -84,6 +84,19 @@ public:
 
     /** 런타임에 속성 값이 변경되면 PhysX 재질 객체도 갱신합니다 */
     void UpdatePhysicsMaterial();
+
+    // ==============================================================================
+    // 직렬화
+    // ==============================================================================
+
+    /** 파일에서 로드 (ResourceManager 호출) */
+    void Load(const FString& InFilePath, ID3D11Device* InDevice);
+
+    /** 직렬화 (저장/로드 공용) */
+    virtual void Serialize(const bool bInIsLoading, JSON& InOutHandle) override;
+
+    /** 복제 (Deep Copy) */
+    virtual void DuplicateSubObjects() override;
 
 protected:
     /** PhysX 재질 인스턴스 (런타임 캐싱용) */

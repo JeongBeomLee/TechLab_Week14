@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "PhysXSupport.h"
+#include "PhysicalMaterial.h"
 
 #include <thread>
 
