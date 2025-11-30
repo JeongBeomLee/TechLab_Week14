@@ -460,6 +460,7 @@ xcopy /y /d "$(ProjectDir)ThirdParty\lib\physx\$(Configuration)\*.dll" "$(OutDir
     <ClCompile Include="Source\Slate\Widgets\PropertyRenderer.cpp" />
     <ClCompile Include="Source\Slate\Widgets\CurveEditorWidget.cpp" />
     <ClCompile Include="Source\Slate\Windows\ContentBrowserWindow.cpp" />
+    <ClCompile Include="Source\Slate\Windows\PhysicalMaterialEditorWindow.cpp" />
     <ClCompile Include="Source\Slate\Windows\SAnimationViewerWindow.cpp" />
     <ClCompile Include="Source\Slate\Windows\SBlendSpaceEditorWindow.cpp" />
     <ClCompile Include="Source\Slate\Windows\SParticleEditorWindow.cpp" />
@@ -1020,6 +1021,7 @@ xcopy /y /d "$(ProjectDir)ThirdParty\lib\physx\$(Configuration)\*.dll" "$(OutDir
     <ClInclude Include="Source\Slate\Widgets\PropertyRenderer.h" />
     <ClInclude Include="Source\Slate\Widgets\CurveEditorWidget.h" />
     <ClInclude Include="Source\Slate\Windows\ContentBrowserWindow.h" />
+    <ClInclude Include="Source\Slate\Windows\PhysicalMaterialEditorWindow.h" />
     <ClInclude Include="Source\Slate\Windows\SAnimationViewerWindow.h" />
     <ClInclude Include="Source\Slate\Windows\SBlendSpaceEditorWindow.h" />
     <ClInclude Include="Source\Slate\Windows\SParticleEditorWindow.h" />

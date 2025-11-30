@@ -18,11 +18,15 @@ void UBodySetup::AddShapesToRigidActor_AssumesLocked(FBodyInstance* OwningInstan
         return;
     }
 
-    PxMaterial* PhysMaterialToUse = PhysMaterial->GetPxMaterial();
-    if (!PhysMaterialToUse)
+    PxMaterial* PhysMaterialToUse;
+    if (!PhysMaterial)
     {
         assert(GPhysicalMaterial);
         PhysMaterialToUse = GPhysicalMaterial->GetPxMaterial();
+    }
+    else
+    {
+        PhysMaterialToUse = PhysMaterial->GetPxMaterial();
     }
 
     // ====================================================================
