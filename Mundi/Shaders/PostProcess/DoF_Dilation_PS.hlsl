@@ -3,36 +3,41 @@
 Texture2D<float4> g_CoCTexture : register(t0);  // CoC Map (R=Far, G=Near, B=?, A=Depth)
 SamplerState g_PointSampler : register(s0);
 
-// Dilation: 주변 픽셀의 최소 CoC를 찾아서 전경 영역 확장
-// (작은 CoC = 선명 = 전경이므로, Min Filter가 전경을 확장시킴)
+// Dilation: 주변 픽셀의 최대 CoC를 찾아서 블러 영역 확장
+// Near CoC는 최대값, Far CoC는 최대값을 사용하여 경계를 부드럽게 처리
 float4 mainPS(float4 position : SV_Position, float2 texcoord : TEXCOORD0) : SV_Target
 {
     // 픽셀 오프셋 (텍스처 공간)
     float2 pixelSize = ScreenSize.zw; // (1/width, 1/height)
 
-    // 초기값: 충분히 큰 값 (min 연산에서 실제 값으로 대체됨)
-    float minFarCoC = 1.0;
-    float minNearCoC = 1.0;
-
-    // 중심 픽셀의 b, a 채널 보존용 (루프 중 한 번만 샘플링)
+    // 중심 픽셀의 CoC 값
     float4 centerCoC = g_CoCTexture.Sample(g_PointSampler, texcoord);
 
-    // 3x3 영역에서 최소 CoC 값 찾기 (전경 확장)
+    // 초기값: 중심 픽셀 값
+    float maxFarCoC = centerCoC.r;
+    float maxNearCoC = centerCoC.g;
+
+    // 5x5 영역에서 최대 CoC 값 찾기 (블러 영역 확장)
+    // 더 넓은 커널로 경계를 부드럽게 처리
     [unroll]
-    for (int y = -1; y <= 1; ++y)
+    for (int y = -2; y <= 2; ++y)
     {
         [unroll]
-        for (int x = -1; x <= 1; ++x)
+        for (int x = -2; x <= 2; ++x)
         {
+            // 중심 픽셀은 이미 처리했으므로 스킵
+            if (x == 0 && y == 0)
+                continue;
+
             float2 offset = float2(x, y) * pixelSize;
             float4 sampleCoC = g_CoCTexture.Sample(g_PointSampler, texcoord + offset);
 
-            // 최소값 찾기 (전경이 주변으로 확장됨)
-            minFarCoC = min(minFarCoC, sampleCoC.r);
-            minNearCoC = min(minNearCoC, sampleCoC.g);
+            // 최대값 찾기 (블러 영역이 주변으로 확장됨)
+            maxFarCoC = max(maxFarCoC, sampleCoC.r);
+            maxNearCoC = max(maxNearCoC, sampleCoC.g);
         }
     }
 
-    // Dilated CoC 반환
-    return float4(minFarCoC, minNearCoC, centerCoC.b, centerCoC.a);
+    // Dilated CoC 반환 (depth는 원본 유지)
+    return float4(maxFarCoC, maxNearCoC, centerCoC.b, centerCoC.a);
 }

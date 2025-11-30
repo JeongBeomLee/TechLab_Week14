@@ -22,6 +22,10 @@ void FDepthOfFieldPass::Execute(const FPostProcessModifier& M, FSceneView* View,
 	// [필수] B. CoC 계산
 	ExecuteCoCPass(M, View, RHIDevice);
 
+	// [선택] E. Dilation
+	// 전경 픽셀을 외곽으로 확대하여 경계 아티팩트 제거
+	ExecuteDilationPass(View, RHIDevice);
+
 
 	// ============================================================
 	// (2) Blur 단계
@@ -31,15 +35,25 @@ void FDepthOfFieldPass::Execute(const FPostProcessModifier& M, FSceneView* View,
 	//ExecutePreFilterPass(View, RHIDevice);
 
 	// [선택] D. Near/Far Split
-	//ExecuteNearFarSplitPass(View, RHIDevice);
+	// Near와 Far 영역을 분리하여 각각 독립적으로 블러 적용 (아티팩트 절단)
+	ExecuteNearFarSplitPass(View, RHIDevice);
 
-	// [선택] E. Dilation
-	ExecuteDilationPass(View, RHIDevice);
+	// [필수] F. Hex Blur (3-pass) - Near/Far 분리 방식
 
-	// [필수] F. Hex Blur (3-pass)
-	ExecuteHexBlurPass1(View, RHIDevice);
-	ExecuteHexBlurPass2(View, RHIDevice);
-	ExecuteHexBlurPass3(View, RHIDevice);
+	// 1) Near 필드 블러 (3-pass hex blur, Float16 유지)
+	ExecuteNearHexBlurPass1(View, RHIDevice);  // DofNearMap → DofBlurTarget
+	ExecuteNearHexBlurPass2(View, RHIDevice);  // DofBlurTarget → DofNearTarget
+	ExecuteNearHexBlurPass3(View, RHIDevice);  // DofNearTarget → DofBlurTarget
+	ExecuteCopyBlurToNearTarget(View, RHIDevice);  // DofBlurTarget → DofNearTarget (최종)
+
+	// 2) Far 필드 블러 (3-pass hex blur, Float16 유지)
+	ExecuteFarHexBlurPass1(View, RHIDevice);  // DofFarMap → DofBlurTarget
+	ExecuteFarHexBlurPass2(View, RHIDevice);  // DofBlurTarget → DofFarTarget
+	ExecuteFarHexBlurPass3(View, RHIDevice);  // DofFarTarget → DofBlurTarget
+	ExecuteCopyBlurToFarTarget(View, RHIDevice);  // DofBlurTarget → DofFarTarget (최종)
+
+	// 3) Near와 Far 블러 결과 병합
+	ExecuteMergeNearFarPass(View, RHIDevice);
 
 	// [선택] G. Upscale
 	//ExecuteUpscalePass(View, RHIDevice);
@@ -153,14 +167,6 @@ void FDepthOfFieldPass::ExecuteCoCPass(const FPostProcessModifier& M, FSceneView
 	Swap.Commit();
 }
 
-void FDepthOfFieldPass::ExecutePreFilterPass(FSceneView* View, D3D11RHI* RHIDevice)
-{
-}
-
-void FDepthOfFieldPass::ExecuteNearFarSplitPass(FSceneView* View, D3D11RHI* RHIDevice)
-{
-}
-
 void FDepthOfFieldPass::ExecuteDilationPass(FSceneView* View, D3D11RHI* RHIDevice)
 {
 	// Dilation Pass: CoC 맵을 확장하여 전경 영역 보호
@@ -234,55 +240,16 @@ void FDepthOfFieldPass::ExecuteDilationPass(FSceneView* View, D3D11RHI* RHIDevic
 	}
 }
 
-void FDepthOfFieldPass::ExecuteHexBlurPass1(FSceneView* View, D3D11RHI* RHIDevice)
+
+void FDepthOfFieldPass::ExecutePreFilterPass(FSceneView* View, D3D11RHI* RHIDevice)
 {
-	// 이전 패스의 RTV/SRV 완전히 언바인드
-	ID3D11RenderTargetView* nullRTV = nullptr;
-	RHIDevice->GetDeviceContext()->OMSetRenderTargets(1, &nullRTV, nullptr);
-
-	ID3D11ShaderResourceView* nullSRVs[2] = { nullptr, nullptr };
-	RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 2, nullSRVs);
-
-	// SwapGuard가 SwapRenderTargets()를 호출
-	FSwapGuard Swap(RHIDevice, 0, 2);
-
-	// 새로운 RTV 설정
-	RHIDevice->OMSetRenderTargets(ERTVMode::DofBlurTarget);
-
-	RHIDevice->OMSetDepthStencilState(EComparisonFunc::Always);
-	RHIDevice->OMSetBlendState(false);
-
-	UShader* VS = UResourceManager::GetInstance().Load<UShader>("Shaders/Utility/FullScreenTriangle_VS.hlsl");
-	UShader* PS = UResourceManager::GetInstance().Load<UShader>("Shaders/PostProcess/DoF_HexBlur1_PS.hlsl");
-	if (!VS || !VS->GetVertexShader() || !PS || !PS->GetPixelShader())
-	{
-		UE_LOG("DoF HexBlur1 셰이더 없음!\n");
-		return;
-	}
-
-	RHIDevice->PrepareShader(VS, PS);
-
-	ID3D11ShaderResourceView* Srvs[2] = {
-		RHIDevice->GetSRV(RHI_SRV_Index::SceneColorSource),
-		RHIDevice->GetSRV(RHI_SRV_Index::DofCocMap)
-	};
-	ID3D11SamplerState* LinearClampSampler = RHIDevice->GetSamplerState(RHI_Sampler_Index::LinearClamp);
-	if (!Srvs[0] || !Srvs[1] || !LinearClampSampler)
-	{
-		UE_LOG("DoF HexBlur1: Required SRVs or Samplers are null!\n");
-		return;
-	}
-
-	RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 2, Srvs);
-	RHIDevice->GetDeviceContext()->PSSetSamplers(0, 1, &LinearClampSampler);
-
-	RHIDevice->DrawFullScreenQuad();
-
-	Swap.Commit();
 }
 
-void FDepthOfFieldPass::ExecuteHexBlurPass2(FSceneView* View, D3D11RHI* RHIDevice)
+void FDepthOfFieldPass::ExecuteNearFarSplitPass(FSceneView* View, D3D11RHI* RHIDevice)
 {
+	// Near/Far Split Pass: CoC 맵을 기반으로 Near와 Far 영역을 분리
+	// 이를 통해 전경/배경 블러를 독립적으로 처리하여 아티팩트 제거
+
 	// 이전 패스의 RTV/SRV 완전히 언바인드
 	ID3D11RenderTargetView* nullRTV = nullptr;
 	RHIDevice->GetDeviceContext()->OMSetRenderTargets(1, &nullRTV, nullptr);
@@ -290,83 +257,59 @@ void FDepthOfFieldPass::ExecuteHexBlurPass2(FSceneView* View, D3D11RHI* RHIDevic
 	ID3D11ShaderResourceView* nullSRVs[2] = { nullptr, nullptr };
 	RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 2, nullSRVs);
 
-	// SwapGuard가 SwapRenderTargets()를 호출
-	FSwapGuard Swap(RHIDevice, 0, 2);
+	// Near와 Far 타겟을 Multiple Render Targets(MRT)로 설정
+	ID3D11RenderTargetView* RTVs[2] = {
+		RHIDevice->GetDofNearRTV(),
+		RHIDevice->GetDofFarRTV()
+	};
+	RHIDevice->OMSetCustomRenderTargets(2, RTVs, nullptr);
 
-	// DofCoCTarget을 덮어쓰면 안됨! SceneColorTarget을 임시 타겟으로 활용
-	RHIDevice->OMSetRenderTargets(ERTVMode::SceneColorTargetWithoutDepth);
+	// 렌더 타겟 클리어 (이전 프레임 데이터 제거)
+	float clearColor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+	RHIDevice->GetDeviceContext()->ClearRenderTargetView(RHIDevice->GetDofNearRTV(), clearColor);
+	RHIDevice->GetDeviceContext()->ClearRenderTargetView(RHIDevice->GetDofFarRTV(), clearColor);
 
+	// Depth State: Depth Test/Write 모두 OFF
 	RHIDevice->OMSetDepthStencilState(EComparisonFunc::Always);
 	RHIDevice->OMSetBlendState(false);
 
-	UShader* VS = UResourceManager::GetInstance().Load<UShader>("Shaders/Utility/FullScreenTriangle_VS.hlsl");
-	UShader* PS = UResourceManager::GetInstance().Load<UShader>("Shaders/PostProcess/DoF_HexBlur2_PS.hlsl");
-	if (!VS || !VS->GetVertexShader() || !PS || !PS->GetPixelShader())
+	// 셰이더 로드
+	UShader* FullScreenTriangleVS = UResourceManager::GetInstance().Load<UShader>("Shaders/Utility/FullScreenTriangle_VS.hlsl");
+	UShader* NearFarSplitPS = UResourceManager::GetInstance().Load<UShader>("Shaders/PostProcess/DoF_NearFarSplit_PS.hlsl");
+	if (!FullScreenTriangleVS || !FullScreenTriangleVS->GetVertexShader() || !NearFarSplitPS || !NearFarSplitPS->GetPixelShader())
 	{
-		UE_LOG("DoF HexBlur2 셰이더 없음!\n");
+		UE_LOG("DoF NearFarSplit 셰이더 없음!\n");
 		return;
 	}
 
-	RHIDevice->PrepareShader(VS, PS);
+	RHIDevice->PrepareShader(FullScreenTriangleVS, NearFarSplitPS);
 
-	ID3D11ShaderResourceView* Srvs[2] = {
-		RHIDevice->GetSRV(RHI_SRV_Index::DofBlurMap), // Pass1의 결과
-		RHIDevice->GetSRV(RHI_SRV_Index::DofCocMap)
-	};
+	// SRV/Sampler (원본 씬 컬러 + CoC 맵)
+	ID3D11ShaderResourceView* SceneSRV = RHIDevice->GetSRV(RHI_SRV_Index::SceneColorSource);
+	ID3D11ShaderResourceView* CoCMapSRV = RHIDevice->GetSRV(RHI_SRV_Index::DofCocMap);
 	ID3D11SamplerState* LinearClampSampler = RHIDevice->GetSamplerState(RHI_Sampler_Index::LinearClamp);
-	if (!Srvs[0] || !Srvs[1] || !LinearClampSampler)
+
+	if (!SceneSRV || !CoCMapSRV || !LinearClampSampler)
 	{
-		UE_LOG("DoF HexBlur2: Required SRVs or Samplers are null!\n");
+		UE_LOG("DoF NearFarSplit: Required SRVs or Samplers are null!\n");
 		return;
 	}
 
+	ID3D11ShaderResourceView* Srvs[2] = { SceneSRV, CoCMapSRV };
 	RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 2, Srvs);
-	RHIDevice->GetDeviceContext()->PSSetSamplers(0, 1, &LinearClampSampler);
 
+	ID3D11SamplerState* Smps[1] = { LinearClampSampler };
+	RHIDevice->GetDeviceContext()->PSSetSamplers(0, 1, Smps);
+
+	// Draw
 	RHIDevice->DrawFullScreenQuad();
 
-	Swap.Commit();
-}
-
-void FDepthOfFieldPass::ExecuteHexBlurPass3(FSceneView* View, D3D11RHI* RHIDevice)
-{
-	// 이전 패스의 RTV/SRV 완전히 언바인드
-	ID3D11RenderTargetView* nullRTV = nullptr;
-	RHIDevice->GetDeviceContext()->OMSetRenderTargets(1, &nullRTV, nullptr);
-
-	ID3D11ShaderResourceView* nullSRVs[2] = { nullptr, nullptr };
+	// SRV 언바인드 (다음 패스를 위해)
 	RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 2, nullSRVs);
 
-	// SwapGuard가 SwapRenderTargets()를 호출
-	FSwapGuard Swap(RHIDevice, 0, 2);
-
-	// 새로운 RTV 설정
-	RHIDevice->OMSetRenderTargets(ERTVMode::DofBlurTarget);
-
-	RHIDevice->OMSetDepthStencilState(EComparisonFunc::Always);
-	RHIDevice->OMSetBlendState(false);
-
-	UShader* VS = UResourceManager::GetInstance().Load<UShader>("Shaders/Utility/FullScreenTriangle_VS.hlsl");
-	UShader* PS = UResourceManager::GetInstance().Load<UShader>("Shaders/PostProcess/DoF_HexBlur3_PS.hlsl");
-	if (!VS || !VS->GetVertexShader() || !PS || !PS->GetPixelShader())
-	{
-		UE_LOG("DoF HexBlur3 셰이더 없음!\n");
-		return;
-	}
-
-	RHIDevice->PrepareShader(VS, PS);
-
-	ID3D11ShaderResourceView* Srvs[2] = {
-		RHIDevice->GetSRV(RHI_SRV_Index::SceneColorSource), // Pass2의 결과
-		RHIDevice->GetSRV(RHI_SRV_Index::DofCocMap)
-	};
-	ID3D11SamplerState* LinearClampSampler = RHIDevice->GetSamplerState(RHI_Sampler_Index::LinearClamp);
-	RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 2, Srvs);
-	RHIDevice->GetDeviceContext()->PSSetSamplers(0, 1, &LinearClampSampler);
-
-	RHIDevice->DrawFullScreenQuad();
-
-	Swap.Commit();
+	// RTV 언바인드 (RTV/SRV 충돌 방지 - Near/Far 타겟을 다음 패스에서 SRV로 읽을 것이므로)
+	ID3D11RenderTargetView* nullRTVs[2] = { nullptr, nullptr };
+	RHIDevice->GetDeviceContext()->OMSetRenderTargets(2, nullRTVs, nullptr);
 }
 
 void FDepthOfFieldPass::ExecuteUpscalePass(FSceneView* View, D3D11RHI* RHIDevice)
@@ -375,6 +318,342 @@ void FDepthOfFieldPass::ExecuteUpscalePass(FSceneView* View, D3D11RHI* RHIDevice
 
 void FDepthOfFieldPass::ExecuteTemporalBlendPass(FSceneView* View, D3D11RHI* RHIDevice)
 {
+}
+
+void FDepthOfFieldPass::ExecuteNearHexBlurPass1(FSceneView* View, D3D11RHI* RHIDevice)
+{
+	// Near 필드에 대한 첫 번째 Hex Blur 패스 (0도 방향)
+	// DofNearMap → DofNearTarget (Float16 유지)
+	ID3D11RenderTargetView* nullRTV = nullptr;
+	RHIDevice->GetDeviceContext()->OMSetRenderTargets(1, &nullRTV, nullptr);
+
+	ID3D11ShaderResourceView* nullSRVs[2] = { nullptr, nullptr };
+	RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 2, nullSRVs);
+
+	FSwapGuard Swap(RHIDevice, 0, 2);
+	RHIDevice->OMSetRenderTargets(ERTVMode::DofBlurTarget);
+	RHIDevice->OMSetDepthStencilState(EComparisonFunc::Always);
+	RHIDevice->OMSetBlendState(false);
+
+	UShader* VS = UResourceManager::GetInstance().Load<UShader>("Shaders/Utility/FullScreenTriangle_VS.hlsl");
+	UShader* PS = UResourceManager::GetInstance().Load<UShader>("Shaders/PostProcess/DoF_SeparatedBlur1_PS.hlsl");
+	if (!VS || !VS->GetVertexShader() || !PS || !PS->GetPixelShader())
+	{
+		UE_LOG("DoF Near HexBlur1 셰이더 없음!\n");
+		return;
+	}
+
+	RHIDevice->PrepareShader(VS, PS);
+
+	ID3D11ShaderResourceView* Srvs[2] = {
+		RHIDevice->GetSRV(RHI_SRV_Index::DofNearMap),  // Near 필드 입력
+		RHIDevice->GetSRV(RHI_SRV_Index::DofCocMap)
+	};
+	ID3D11SamplerState* LinearClampSampler = RHIDevice->GetSamplerState(RHI_Sampler_Index::LinearClamp);
+
+	RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 2, Srvs);
+	RHIDevice->GetDeviceContext()->PSSetSamplers(0, 1, &LinearClampSampler);
+
+	RHIDevice->DrawFullScreenQuad();
+	Swap.Commit();
+}
+
+void FDepthOfFieldPass::ExecuteNearHexBlurPass2(FSceneView* View, D3D11RHI* RHIDevice)
+{
+	// Near 필드에 대한 두 번째 Hex Blur 패스 (60도 방향)
+	// Pass1(DofBlurTarget) → Pass2(DofNearTarget) - Float16 유지
+	ID3D11RenderTargetView* nullRTV = nullptr;
+	RHIDevice->GetDeviceContext()->OMSetRenderTargets(1, &nullRTV, nullptr);
+
+	ID3D11ShaderResourceView* nullSRVs[2] = { nullptr, nullptr };
+	RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 2, nullSRVs);
+
+	FSwapGuard Swap(RHIDevice, 0, 2);
+	RHIDevice->OMSetRenderTargets(ERTVMode::DofNearTarget);  // Float16 타겟 사용
+	RHIDevice->OMSetDepthStencilState(EComparisonFunc::Always);
+	RHIDevice->OMSetBlendState(false);
+
+	UShader* VS = UResourceManager::GetInstance().Load<UShader>("Shaders/Utility/FullScreenTriangle_VS.hlsl");
+	UShader* PS = UResourceManager::GetInstance().Load<UShader>("Shaders/PostProcess/DoF_SeparatedBlur2_PS.hlsl");
+	if (!VS || !VS->GetVertexShader() || !PS || !PS->GetPixelShader())
+	{
+		UE_LOG("DoF Near HexBlur2 셰이더 없음!\n");
+		return;
+	}
+
+	RHIDevice->PrepareShader(VS, PS);
+
+	ID3D11ShaderResourceView* Srvs[2] = {
+		RHIDevice->GetSRV(RHI_SRV_Index::DofBlurMap),  // Pass1의 결과
+		RHIDevice->GetSRV(RHI_SRV_Index::DofCocMap)
+	};
+	ID3D11SamplerState* LinearClampSampler = RHIDevice->GetSamplerState(RHI_Sampler_Index::LinearClamp);
+
+	RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 2, Srvs);
+	RHIDevice->GetDeviceContext()->PSSetSamplers(0, 1, &LinearClampSampler);
+
+	RHIDevice->DrawFullScreenQuad();
+	Swap.Commit();
+}
+
+void FDepthOfFieldPass::ExecuteNearHexBlurPass3(FSceneView* View, D3D11RHI* RHIDevice)
+{
+	// Near 필드에 대한 세 번째 Hex Blur 패스 (120도 방향)
+	// Pass2(DofNearTarget) → Pass3(DofBlurTarget) - Float16 유지
+	ID3D11RenderTargetView* nullRTV = nullptr;
+	RHIDevice->GetDeviceContext()->OMSetRenderTargets(1, &nullRTV, nullptr);
+
+	ID3D11ShaderResourceView* nullSRVs[2] = { nullptr, nullptr };
+	RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 2, nullSRVs);
+
+	FSwapGuard Swap(RHIDevice, 0, 2);
+	RHIDevice->OMSetRenderTargets(ERTVMode::DofBlurTarget);  // Float16 타겟 사용
+	RHIDevice->OMSetDepthStencilState(EComparisonFunc::Always);
+	RHIDevice->OMSetBlendState(false);
+
+	UShader* VS = UResourceManager::GetInstance().Load<UShader>("Shaders/Utility/FullScreenTriangle_VS.hlsl");
+	UShader* PS = UResourceManager::GetInstance().Load<UShader>("Shaders/PostProcess/DoF_SeparatedBlur3_PS.hlsl");
+	if (!VS || !VS->GetVertexShader() || !PS || !PS->GetPixelShader())
+	{
+		UE_LOG("DoF Near HexBlur3 셰이더 없음!\n");
+		return;
+	}
+
+	RHIDevice->PrepareShader(VS, PS);
+
+	ID3D11ShaderResourceView* Srvs[2] = {
+		RHIDevice->GetSRV(RHI_SRV_Index::DofNearMap),  // Pass2의 결과 (DofNearTarget에서)
+		RHIDevice->GetSRV(RHI_SRV_Index::DofCocMap)
+	};
+	ID3D11SamplerState* LinearClampSampler = RHIDevice->GetSamplerState(RHI_Sampler_Index::LinearClamp);
+
+	RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 2, Srvs);
+	RHIDevice->GetDeviceContext()->PSSetSamplers(0, 1, &LinearClampSampler);
+
+	RHIDevice->DrawFullScreenQuad();
+	Swap.Commit();
+}
+
+void FDepthOfFieldPass::ExecuteFarHexBlurPass1(FSceneView* View, D3D11RHI* RHIDevice)
+{
+	// Far 필드에 대한 첫 번째 Hex Blur 패스 (0도 방향)
+	// DofFarMap → DofBlurTarget
+	ID3D11RenderTargetView* nullRTV = nullptr;
+	RHIDevice->GetDeviceContext()->OMSetRenderTargets(1, &nullRTV, nullptr);
+
+	ID3D11ShaderResourceView* nullSRVs[2] = { nullptr, nullptr };
+	RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 2, nullSRVs);
+
+	FSwapGuard Swap(RHIDevice, 0, 2);
+	RHIDevice->OMSetRenderTargets(ERTVMode::DofBlurTarget);  // 임시 타겟 사용
+	RHIDevice->OMSetDepthStencilState(EComparisonFunc::Always);
+	RHIDevice->OMSetBlendState(false);
+
+	UShader* VS = UResourceManager::GetInstance().Load<UShader>("Shaders/Utility/FullScreenTriangle_VS.hlsl");
+	UShader* PS = UResourceManager::GetInstance().Load<UShader>("Shaders/PostProcess/DoF_SeparatedBlur1_PS.hlsl");
+	if (!VS || !VS->GetVertexShader() || !PS || !PS->GetPixelShader())
+	{
+		UE_LOG("DoF Far HexBlur1 셰이더 없음!\n");
+		return;
+	}
+
+	RHIDevice->PrepareShader(VS, PS);
+
+	ID3D11ShaderResourceView* Srvs[2] = {
+		RHIDevice->GetSRV(RHI_SRV_Index::DofFarMap),  // Far 필드 입력
+		RHIDevice->GetSRV(RHI_SRV_Index::DofCocMap)
+	};
+	ID3D11SamplerState* LinearClampSampler = RHIDevice->GetSamplerState(RHI_Sampler_Index::LinearClamp);
+
+	RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 2, Srvs);
+	RHIDevice->GetDeviceContext()->PSSetSamplers(0, 1, &LinearClampSampler);
+
+	RHIDevice->DrawFullScreenQuad();
+	Swap.Commit();
+}
+
+void FDepthOfFieldPass::ExecuteFarHexBlurPass2(FSceneView* View, D3D11RHI* RHIDevice)
+{
+	// Far 필드에 대한 두 번째 Hex Blur 패스 (60도 방향)
+	// Pass1(DofBlurTarget) → Pass2(DofFarTarget) - Float16 유지
+	ID3D11RenderTargetView* nullRTV = nullptr;
+	RHIDevice->GetDeviceContext()->OMSetRenderTargets(1, &nullRTV, nullptr);
+
+	ID3D11ShaderResourceView* nullSRVs[2] = { nullptr, nullptr };
+	RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 2, nullSRVs);
+
+	FSwapGuard Swap(RHIDevice, 0, 2);
+	RHIDevice->OMSetRenderTargets(ERTVMode::DofFarTarget);  // Float16 타겟 사용
+	RHIDevice->OMSetDepthStencilState(EComparisonFunc::Always);
+	RHIDevice->OMSetBlendState(false);
+
+	UShader* VS = UResourceManager::GetInstance().Load<UShader>("Shaders/Utility/FullScreenTriangle_VS.hlsl");
+	UShader* PS = UResourceManager::GetInstance().Load<UShader>("Shaders/PostProcess/DoF_SeparatedBlur2_PS.hlsl");
+	if (!VS || !VS->GetVertexShader() || !PS || !PS->GetPixelShader())
+	{
+		UE_LOG("DoF Far HexBlur2 셰이더 없음!\n");
+		return;
+	}
+
+	RHIDevice->PrepareShader(VS, PS);
+
+	ID3D11ShaderResourceView* Srvs[2] = {
+		RHIDevice->GetSRV(RHI_SRV_Index::DofBlurMap),  // Pass1의 결과
+		RHIDevice->GetSRV(RHI_SRV_Index::DofCocMap)
+	};
+	ID3D11SamplerState* LinearClampSampler = RHIDevice->GetSamplerState(RHI_Sampler_Index::LinearClamp);
+
+	RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 2, Srvs);
+	RHIDevice->GetDeviceContext()->PSSetSamplers(0, 1, &LinearClampSampler);
+
+	RHIDevice->DrawFullScreenQuad();
+	Swap.Commit();
+}
+
+void FDepthOfFieldPass::ExecuteFarHexBlurPass3(FSceneView* View, D3D11RHI* RHIDevice)
+{
+	// Far 필드에 대한 세 번째 Hex Blur 패스 (120도 방향)
+	// Pass2(DofFarTarget) → Pass3(DofBlurTarget) - Float16 유지
+	ID3D11RenderTargetView* nullRTV = nullptr;
+	RHIDevice->GetDeviceContext()->OMSetRenderTargets(1, &nullRTV, nullptr);
+
+	ID3D11ShaderResourceView* nullSRVs[2] = { nullptr, nullptr };
+	RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 2, nullSRVs);
+
+	FSwapGuard Swap(RHIDevice, 0, 2);
+	RHIDevice->OMSetRenderTargets(ERTVMode::DofBlurTarget);  // Float16 타겟 사용
+	RHIDevice->OMSetDepthStencilState(EComparisonFunc::Always);
+	RHIDevice->OMSetBlendState(false);
+
+	UShader* VS = UResourceManager::GetInstance().Load<UShader>("Shaders/Utility/FullScreenTriangle_VS.hlsl");
+	UShader* PS = UResourceManager::GetInstance().Load<UShader>("Shaders/PostProcess/DoF_SeparatedBlur3_PS.hlsl");
+	if (!VS || !VS->GetVertexShader() || !PS || !PS->GetPixelShader())
+	{
+		UE_LOG("DoF Far HexBlur3 셰이더 없음!\n");
+		return;
+	}
+
+	RHIDevice->PrepareShader(VS, PS);
+
+	ID3D11ShaderResourceView* Srvs[2] = {
+		RHIDevice->GetSRV(RHI_SRV_Index::DofFarMap),  // Pass2의 결과 (DofFarTarget에서)
+		RHIDevice->GetSRV(RHI_SRV_Index::DofCocMap)
+	};
+	ID3D11SamplerState* LinearClampSampler = RHIDevice->GetSamplerState(RHI_Sampler_Index::LinearClamp);
+
+	RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 2, Srvs);
+	RHIDevice->GetDeviceContext()->PSSetSamplers(0, 1, &LinearClampSampler);
+
+	RHIDevice->DrawFullScreenQuad();
+	Swap.Commit();
+}
+
+void FDepthOfFieldPass::ExecuteCopyBlurToNearTarget(FSceneView* View, D3D11RHI* RHIDevice)
+{
+	// DofBlurTarget → DofNearTarget 복사 (Float16 유지)
+	// 8-bit SceneColorTarget을 거치지 않고 직접 복사하여 HDR 데이터 보존
+	ID3D11RenderTargetView* nullRTV = nullptr;
+	RHIDevice->GetDeviceContext()->OMSetRenderTargets(1, &nullRTV, nullptr);
+
+	ID3D11ShaderResourceView* nullSRV = nullptr;
+	RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 1, &nullSRV);
+
+	FSwapGuard Swap(RHIDevice, 0, 1);
+	RHIDevice->OMSetRenderTargets(ERTVMode::DofNearTarget);  // Near 최종 결과 저장 (Float16)
+	RHIDevice->OMSetDepthStencilState(EComparisonFunc::Always);
+	RHIDevice->OMSetBlendState(false);
+
+	UShader* VS = UResourceManager::GetInstance().Load<UShader>("Shaders/Utility/FullScreenTriangle_VS.hlsl");
+	UShader* PS = UResourceManager::GetInstance().Load<UShader>("Shaders/PostProcess/Passthrough_PS.hlsl");
+	if (!VS || !VS->GetVertexShader() || !PS || !PS->GetPixelShader())
+	{
+		UE_LOG("DoF Copy to Near 셰이더 없음!\n");
+		return;
+	}
+
+	RHIDevice->PrepareShader(VS, PS);
+
+	ID3D11ShaderResourceView* BlurSRV = RHIDevice->GetSRV(RHI_SRV_Index::DofBlurMap);  // Pass1의 결과
+	ID3D11SamplerState* PointSampler = RHIDevice->GetSamplerState(RHI_Sampler_Index::PointClamp);
+
+	RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 1, &BlurSRV);
+	RHIDevice->GetDeviceContext()->PSSetSamplers(0, 1, &PointSampler);
+
+	RHIDevice->DrawFullScreenQuad();
+	Swap.Commit();
+}
+
+void FDepthOfFieldPass::ExecuteCopyBlurToFarTarget(FSceneView* View, D3D11RHI* RHIDevice)
+{
+	// DofBlurTarget → DofFarTarget 복사 (Float16 유지)
+	// 8-bit SceneColorTarget을 거치지 않고 직접 복사하여 HDR 데이터 보존
+	ID3D11RenderTargetView* nullRTV = nullptr;
+	RHIDevice->GetDeviceContext()->OMSetRenderTargets(1, &nullRTV, nullptr);
+
+	ID3D11ShaderResourceView* nullSRV = nullptr;
+	RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 1, &nullSRV);
+
+	FSwapGuard Swap(RHIDevice, 0, 1);
+	RHIDevice->OMSetRenderTargets(ERTVMode::DofFarTarget);  // Far 최종 결과 저장 (Float16)
+	RHIDevice->OMSetDepthStencilState(EComparisonFunc::Always);
+	RHIDevice->OMSetBlendState(false);
+
+	UShader* VS = UResourceManager::GetInstance().Load<UShader>("Shaders/Utility/FullScreenTriangle_VS.hlsl");
+	UShader* PS = UResourceManager::GetInstance().Load<UShader>("Shaders/PostProcess/Passthrough_PS.hlsl");
+	if (!VS || !VS->GetVertexShader() || !PS || !PS->GetPixelShader())
+	{
+		UE_LOG("DoF Copy to Far 셰이더 없음!\n");
+		return;
+	}
+
+	RHIDevice->PrepareShader(VS, PS);
+
+	ID3D11ShaderResourceView* BlurSRV = RHIDevice->GetSRV(RHI_SRV_Index::DofBlurMap);  // Pass1의 결과
+	ID3D11SamplerState* PointSampler = RHIDevice->GetSamplerState(RHI_Sampler_Index::PointClamp);
+
+	RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 1, &BlurSRV);
+	RHIDevice->GetDeviceContext()->PSSetSamplers(0, 1, &PointSampler);
+
+	RHIDevice->DrawFullScreenQuad();
+	Swap.Commit();
+}
+
+void FDepthOfFieldPass::ExecuteMergeNearFarPass(FSceneView* View, D3D11RHI* RHIDevice)
+{
+	// Near와 Far 블러 결과를 병합하여 최종 블러 이미지 생성
+	ID3D11RenderTargetView* nullRTV = nullptr;
+	RHIDevice->GetDeviceContext()->OMSetRenderTargets(1, &nullRTV, nullptr);
+
+	ID3D11ShaderResourceView* nullSRVs[3] = { nullptr, nullptr, nullptr };
+	RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 3, nullSRVs);
+
+	FSwapGuard Swap(RHIDevice, 0, 3);
+	RHIDevice->OMSetRenderTargets(ERTVMode::DofBlurTarget);
+	RHIDevice->OMSetDepthStencilState(EComparisonFunc::Always);
+	RHIDevice->OMSetBlendState(false);
+
+	UShader* VS = UResourceManager::GetInstance().Load<UShader>("Shaders/Utility/FullScreenTriangle_VS.hlsl");
+	UShader* PS = UResourceManager::GetInstance().Load<UShader>("Shaders/PostProcess/DoF_MergeNearFar_PS.hlsl");
+	if (!VS || !VS->GetVertexShader() || !PS || !PS->GetPixelShader())
+	{
+		UE_LOG("DoF MergeNearFar 셰이더 없음!\n");
+		return;
+	}
+
+	RHIDevice->PrepareShader(VS, PS);
+
+	ID3D11ShaderResourceView* Srvs[3] = {
+		RHIDevice->GetSRV(RHI_SRV_Index::DofNearMap),  // Near 블러 최종 결과 (DofNearTarget)
+		RHIDevice->GetSRV(RHI_SRV_Index::DofFarMap),   // Far 블러 최종 결과 (DofFarTarget)
+		RHIDevice->GetSRV(RHI_SRV_Index::DofCocMap)
+	};
+	ID3D11SamplerState* LinearClampSampler = RHIDevice->GetSamplerState(RHI_Sampler_Index::LinearClamp);
+
+	RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 3, Srvs);
+	RHIDevice->GetDeviceContext()->PSSetSamplers(0, 1, &LinearClampSampler);
+
+	RHIDevice->DrawFullScreenQuad();
+	Swap.Commit();
 }
 
 void FDepthOfFieldPass::ExecuteCompositePass(const FPostProcessModifier& M, FSceneView* View, D3D11RHI* RHIDevice)
@@ -409,8 +688,6 @@ void FDepthOfFieldPass::ExecuteCompositePass(const FPostProcessModifier& M, FSce
 		return;
 	}
 
-	RHIDevice->PrepareShader(FullScreenTriangleVS, CompositePS);
-
 	// 4) SRV/Sampler (원본 씬 + 블러 결과 + CoC 맵)
 	ID3D11ShaderResourceView* SceneSRV = RHIDevice->GetSRV(RHI_SRV_Index::SceneColorSource);
 	ID3D11ShaderResourceView* BlurMapSRV = RHIDevice->GetSRV(RHI_SRV_Index::DofBlurMap);
@@ -423,6 +700,10 @@ void FDepthOfFieldPass::ExecuteCompositePass(const FPostProcessModifier& M, FSce
 		return;
 	}
 
+	// PrepareShader 호출 (상수 버퍼 설정 전에 호출)
+	RHIDevice->PrepareShader(FullScreenTriangleVS, CompositePS);
+
+	// PrepareShader 이후에 SRV 바인딩 (PrepareShader가 다른 버퍼를 바인딩할 수 있으므로)
 	ID3D11ShaderResourceView* Srvs[3] = { SceneSRV, BlurMapSRV, CoCMapSRV };
 	RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 3, Srvs);
 
