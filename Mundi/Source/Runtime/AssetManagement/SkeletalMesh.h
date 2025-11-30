@@ -1,6 +1,8 @@
 ﻿#pragma once
 #include "ResourceBase.h"
 
+class UPhysicsAsset;
+
 class USkeletalMesh : public UResourceBase
 {
 public:
@@ -29,6 +31,10 @@ public:
 
     uint64 GetMeshGroupCount() const { return Data ? Data->GroupInfos.size() : 0; }
 
+    // --- 물리 에셋 ---
+    UPhysicsAsset* GetPhysicsAsset() const { return PhysicsAsset; }
+    void SetPhysicsAsset(UPhysicsAsset* InPhysicsAsset) { PhysicsAsset = InPhysicsAsset; }
+
     void CreateVertexBuffer(ID3D11Buffer** InVertexBuffer);
     void UpdateVertexBuffer(const TArray<FNormalVertex>& SkinnedVertices, ID3D11Buffer* InVertexBuffer);
 
@@ -49,4 +55,7 @@ private:
     
     // CPU 리소스
     FSkeletalMeshData* Data = nullptr;
+
+    // 물리 에셋 (랙돌용 본별 충돌 Shape + Constraint 정의)
+    UPhysicsAsset* PhysicsAsset = nullptr;
 };
