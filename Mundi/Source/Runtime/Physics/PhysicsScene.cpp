@@ -1,5 +1,6 @@
 ﻿#include "pch.h"
 #include "PhysicsScene.h"
+#include "BodyInstance.h"
 #include "PhysicsSystem.h"
 
 FPhysicsScene::FPhysicsScene() : mScene(nullptr) {}

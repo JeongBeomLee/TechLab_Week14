@@ -5,9 +5,10 @@
 #include "Texture.h"
 #include "TSubclassOf.h"
 #include "Distribution.h"
+//#include "BodyInstance.h"
 #include <type_traits>
 
-#include "Source/Runtime/Physics/BodyInstance.h"
+struct FBodyInstance;
 
 // ===== 타입 자동 감지 템플릿 =====
 

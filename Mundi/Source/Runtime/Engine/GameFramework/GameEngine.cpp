@@ -260,9 +260,6 @@ void UGameEngine::Tick(float DeltaSeconds)
         SGameHUD::Get().Update(MousePos.X, MousePos.Y, bLeftDown);
     }
 
-    // 물리 업데이트 (위치 다시 고민해보기)
-    FPhysicsSystem::Get().UpdateSimulation(DeltaSeconds);
-
     INPUT.Update();
 }
 

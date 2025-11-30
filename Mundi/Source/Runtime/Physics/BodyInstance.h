@@ -18,8 +18,8 @@ public:
     ~FBodyInstance();
 
     // 복사/이동 방지 (PhysX 리소스 관리)
-    FBodyInstance(const FBodyInstance&) = delete;
-    FBodyInstance& operator=(const FBodyInstance&) = delete;
+    // FBodyInstance(const FBodyInstance&) = delete;
+    // FBodyInstance& operator=(const FBodyInstance&) = delete;
     
 // --- 초기화/해제 ---
 public:

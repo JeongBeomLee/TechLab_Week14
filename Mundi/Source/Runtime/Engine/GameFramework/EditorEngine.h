@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include "pch.h"
 
+class FPhysicsSystem;
 class URenderer;
 class D3D11RHI;
 class UWorld;

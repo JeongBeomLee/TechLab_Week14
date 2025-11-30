@@ -6,6 +6,7 @@
 #include "Gizmo/GizmoActor.h"
 #include "LightManager.h"
 
+class FPhysicsScene;
 // Forward Declarations
 class UResourceManager;
 class UUIManager;
