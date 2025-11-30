@@ -462,12 +462,12 @@ void UInputManager::ReleaseCursor()
     // 잠금 해제
     bIsCursorLocked = false;
 
-    // 원래 커서 위치로 복원
-    POINT lockedPoint = { static_cast<int>(LockedCursorPosition.X), static_cast<int>(LockedCursorPosition.Y) };
-    ClientToScreen(WindowHandle, &lockedPoint);
-    SetCursorPos(lockedPoint.x, lockedPoint.y);
-
-    // 마우스 위치 동기화
-    MousePosition = LockedCursorPosition;
-    PreviousMousePosition = LockedCursorPosition;
+    // 현재 커서 위치로 마우스 위치 동기화 (잠금 시작 위치로 이동하지 않음)
+    POINT currentCursor;
+    if (GetCursorPos(&currentCursor))
+    {
+        ScreenToClient(WindowHandle, &currentCursor);
+        MousePosition = FVector2D(static_cast<float>(currentCursor.x), static_cast<float>(currentCursor.y));
+        PreviousMousePosition = MousePosition;
+    }
 }
