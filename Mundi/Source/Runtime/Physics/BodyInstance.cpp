@@ -156,7 +156,8 @@ FTransform FBodyInstance::GetWorldTransform() const
 void FBodyInstance::SetWorldTransform(const FTransform& NewTransform, bool bTeleport)
 {
     FVector NewScale = NewTransform.Scale3D;
-    if (!Scale3D.Equals(NewScale) < 1.e-4f) 
+    
+    if (!Scale3D.Equals(NewScale)) 
     {
         Scale3D = NewScale;
         if (OwnerComponent)

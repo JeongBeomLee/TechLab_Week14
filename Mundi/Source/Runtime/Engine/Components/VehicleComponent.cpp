@@ -96,12 +96,12 @@ namespace
 	PxRigidDynamic* CreateVehicleActor
 	(const PxVehicleChassisData& ChassisData,
 		PxMaterial** WheelMaterials, PxConvexMesh** WheelConvexMeshes, const PxU32 NumWheels, const PxFilterData& WheelSimFilterData,
-		PxMaterial** ChassisMaterials, PxConvexMesh** ChassisConvexMeshes, const PxU32 NumChassisMeshes, const PxFilterData& ChassisSimFilterData,
+		PxMaterial** ChassisMaterials, PxConvexMesh** ChassisConvexMeshes, const PxU32 NumChassisMeshes, const PxFilterData& ChassisSimFilterData, PxTransform& StartPose,
 		PxPhysics& Physics)
 	{
 		//We need a rigid body actor for the vehicle.
 		//Don't forget to add the actor to the scene after setting up the associated vehicle.
-		PxRigidDynamic* VehActor = Physics.createRigidDynamic(PxTransform(PxIdentity));
+		PxRigidDynamic* VehActor = Physics.createRigidDynamic(StartPose);
 
 		//Wheel and Chassis query filter data.
 		//Optional: cars don't drive on other cars.
@@ -357,9 +357,6 @@ void UVehicleComponent::DuplicateSubObjects()
 
 void UVehicleComponent::CreatePhysicsState()
 {
-	// BodyInstance 생성 (이미 있으면 패스)
-	BodyInstance.SetSimulatePhysics(true);
-
 	// 차량 데이터 준비
 	FVehicleData VehicleData;
 
@@ -391,6 +388,7 @@ PxVehicleDrive4W* UVehicleComponent::CreateVehicle4W(FVehicleData VehicleData, p
 
 	// 엔진 좌표계 -> PhysX 좌표계 변환
 	PxTransform StartPose = PhysXConvert::ToPx(WorldTransform);
+	//PxTransform StartPose = WorldTransform;
 
 	if (!ChassisMaterial)
 	{
@@ -438,7 +436,7 @@ PxVehicleDrive4W* UVehicleComponent::CreateVehicle4W(FVehicleData VehicleData, p
 		Veh4WActor = CreateVehicleActor
 		(RigidBodyData,
 			WheelMaterials, WheelConvexMeshes, NumWheels, WheelSimFilterData,
-			ChassisMaterials, ChassisConvexMeshes, 1, ChassisSimFilterData,
+			ChassisMaterials, ChassisConvexMeshes, 1, ChassisSimFilterData, StartPose,
 			*Physics);
 
 		// 휠 메시는 PxShape에 복사되었으므로 해제
