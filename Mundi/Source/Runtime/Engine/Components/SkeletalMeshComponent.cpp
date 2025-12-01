@@ -16,6 +16,7 @@
 #include "SkeletalBodySetup.h"
 #include "PhysicsConstraintTemplate.h"
 #include "World.h"
+#include "InputManager.h"
 
 USkeletalMeshComponent::USkeletalMeshComponent()
 {
@@ -35,6 +36,38 @@ void USkeletalMeshComponent::TickComponent(float DeltaTime)
     Super::TickComponent(DeltaTime);
 
     if (!SkeletalMesh) { return; }
+
+    // Ragdoll 테스트 모드: R키로 토글
+    if (bRagdollTestMode)
+    {
+        UInputManager& Input = UInputManager::GetInstance();
+        if (Input.IsKeyPressed('R'))  // R키
+        {
+            if (RagdollState == ERagdollState::Disabled)
+            {
+                UE_LOG("[Ragdoll Test] R key pressed - Starting Ragdoll");
+                StartRagdoll(false);  // 즉시 전환
+            }
+            else
+            {
+                UE_LOG("[Ragdoll Test] R key pressed - Stopping Ragdoll");
+                StopRagdoll(false);  // 즉시 전환
+            }
+        }
+
+        // Space키로 위쪽 임펄스 테스트
+        if (Input.IsKeyPressed(VK_SPACE) && IsRagdollActive())
+        {
+            UE_LOG("[Ragdoll Test] Space key pressed - Adding upward impulse");
+            for (FBodyInstance* Body : RagdollBodies)
+            {
+                if (Body)
+                {
+                    Body->AddImpulse(FVector(0, 0, 500.0f));  // 위쪽 임펄스
+                }
+            }
+        }
+    }
 
     // Ragdoll이 활성화된 경우 물리 시뮬레이션 처리
     if (RagdollState != ERagdollState::Disabled)
@@ -484,7 +517,7 @@ void USkeletalMeshComponent::InitRagdoll()
     CreateRagdollConstraints();
 
     // 인접 바디 충돌 비활성화
-    ApplyCollisionDisableTable();
+    //ApplyCollisionDisableTable();
 
     // 블렌딩용 포즈 배열 초기화
     const int32 NumBones = Skeleton->Bones.Num();
@@ -582,17 +615,9 @@ void USkeletalMeshComponent::CreateRagdollConstraints()
         // Constraint Instance 생성 (템플릿 설정 복사)
         FConstraintInstance* Constraint = new FConstraintInstance(Template->DefaultInstance);
 
-        // Joint Frame 계산: Body2 위치를 Body1 로컬로 변환
-        FTransform Body1World = Body1->GetWorldTransform();
-        FTransform Body2World = Body2->GetWorldTransform();
-
-        // Frame1: Body1 로컬 좌표계에서 Body2로의 상대 위치
-        FTransform Frame1 = Body1World.GetRelativeTransform(Body2World);
-        // Frame2: Body2 원점 (기본 생성자 = Identity)
-        FTransform Frame2;
-
-        // Joint 초기화
-        Constraint->InitConstraint(Body1, Body2, Frame1, Frame2);
+        // Joint 초기화 (동적 Frame 계산 사용)
+        // Twist 축(X축)이 부모→자식 뼈 방향으로 자동 정렬됨
+        Constraint->InitConstraint(Body1, Body2, this);
         RagdollConstraints.Add(Constraint);
     }
 
@@ -646,6 +671,13 @@ void USkeletalMeshComponent::StartRagdoll(bool bBlend)
     // Bodies가 없으면 초기화
     if (RagdollBodies.IsEmpty())
     {
+        // PhysicsAsset이 없으면 자동 생성
+        if (!SkeletalMesh || !SkeletalMesh->GetPhysicsAsset() || !SkeletalMesh->GetPhysicsAsset()->IsValid())
+        {
+            UE_LOG("[Ragdoll] No PhysicsAsset found, creating default...");
+            CreateDefaultPhysicsAsset();
+        }
+
         InitRagdoll();
         if (RagdollBodies.IsEmpty())
         {
@@ -915,4 +947,152 @@ void USkeletalMeshComponent::AddForceToBody(const FName& BoneName, const FVector
     {
         Body->AddForce(Force);
     }
+}
+
+void USkeletalMeshComponent::CreateDefaultPhysicsAsset()
+{
+    if (!SkeletalMesh)
+    {
+        UE_LOG("[Ragdoll] CreateDefaultPhysicsAsset failed: SkeletalMesh is null");
+        return;
+    }
+
+    // 이미 PhysicsAsset이 있으면 건너뛰기
+    if (SkeletalMesh->GetPhysicsAsset() && SkeletalMesh->GetPhysicsAsset()->IsValid())
+    {
+        UE_LOG("[Ragdoll] PhysicsAsset already exists");
+        return;
+    }
+
+    const FSkeleton* Skeleton = SkeletalMesh->GetSkeleton();
+    if (!Skeleton || Skeleton->Bones.Num() == 0)
+    {
+        UE_LOG("[Ragdoll] CreateDefaultPhysicsAsset failed: Skeleton is empty");
+        return;
+    }
+
+    UE_LOG("[Ragdoll] Creating default PhysicsAsset for %d bones...", Skeleton->Bones.Num());
+
+    // PhysicsAsset 생성
+    UPhysicsAsset* PhysAsset = NewObject<UPhysicsAsset>();
+
+    // 각 본에 대해 BodySetup 생성
+    for (int32 BoneIdx = 0; BoneIdx < Skeleton->Bones.Num(); ++BoneIdx)
+    {
+        const FBone& Bone = Skeleton->Bones[BoneIdx];
+
+        // BodySetup 생성
+        USkeletalBodySetup* BodySetup = NewObject<USkeletalBodySetup>();
+        BodySetup->BoneName = FName(Bone.Name);
+
+        // 본 길이 추정 (자식 본까지의 거리 기반)
+        float BoneLength = 10.0f;  // 기본 길이
+        float BoneRadius = 3.0f;   // 기본 반지름
+
+        // 자식 본 찾아서 길이 계산
+        for (int32 ChildIdx = 0; ChildIdx < Skeleton->Bones.Num(); ++ChildIdx)
+        {
+            if (Skeleton->Bones[ChildIdx].ParentIndex == BoneIdx)
+            {
+                // 자식 본의 로컬 위치로부터 본 길이 추정
+                FTransform ChildLocal = FTransform(Skeleton->Bones[ChildIdx].BindPose * Bone.InverseBindPose);
+                float Dist = ChildLocal.Translation.Size();
+                if (Dist > BoneLength)
+                {
+                    BoneLength = Dist;
+                }
+            }
+        }
+
+        // 본 이름에 따라 Shape 크기 조절
+        FString BoneNameLower = Bone.Name;
+        std::transform(BoneNameLower.begin(), BoneNameLower.end(), BoneNameLower.begin(), ::tolower);
+
+        if (BoneNameLower.find("head") != FString::npos || BoneNameLower.find("skull") != FString::npos)
+        {
+            // 머리: 구 사용
+            BodySetup->AddSphereElem(8.0f);
+        }
+        else if (BoneNameLower.find("hand") != FString::npos || BoneNameLower.find("foot") != FString::npos)
+        {
+            // 손/발: 작은 구
+            BodySetup->AddSphereElem(3.0f);
+        }
+        else if (BoneNameLower.find("spine") != FString::npos || BoneNameLower.find("pelvis") != FString::npos || BoneNameLower.find("hip") != FString::npos)
+        {
+            // 척추/골반: 큰 캡슐
+            BodySetup->AddCapsuleElem(6.0f, BoneLength * 0.4f);
+        }
+        else if (BoneNameLower.find("arm") != FString::npos || BoneNameLower.find("leg") != FString::npos ||
+                 BoneNameLower.find("thigh") != FString::npos || BoneNameLower.find("calf") != FString::npos ||
+                 BoneNameLower.find("forearm") != FString::npos || BoneNameLower.find("upperarm") != FString::npos)
+        {
+            // 팔/다리: 중간 캡슐
+            BodySetup->AddCapsuleElem(4.0f, BoneLength * 0.4f);
+        }
+        else
+        {
+            // 기타: 기본 캡슐
+            BodySetup->AddCapsuleElem(BoneRadius, FMath::Max(5.0f, BoneLength * 0.3f));
+        }
+
+        // PhysicsType을 Kinematic으로 설정 (Ragdoll 시작 전까지)
+        BodySetup->PhysicsType = EPhysicsType::Kinematic;
+
+        PhysAsset->AddBodySetup(BodySetup);
+    }
+
+    // 부모-자식 본 사이에 Constraint 생성
+    for (int32 BoneIdx = 0; BoneIdx < Skeleton->Bones.Num(); ++BoneIdx)
+    {
+        const FBone& Bone = Skeleton->Bones[BoneIdx];
+        int32 ParentIdx = Bone.ParentIndex;
+
+        if (ParentIdx < 0) continue;  // 루트 본은 건너뛰기
+
+        const FBone& ParentBone = Skeleton->Bones[ParentIdx];
+
+        // Constraint 템플릿 생성
+        UPhysicsConstraintTemplate* ConstraintTemplate = NewObject<UPhysicsConstraintTemplate>();
+
+        // 조인트 설정
+        FConstraintInstance& CI = ConstraintTemplate->DefaultInstance;
+        CI.JointName = FName(Bone.Name + "_Joint");
+        CI.ConstraintBone1 = FName(ParentBone.Name);  // 부모 본
+        CI.ConstraintBone2 = FName(Bone.Name);        // 자식 본
+
+        // 선형 제한: 모두 잠금 (관절은 늘어나지 않음)
+        CI.LinearXMotion = ELinearConstraintMotion::Locked;
+        CI.LinearYMotion = ELinearConstraintMotion::Locked;
+        CI.LinearZMotion = ELinearConstraintMotion::Locked;
+
+        // 각도 제한: 제한된 회전 허용
+        CI.AngularTwistMotion = EAngularConstraintMotion::Limited;
+        CI.AngularSwing1Motion = EAngularConstraintMotion::Limited;
+        CI.AngularSwing2Motion = EAngularConstraintMotion::Limited;
+
+        // 기본 각도 제한값 (본 이름에 따라 조절 가능)
+        CI.TwistLimitAngle = 30.0f;
+        CI.Swing1LimitAngle = 45.0f;
+        CI.Swing2LimitAngle = 45.0f;
+
+        // 인접 본 간 충돌 비활성화 (래그돌 기본값)
+        CI.bDisableCollision = true;
+
+        PhysAsset->AddConstraint(ConstraintTemplate);
+
+        // 인접 바디 충돌 비활성화
+        int32 ParentBodyIdx = PhysAsset->FindBodySetupIndex(FName(ParentBone.Name));
+        int32 ChildBodyIdx = PhysAsset->FindBodySetupIndex(FName(Bone.Name));
+        if (ParentBodyIdx >= 0 && ChildBodyIdx >= 0)
+        {
+            PhysAsset->DisableCollision(ParentBodyIdx, ChildBodyIdx);
+        }
+    }
+
+    // SkeletalMesh에 PhysicsAsset 설정
+    SkeletalMesh->SetPhysicsAsset(PhysAsset);
+
+    UE_LOG("[Ragdoll] Default PhysicsAsset created: %d bodies, %d constraints",
+        PhysAsset->GetBodySetupCount(), PhysAsset->GetConstraintCount());
 }

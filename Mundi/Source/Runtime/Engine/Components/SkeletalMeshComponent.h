@@ -205,6 +205,24 @@ public:
      */
     void AddForceToBody(const FName& BoneName, const FVector& Force);
 
+    // --- Ragdoll 테스트/디버그 ---
+
+    /**
+     * PhysicsAsset이 없으면 자동으로 생성
+     * 모든 본에 대해 캡슐 Shape와 부모-자식 Constraint를 생성
+     */
+    void CreateDefaultPhysicsAsset();
+
+    /**
+     * Ragdoll 테스트 모드 활성화
+     * 특정 키(기본: R) 입력 시 Ragdoll 토글
+     */
+    void EnableRagdollTestMode(bool bEnable) { bRagdollTestMode = bEnable; }
+    bool IsRagdollTestModeEnabled() const { return bRagdollTestMode; }
+
+private:
+    bool bRagdollTestMode = true;
+
 protected:
     // --- Ragdoll 내부 메서드 ---
 
