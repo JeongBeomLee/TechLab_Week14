@@ -332,8 +332,7 @@ UVehicleComponent::~UVehicleComponent()
 
 void UVehicleComponent::EndPlay()
 {
-	// FBodyInstance가 Actor를 해제하는 것을 막기 위해 포인터를 임시로 제거합니다.
-	PxRigidActor* OldActor = BodyInstance.RigidActor;
+	// FBodyInstance가 Actor를 이중으로 해제하는 것을 막기 위해 포인터를 제거합니다.
 	BodyInstance.RigidActor = nullptr;
 
 	// PhysXVehicle을 해제하여 Actor와 Vehicle 인스턴스를 모두 정리합니다.

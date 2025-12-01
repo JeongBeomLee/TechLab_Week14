@@ -129,7 +129,7 @@ void FPhysicsScene::AddActor(FBodyInstance* Body)
 
 void FPhysicsScene::RemoveActor(FBodyInstance* Body)
 {
-    if (mScene && Body)
+    if (mScene && Body && Body->RigidActor)
     {
         // Add나 Remove는 Tick 도중 가능하기 때문에 Lock
         SCOPED_WRITE_LOCK(*mScene)
