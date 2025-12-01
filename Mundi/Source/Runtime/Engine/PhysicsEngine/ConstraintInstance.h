@@ -56,6 +56,19 @@ public:
      */
     void UpdateFromSetup(const FConstraintSetup& Setup);
 
+    /**
+     * 현재 조인트 각도 정보 가져오기 (degrees)
+     * @param OutTwist   X축 회전 (Twist)
+     * @param OutSwing1  Y축 회전 (Swing1)
+     * @param OutSwing2  Z축 회전 (Swing2)
+     */
+    void GetCurrentAngles(float& OutTwist, float& OutSwing1, float& OutSwing2) const;
+
+    /**
+     * 디버그: 현재 조인트 각도 로그 출력
+     */
+    void LogCurrentAngles(const FName& JointName) const;
+
 private:
     /**
      * PxD6Joint 모션 설정 (BallAndSocket, Hinge 등)

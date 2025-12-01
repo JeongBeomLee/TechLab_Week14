@@ -55,9 +55,8 @@ void FConstraintInstance::InitConstraint(
         return;
     }
 
-    // 로컬 프레임 계산: 조인트 위치는 자식 바디의 원점 (본의 시작점)
-    // 부모 바디 기준: 자식 본 위치를 부모 본 로컬 좌표로 변환
-    // 자식 바디 기준: 원점 (자기 자신의 시작점)
+    // 로컬 프레임 계산
+    // 핵심: 초기 상태에서 두 프레임이 일치해야 초기 각도가 0이 됨
     PxTransform ParentLocalFrame = PxTransform(PxIdentity);
     PxTransform ChildLocalFrame = PxTransform(PxIdentity);
 
@@ -70,12 +69,18 @@ void FConstraintInstance::InitConstraint(
         // 조인트 위치 = 자식 바디의 월드 위치 (본의 시작점)
         PxVec3 JointWorldPos = ChildWorldPose.p;
 
-        // 부모 로컬 프레임: 조인트 위치를 부모 바디 로컬 좌표로 변환
+        // 부모 로컬 프레임: 조인트 위치를 부모 로컬로 변환, 회전은 부모 기준 Identity
         PxTransform ParentWorldInv = ParentWorldPose.getInverse();
         PxVec3 JointInParentLocal = ParentWorldInv.transform(JointWorldPos);
-        ParentLocalFrame = PxTransform(JointInParentLocal);
 
-        // 자식 로컬 프레임: 자식 바디 원점 (0,0,0)
+        // 부모와 자식의 상대 회전 계산
+        PxQuat RelativeRot = ParentWorldPose.q.getConjugate() * ChildWorldPose.q;
+
+        // 부모 프레임: 위치는 조인트 위치, 회전은 상대 회전
+        ParentLocalFrame = PxTransform(JointInParentLocal, RelativeRot);
+
+        // 자식 프레임: 원점, Identity 회전
+        // 이렇게 하면 초기 상태에서 두 프레임이 월드에서 일치함 -> 초기 각도 = 0
         ChildLocalFrame = PxTransform(PxIdentity);
     }
 
@@ -97,7 +102,12 @@ void FConstraintInstance::InitConstraint(
     ConfigureJointLimits(Setup);
     ConfigureJointDrive(Setup);
 
-    UE_LOG("[PhysX] Constraint '%s' created successfully", Setup.JointName.ToString().c_str());
+    // 디버그: 생성 직후 각도 확인
+    float InitTwist, InitSwing1, InitSwing2;
+    GetCurrentAngles(InitTwist, InitSwing1, InitSwing2);
+
+    UE_LOG("[PhysX] Constraint '%s' created: InitAngles(Twist=%.1f, Swing1=%.1f, Swing2=%.1f)",
+        Setup.JointName.ToString().c_str(), InitTwist, InitSwing1, InitSwing2);
 }
 
 void FConstraintInstance::TermConstraint()
@@ -137,22 +147,12 @@ void FConstraintInstance::ConfigureJointMotion(const FConstraintSetup& Setup)
     Joint->setMotion(PxD6Axis::eY, PxD6Motion::eLOCKED);
     Joint->setMotion(PxD6Axis::eZ, PxD6Motion::eLOCKED);
 
-    switch (Setup.ConstraintType)
-    {
-    case EConstraintType::BallAndSocket:
-        // 구형 조인트: 모든 회전축 제한된 자유도
-        Joint->setMotion(PxD6Axis::eTWIST, PxD6Motion::eLIMITED);
-        Joint->setMotion(PxD6Axis::eSWING1, PxD6Motion::eLIMITED);
-        Joint->setMotion(PxD6Axis::eSWING2, PxD6Motion::eLIMITED);
-        break;
+    // 모든 회전축 제한 (BallAndSocket)
+    Joint->setMotion(PxD6Axis::eTWIST, PxD6Motion::eLIMITED);
+    Joint->setMotion(PxD6Axis::eSWING1, PxD6Motion::eLIMITED);
+    Joint->setMotion(PxD6Axis::eSWING2, PxD6Motion::eLIMITED);
 
-    case EConstraintType::Hinge:
-        // 힌지 조인트: Twist(X축 회전)만 제한된 자유도, 나머지 잠금
-        Joint->setMotion(PxD6Axis::eTWIST, PxD6Motion::eLIMITED);
-        Joint->setMotion(PxD6Axis::eSWING1, PxD6Motion::eLOCKED);
-        Joint->setMotion(PxD6Axis::eSWING2, PxD6Motion::eLOCKED);
-        break;
-    }
+    UE_LOG("[Joint] ConfigureJointMotion: Linear=LOCKED, Angular=LIMITED");
 }
 
 void FConstraintInstance::ConfigureJointLimits(const FConstraintSetup& Setup)
@@ -162,32 +162,30 @@ void FConstraintInstance::ConfigureJointLimits(const FConstraintSetup& Setup)
         return;
     }
 
-    // 각도를 라디안으로 변환 (PhysX는 최소 0.01 라디안 필요)
-    const float MinAngle = 0.01f;  // 약 0.57도
-    float Swing1Rad = FMath::Max(MinAngle, DegreesToRadians(Setup.Swing1Limit));
-    float Swing2Rad = FMath::Max(MinAngle, DegreesToRadians(Setup.Swing2Limit));
+    // Setup에서 각도 가져오기
+    float Swing1Rad = DegreesToRadians(Setup.Swing1Limit);
+    float Swing2Rad = DegreesToRadians(Setup.Swing2Limit);
     float TwistMinRad = DegreesToRadians(Setup.TwistLimitMin);
     float TwistMaxRad = DegreesToRadians(Setup.TwistLimitMax);
 
-    // Twist 범위가 너무 작으면 최소 범위 보장
-    if (TwistMaxRad - TwistMinRad < MinAngle)
-    {
-        TwistMaxRad = TwistMinRad + MinAngle;
-    }
-
     // Swing 제한 (Cone Limit)
-    // PxJointLimitCone(yAngle, zAngle, contactDistance)
-    PxJointLimitCone SwingLimit(Swing1Rad, Swing2Rad, 0.01f);
-    SwingLimit.stiffness = Setup.Stiffness;
-    SwingLimit.damping = Setup.Damping;
+    PxJointLimitCone SwingLimit(Swing1Rad, Swing2Rad, 0.05f);
+    SwingLimit.stiffness = 0.0f;
+    SwingLimit.damping = 0.0f;
+    SwingLimit.restitution = 0.0f;
     Joint->setSwingLimit(SwingLimit);
 
     // Twist 제한 (Angular Pair Limit)
-    // PxJointAngularLimitPair(lowerLimit, upperLimit, contactDistance)
-    PxJointAngularLimitPair TwistLimit(TwistMinRad, TwistMaxRad, 0.01f);
-    TwistLimit.stiffness = Setup.Stiffness;
-    TwistLimit.damping = Setup.Damping;
+    PxJointAngularLimitPair TwistLimit(TwistMinRad, TwistMaxRad, 0.05f);
+    TwistLimit.stiffness = 0.0f;
+    TwistLimit.damping = 0.0f;
+    TwistLimit.restitution = 0.0f;
     Joint->setTwistLimit(TwistLimit);
+
+    // 프로젝션 활성화 - 제한 위반 시 강제 보정
+    Joint->setProjectionLinearTolerance(0.1f);
+    Joint->setProjectionAngularTolerance(DegreesToRadians(5.0f));
+    Joint->setConstraintFlag(PxConstraintFlag::ePROJECTION, true);
 }
 
 void FConstraintInstance::ConfigureJointDrive(const FConstraintSetup& Setup)
@@ -206,4 +204,30 @@ void FConstraintInstance::ConfigureJointDrive(const FConstraintSetup& Setup)
         Joint->setDrive(PxD6Drive::eSWING, Drive);
         Joint->setDrive(PxD6Drive::eTWIST, Drive);
     }
+}
+
+void FConstraintInstance::GetCurrentAngles(float& OutTwist, float& OutSwing1, float& OutSwing2) const
+{
+    OutTwist = 0.0f;
+    OutSwing1 = 0.0f;
+    OutSwing2 = 0.0f;
+
+    if (!Joint)
+    {
+        return;
+    }
+
+    // PhysX D6Joint에서 직접 각도 가져오기
+    OutTwist = RadiansToDegrees(Joint->getTwistAngle());
+    OutSwing1 = RadiansToDegrees(Joint->getSwingYAngle());
+    OutSwing2 = RadiansToDegrees(Joint->getSwingZAngle());
+}
+
+void FConstraintInstance::LogCurrentAngles(const FName& JointName) const
+{
+    float Twist, Swing1, Swing2;
+    GetCurrentAngles(Twist, Swing1, Swing2);
+
+    UE_LOG("[Joint] %s: Twist=%.1f, Swing1=%.1f, Swing2=%.1f (deg)",
+        JointName.ToString().c_str(), Twist, Swing1, Swing2);
 }

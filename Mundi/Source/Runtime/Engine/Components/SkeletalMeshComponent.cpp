@@ -41,6 +41,22 @@ void USkeletalMeshComponent::TickComponent(float DeltaTime)
     if (bSimulatePhysics && bRagdollInitialized)
     {
         SyncBonesFromPhysics();
+
+        // 디버그: 조인트 각도 로그 출력 (1초마다)
+        static float LogTimer = 0.0f;
+        LogTimer += DeltaTime;
+        if (LogTimer >= 1.0f && PhysicsAsset)
+        {
+            LogTimer = 0.0f;
+            UE_LOG("[Ragdoll] === Joint Angles ===");
+            for (int32 i = 0; i < Constraints.Num(); ++i)
+            {
+                if (Constraints[i] && Constraints[i]->IsValid() && i < PhysicsAsset->ConstraintSetups.Num())
+                {
+                    Constraints[i]->LogCurrentAngles(PhysicsAsset->ConstraintSetups[i].JointName);
+                }
+            }
+        }
         return;
     }
 
@@ -534,7 +550,8 @@ void USkeletalMeshComponent::InitRagdoll(FPhysScene* InPhysScene)
 
         // FBodyInstance 생성
         FBodyInstance* NewBody = new FBodyInstance();
-        NewBody->bSimulatePhysics = bSimulatePhysics;
+        // Ragdoll 바디는 항상 Dynamic이어야 함 (Joint 연결을 위해)
+        NewBody->bSimulatePhysics = true;
         NewBody->LinearDamping = 0.1f;     // 기본 감쇠
         NewBody->AngularDamping = 0.05f;
         NewBody->bIsRagdollBody = true;    // 랙돌 바디 표시
