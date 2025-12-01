@@ -1,0 +1,16 @@
+{
+  "BlendSpace" : {
+    "DriverSampleIndex" : 0,
+    "PlayRate" : 1.000000,
+    "Samples" : [{
+        "AnimationPath" : "Data/SillyDancing_mixamo.com",
+        "Position" : [2.000000, -0.646667],
+        "RateScale" : 1.000000,
+        "bLooping" : true
+      }],
+    "Triangles" : [],
+    "bLooping" : true
+  },
+  "SkeletalMeshPath" : "Data/DancingRacer.fbx",
+  "Version" : 1
+}

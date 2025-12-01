@@ -466,6 +466,16 @@ void UContentBrowserWindow::HandleDoubleClick(FFileEntry& Entry)
 		USlateManager::GetInstance().OpenAssetViewer(Context);
 		UE_LOG("Opening ParticleEditor for: %s", Entry.FileName.c_str());
 	}
+	else if (ext == ".blendspace")
+	{
+		// 블렌드스페이스 에디터 열기
+		std::string pathStr = WideToUTF8(Entry.Path.wstring());
+		UEditorAssetPreviewContext* Context = NewObject<UEditorAssetPreviewContext>();
+		Context->ViewerType = EViewerType::BlendSpace;
+		Context->AssetPath = pathStr.c_str();
+		USlateManager::GetInstance().OpenAssetViewer(Context);
+		UE_LOG("Opening BlendSpaceEditor for: %s", Entry.FileName.c_str());
+	}
 	else
 	{
 		UE_LOG("Unsupported file type: %s", ext.c_str());
@@ -510,6 +520,10 @@ const char* UContentBrowserWindow::GetIconForFile(const FFileEntry& Entry) const
 	else if (ext == ".particle")
 	{
 		return "[PTCL]";
+	}
+	else if (ext == ".blendspace")
+	{
+		return "[BLND]";
 	}
 	else if (ext == ".level" || ext == ".json")
 	{

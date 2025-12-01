@@ -72,6 +72,11 @@ private:
 	FThumbnailData* CreateParticleThumbnail(const std::string& FilePath);
 
 	/**
+	 * @brief 블렌드 스페이스용 썸네일 생성
+	 */
+	FThumbnailData* CreateBlendSpaceThumbnail(const std::string& FilePath);
+
+	/**
 	 * @brief 기본 아이콘 텍스처 생성 (Prefab 등)
 	 */
 	FThumbnailData* CreateDefaultThumbnail(const std::string& Extension);
