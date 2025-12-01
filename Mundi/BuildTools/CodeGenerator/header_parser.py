@@ -67,6 +67,8 @@ class Property:
         elif '*' in type_str:
             if 'umaterial' in type_lower:
                 return 'EPropertyType::Material'
+            elif 'uphysicalmaterial' in type_lower:
+                return 'EPropertyType::PhysicalMaterial'
             elif 'utexture' in type_lower:
                 return 'EPropertyType::Texture'
             elif 'usound' in type_lower:
@@ -151,6 +153,8 @@ class Property:
                 return 'ADD_PROPERTY_SKELETALMESH'
             elif base_type == 'umaterial':
                 return 'ADD_PROPERTY_MATERIAL'
+            elif base_type == 'uphysicalmaterial':
+                return 'ADD_PROPERTY_PHYSICALMATERIAL'
             elif base_type in ['usound', 'usoundbase']:
                 return 'ADD_PROPERTY_AUDIO'
             elif base_type == 'uparticlesystem':

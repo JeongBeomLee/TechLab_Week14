@@ -259,7 +259,7 @@ void SPhysicalMaterialEditorWindow::SaveAssetAs()
     // 파일 저장 다이얼로그 호출
     std::wstring widePath = FPlatformProcess::OpenSaveFileDialog(
         UTF8ToWide(GDataDir),
-        L"physicalmaterial", // 확장자
+        L"phxmtl", // 확장자
         L"Physical Material Files"
     );
 
