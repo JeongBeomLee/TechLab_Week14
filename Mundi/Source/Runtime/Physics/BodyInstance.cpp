@@ -63,6 +63,7 @@ void FBodyInstance::InitBody(UBodySetup* Setup, const FTransform& Transform, UPr
     }
 
     OwnerComponent = PrimComp;
+    CurrentScene = InRBScene;
     Scale3D = Transform.Scale3D;
     
     RigidActor = CreateInternalActor(Transform);
@@ -135,7 +136,6 @@ void FBodyInstance::FinalizeInternalActor(FPhysicsScene* InRBScene)
 
     UpdateMassProperties();
     UpdateDOFLock();
-    RigidActor->userData = static_cast<void*>(this);
     InRBScene->AddActor(this);
 }
 
@@ -156,7 +156,6 @@ FTransform FBodyInstance::GetWorldTransform() const
 void FBodyInstance::SetWorldTransform(const FTransform& NewTransform, bool bTeleport)
 {
     FVector NewScale = NewTransform.Scale3D;
-    
     if (!Scale3D.Equals(NewScale) < 1.e-4f) 
     {
         Scale3D = NewScale;
@@ -169,31 +168,32 @@ void FBodyInstance::SetWorldTransform(const FTransform& NewTransform, bool bTele
         
         return; 
     }
-    
-    if (!RigidActor) return;
 
-    // 프로젝트 → PhysX 좌표계 변환
-    PxTransform PTransform = PhysXConvert::ToPx(NewTransform);
-
-    if (PxRigidDynamic* DynamicActor = GetDynamicActor())
+    if (!CurrentScene || !RigidActor) return;
+    CurrentScene->EnqueueCommand([this, NewTransform, bTeleport]()
     {
-        bool bIsKinematic = DynamicActor->getRigidBodyFlags().isSet(PxRigidBodyFlag::eKINEMATIC);
-        // 키네마틱 상태이고 텔레포트(강제이동)가 아닐 때만 Target 사용
-        if (bIsKinematic && !bTeleport)
+        // 람다 내부에서 Actor 유효성 재확인 (큐 처리될 때 삭제됐을 수도 있음)
+        if (!RigidActor) return;
+
+        PxTransform PTransform = PhysXConvert::ToPx(NewTransform);
+
+        if (PxRigidDynamic* DynamicActor = GetDynamicActor())
         {
-            DynamicActor->setKinematicTarget(PTransform);
+            bool bIsKinematic = DynamicActor->getRigidBodyFlags().isSet(PxRigidBodyFlag::eKINEMATIC);
+            if (bIsKinematic && !bTeleport)
+            {
+                DynamicActor->setKinematicTarget(PTransform);
+            }
+            else
+            {
+                DynamicActor->setGlobalPose(PTransform);
+            }
         }
-        // 그 외 (물리 시뮬레이션 중이거나, 텔레포트 요청 시)
         else
         {
-            DynamicActor->setGlobalPose(PTransform);
+            RigidActor->setGlobalPose(PTransform);
         }
-    }
-    else
-    {
-        // Static Actor는 무조건 GlobalPose
-        RigidActor->setGlobalPose(PTransform);
-    }
+    });
 }
 
 FVector FBodyInstance::GetWorldLocation() const
@@ -219,30 +219,40 @@ void FBodyInstance::SetSimulatePhysics(bool bInSimulatePhysics)
     if (bSimulatePhysics == bInSimulatePhysics) { return; }
     bSimulatePhysics = bInSimulatePhysics;
 
-    if (PxRigidDynamic* DynamicActor = GetDynamicActor())
+    if (!CurrentScene || !RigidActor) { return; }
+
+    CurrentScene->EnqueueCommand([this, bInSimulatePhysics]()
     {
-        if (bInSimulatePhysics)
+        if (PxRigidDynamic* DynamicActor = GetDynamicActor())
         {
-            DynamicActor->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC, false);
-            DynamicActor->wakeUp();
+            if (bInSimulatePhysics)
+            {
+                DynamicActor->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC, false);
+                DynamicActor->wakeUp();
+            }
+            else
+            {
+                DynamicActor->setLinearVelocity(PxVec3(0));
+                DynamicActor->setAngularVelocity(PxVec3(0));
+                DynamicActor->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC, true);
+            }
         }
-        else
-        {
-            DynamicActor->setLinearVelocity(PxVec3(0));
-            DynamicActor->setAngularVelocity(PxVec3(0));
-            DynamicActor->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC, true);
-        }
-    }
+    });
 }
 
 void FBodyInstance::SetEnableGravity(bool bInEnableGravity)
 {
     bEnableGravity = bInEnableGravity;
 
-    if (RigidActor)
+    if (!CurrentScene || !RigidActor) { return; }
+
+    CurrentScene->EnqueueCommand([this, bInEnableGravity]()
     {
-        RigidActor->setActorFlag(PxActorFlag::eDISABLE_GRAVITY, !bInEnableGravity);
-    }
+        if (RigidActor)
+        {
+            RigidActor->setActorFlag(PxActorFlag::eDISABLE_GRAVITY, !bInEnableGravity);
+        }
+    });
 }
 
 void FBodyInstance::SetStartAwake(bool bInStartAwake)
@@ -285,22 +295,27 @@ FVector FBodyInstance::GetBodyInertiaTensor() const
 
 void FBodyInstance::UpdateMassProperties()
 {
-    PxRigidDynamic* DynamicActor = GetDynamicActor();
-    if (!DynamicActor) { return; }
+    if (!CurrentScene || !RigidActor) return;
 
-    if (bOverrideMass)
+    CurrentScene->EnqueueCommand([this]()
     {
-        PxRigidBodyExt::setMassAndUpdateInertia(*DynamicActor, MassInKg);
-    }
-    else
-    {
-        float Density = 1000.0f; // 기본 밀도 (kg/m^3)
-        if (UPhysicalMaterial* UsedMat = PhysMaterialOverride)
+        PxRigidDynamic* DynamicActor = GetDynamicActor();
+        if (!DynamicActor) { return; }
+
+        if (bOverrideMass)
         {
-            Density = UsedMat->Density;
+            PxRigidBodyExt::setMassAndUpdateInertia(*DynamicActor, MassInKg);
         }
-        PxRigidBodyExt::updateMassAndInertia(*DynamicActor, Density);
-    }
+        else
+        {
+            float Density = 1000.0f; 
+            if (UPhysicalMaterial* UsedMat = PhysMaterialOverride)
+            {
+                Density = UsedMat->Density;
+            }
+            PxRigidBodyExt::updateMassAndInertia(*DynamicActor, Density);
+        }
+    });
 }
 
 void FBodyInstance::SetLinearDamping(float InLinearDamping)
@@ -326,14 +341,19 @@ void FBodyInstance::SetCollisionEnabled(bool bEnabled)
     if (!RigidActor || bEnabled == bCollisionEnabled) { return; }
     bCollisionEnabled = bEnabled;
 
-    for (int32 i = 0; i < Shapes.Num(); ++i)
+    if (!CurrentScene) return;
+
+    CurrentScene->EnqueueCommand([this]()
     {
-        if (Shapes[i])
+        for (int32 i = 0; i < Shapes.Num(); ++i)
         {
-            Shapes[i]->setFlag(PxShapeFlag::eSIMULATION_SHAPE, bCollisionEnabled && !bIsTrigger);
-            Shapes[i]->setFlag(PxShapeFlag::eSCENE_QUERY_SHAPE, bCollisionEnabled);
+            if (Shapes[i])
+            {
+                Shapes[i]->setFlag(PxShapeFlag::eSIMULATION_SHAPE, bCollisionEnabled && !bIsTrigger);
+                Shapes[i]->setFlag(PxShapeFlag::eSCENE_QUERY_SHAPE, bCollisionEnabled);
+            }
         }
-    }
+    });
 }
 
 void FBodyInstance::SetTrigger(bool bInIsTrigger)
@@ -371,20 +391,23 @@ void FBodyInstance::SetUseCCD(bool bInUseCCD)
 
 void FBodyInstance::UpdateDOFLock()
 {
-    PxRigidDynamic* DynamicActor = GetDynamicActor();
-    if (!DynamicActor) return;
+    if (!CurrentScene || !RigidActor) return;
 
-    PxRigidDynamicLockFlags LockFlags;
-    if (bLockXLinear) LockFlags |= PxRigidDynamicLockFlag::eLOCK_LINEAR_Z;
-    if (bLockXAngular) LockFlags |= PxRigidDynamicLockFlag::eLOCK_ANGULAR_Z;
-    // 프로젝트 Y → PhysX X
-    if (bLockYLinear) LockFlags |= PxRigidDynamicLockFlag::eLOCK_LINEAR_X;
-    if (bLockYAngular) LockFlags |= PxRigidDynamicLockFlag::eLOCK_ANGULAR_X;
-    // 프로젝트 Z → PhysX Y
-    if (bLockZLinear) LockFlags |= PxRigidDynamicLockFlag::eLOCK_LINEAR_Y;
-    if (bLockZAngular) LockFlags |= PxRigidDynamicLockFlag::eLOCK_ANGULAR_Y;
+    CurrentScene->EnqueueCommand([this]()
+    {
+        PxRigidDynamic* DynamicActor = GetDynamicActor();
+        if (!DynamicActor) return;
 
-    DynamicActor->setRigidDynamicLockFlags(LockFlags);
+        PxRigidDynamicLockFlags LockFlags;
+        if (bLockXLinear) LockFlags |= PxRigidDynamicLockFlag::eLOCK_LINEAR_Z;
+        if (bLockXAngular) LockFlags |= PxRigidDynamicLockFlag::eLOCK_ANGULAR_Z;
+        if (bLockYLinear) LockFlags |= PxRigidDynamicLockFlag::eLOCK_LINEAR_X;
+        if (bLockYAngular) LockFlags |= PxRigidDynamicLockFlag::eLOCK_ANGULAR_X;
+        if (bLockZLinear) LockFlags |= PxRigidDynamicLockFlag::eLOCK_LINEAR_Y;
+        if (bLockZAngular) LockFlags |= PxRigidDynamicLockFlag::eLOCK_ANGULAR_Y;
+
+        DynamicActor->setRigidDynamicLockFlags(LockFlags);
+    });
 }
 
 void FBodyInstance::SetLinearLock(bool bX, bool bY, bool bZ)
@@ -438,62 +461,92 @@ void FBodyInstance::PutToSleep()
 
 void FBodyInstance::AddForce(const FVector& Force, bool bAccelChange)
 {
-    if (PxRigidDynamic* DynamicActor = GetDynamicActor())
+    if (!CurrentScene || !RigidActor) return;
+
+    CurrentScene->EnqueueCommand([this, Force, bAccelChange]()
     {
-        PxVec3 PForce = PhysXConvert::ToPx(Force);
-        PxForceMode::Enum Mode = bAccelChange ? PxForceMode::eACCELERATION : PxForceMode::eFORCE;
-        DynamicActor->addForce(PForce, Mode);
-    }
+        if (PxRigidDynamic* DynamicActor = GetDynamicActor())
+        {
+            PxVec3 PForce = PhysXConvert::ToPx(Force);
+            PxForceMode::Enum Mode = bAccelChange ? PxForceMode::eACCELERATION : PxForceMode::eFORCE;
+            DynamicActor->addForce(PForce, Mode);
+        }
+    });
 }
 
 void FBodyInstance::AddForceAtLocation(const FVector& Force, const FVector& Location)
 {
-    if (PxRigidDynamic* DynamicActor = GetDynamicActor())
+    if (!CurrentScene || !RigidActor) return;
+
+    CurrentScene->EnqueueCommand([this, Force, Location]()
     {
-        PxVec3 PForce = PhysXConvert::ToPx(Force);
-        PxVec3 PLocation = PhysXConvert::ToPx(Location);
-        PxRigidBodyExt::addForceAtPos(*DynamicActor, PForce, PLocation);
-    }
+        if (PxRigidDynamic* DynamicActor = GetDynamicActor())
+        {
+            PxVec3 PForce = PhysXConvert::ToPx(Force);
+            PxVec3 PLocation = PhysXConvert::ToPx(Location);
+            PxRigidBodyExt::addForceAtPos(*DynamicActor, PForce, PLocation);
+        }
+    });
 }
 
 void FBodyInstance::AddTorque(const FVector& Torque, bool bAccelChange)
 {
-    if (PxRigidDynamic* DynamicActor = GetDynamicActor())
+    if (!CurrentScene || !RigidActor) return;
+
+    CurrentScene->EnqueueCommand([this, Torque, bAccelChange]()
     {
-        PxVec3 PTorque = PhysXConvert::AngularToPx(Torque);
-        PxForceMode::Enum Mode = bAccelChange ? PxForceMode::eACCELERATION : PxForceMode::eFORCE;
-        DynamicActor->addTorque(PTorque, Mode);
-    }
+        if (PxRigidDynamic* DynamicActor = GetDynamicActor())
+        {
+            PxVec3 PTorque = PhysXConvert::AngularToPx(Torque);
+            PxForceMode::Enum Mode = bAccelChange ? PxForceMode::eACCELERATION : PxForceMode::eFORCE;
+            DynamicActor->addTorque(PTorque, Mode);
+        }
+    });
 }
 
 void FBodyInstance::AddImpulse(const FVector& Impulse, bool bVelChange)
 {
-    if (PxRigidDynamic* DynamicActor = GetDynamicActor())
+    if (!CurrentScene || !RigidActor) return;
+
+    CurrentScene->EnqueueCommand([this, Impulse, bVelChange]()
     {
-        PxVec3 PImpulse = PhysXConvert::ToPx(Impulse);
-        PxForceMode::Enum Mode = bVelChange ? PxForceMode::eVELOCITY_CHANGE : PxForceMode::eIMPULSE;
-        DynamicActor->addForce(PImpulse, Mode);
-    }
+        if (PxRigidDynamic* DynamicActor = GetDynamicActor())
+        {
+            PxVec3 PImpulse = PhysXConvert::ToPx(Impulse);
+            PxForceMode::Enum Mode = bVelChange ? PxForceMode::eVELOCITY_CHANGE : PxForceMode::eIMPULSE;
+            DynamicActor->addForce(PImpulse, Mode);
+        }
+    });
 }
 
 void FBodyInstance::AddImpulseAtLocation(const FVector& Impulse, const FVector& Location)
 {
-    if (PxRigidDynamic* DynamicActor = GetDynamicActor())
+    if (!CurrentScene || !RigidActor) return;
+
+    CurrentScene->EnqueueCommand([this, Impulse, Location]()
     {
-        PxVec3 PImpulse = PhysXConvert::ToPx(Impulse);
-        PxVec3 PLocation = PhysXConvert::ToPx(Location);
-        PxRigidBodyExt::addForceAtPos(*DynamicActor, PImpulse, PLocation, PxForceMode::eIMPULSE);
-    }
+        if (PxRigidDynamic* DynamicActor = GetDynamicActor())
+        {
+            PxVec3 PImpulse = PhysXConvert::ToPx(Impulse);
+            PxVec3 PLocation = PhysXConvert::ToPx(Location);
+            PxRigidBodyExt::addForceAtPos(*DynamicActor, PImpulse, PLocation, PxForceMode::eIMPULSE);
+        }
+    });
 }
 
 void FBodyInstance::AddAngularImpulse(const FVector& AngularImpulse, bool bVelChange)
 {
-    if (PxRigidDynamic* DynamicActor = GetDynamicActor())
+    if (!CurrentScene || !RigidActor) return;
+
+    CurrentScene->EnqueueCommand([this, AngularImpulse, bVelChange]()
     {
-        PxVec3 PImpulse = PhysXConvert::AngularToPx(AngularImpulse);
-        PxForceMode::Enum Mode = bVelChange ? PxForceMode::eVELOCITY_CHANGE : PxForceMode::eIMPULSE;
-        DynamicActor->addTorque(PImpulse, Mode);
-    }
+        if (PxRigidDynamic* DynamicActor = GetDynamicActor())
+        {
+            PxVec3 PImpulse = PhysXConvert::AngularToPx(AngularImpulse);
+            PxForceMode::Enum Mode = bVelChange ? PxForceMode::eVELOCITY_CHANGE : PxForceMode::eIMPULSE;
+            DynamicActor->addTorque(PImpulse, Mode);
+        }
+    });
 }
 
 FVector FBodyInstance::GetLinearVelocity() const
@@ -507,17 +560,22 @@ FVector FBodyInstance::GetLinearVelocity() const
 
 void FBodyInstance::SetLinearVelocity(const FVector& Velocity, bool bAddToCurrent)
 {
-    if (PxRigidDynamic* DynamicActor = GetDynamicActor())
+    if (!CurrentScene || !RigidActor) return;
+
+    CurrentScene->EnqueueCommand([this, Velocity, bAddToCurrent]()
     {
-        if (DynamicActor->getRigidBodyFlags() & physx::PxRigidBodyFlag::eKINEMATIC)
-            return;  // Kinematic이면 무시
-        PxVec3 PVel = PhysXConvert::ToPx(Velocity);
-        if (bAddToCurrent)
+        if (PxRigidDynamic* DynamicActor = GetDynamicActor())
         {
-            PVel += DynamicActor->getLinearVelocity();
+            if (DynamicActor->getRigidBodyFlags() & PxRigidBodyFlag::eKINEMATIC) return; 
+
+            PxVec3 PVel = PhysXConvert::ToPx(Velocity);
+            if (bAddToCurrent)
+            {
+                PVel += DynamicActor->getLinearVelocity();
+            }
+            DynamicActor->setLinearVelocity(PVel);
         }
-        DynamicActor->setLinearVelocity(PVel);
-    }
+    });
 }
 
 FVector FBodyInstance::GetAngularVelocity() const
@@ -531,18 +589,22 @@ FVector FBodyInstance::GetAngularVelocity() const
 
 void FBodyInstance::SetAngularVelocity(const FVector& AngularVelocity, bool bAddToCurrent)
 {
-    if (PxRigidDynamic* DynamicActor = GetDynamicActor())
-    {
-        if (DynamicActor->getRigidBodyFlags() & physx::PxRigidBodyFlag::eKINEMATIC)
-            return;  // Kinematic이면 무시
+    if (!CurrentScene || !RigidActor) return;
 
-        PxVec3 PVel = PhysXConvert::AngularToPx(AngularVelocity);
-        if (bAddToCurrent)
+    CurrentScene->EnqueueCommand([this, AngularVelocity, bAddToCurrent]()
+    {
+        if (PxRigidDynamic* DynamicActor = GetDynamicActor())
         {
-            PVel += DynamicActor->getAngularVelocity();
-        }
-        DynamicActor->setAngularVelocity(PVel);
-    }
+            if (DynamicActor->getRigidBodyFlags() & PxRigidBodyFlag::eKINEMATIC) return; 
+
+            PxVec3 PVel = PhysXConvert::AngularToPx(AngularVelocity);
+            if (bAddToCurrent)
+            {
+                PVel += DynamicActor->getAngularVelocity();
+            }
+            DynamicActor->setAngularVelocity(PVel);
+            }
+    });
 }
 // --- UBodySetupCore 설정 적용 ---
 

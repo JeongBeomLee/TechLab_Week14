@@ -2,6 +2,10 @@
 #include "PhysicsScene.h"
 #include "BodyInstance.h"
 #include "PhysicsSystem.h"
+#include "PrimitiveComponent.h"
+
+#define SCOPED_READ_LOCK(Scene) PxSceneReadLock ScopedReadLock(Scene);
+#define SCOPED_WRITE_LOCK(Scene) PxSceneWriteLock ScopedWriteLock(Scene);
 
 FPhysicsScene::FPhysicsScene() : mScene(nullptr) {}
 FPhysicsScene::~FPhysicsScene()
@@ -30,6 +34,10 @@ void FPhysicsScene::Initialize(FPhysicsSystem* System)
     }
 
     SceneDesc.filterShader = PxDefaultSimulationFilterShader;
+    SceneDesc.flags |= PxSceneFlag::eENABLE_ACTIVE_ACTORS; // 활성화된 액터 목록만 가져올 수 있게
+    SceneDesc.flags |= PxSceneFlag::eENABLE_CCD; // CCD 허용
+    SceneDesc.flags |= PxSceneFlag::eENABLE_PCM; // 충돌 접점 관리...?
+    
     mScene = Physics->createScene(SceneDesc);
     PxPvdSceneClient* PvdClient = mScene->getScenePvdClient();
     if (PvdClient)
@@ -45,29 +53,60 @@ void FPhysicsScene::Initialize(FPhysicsSystem* System)
     }
 }
 
-void FPhysicsScene::Tick(float DeltaTime)
+void FPhysicsScene::EnqueueCommand(PhysicsCommand Command)
 {
-    if (!mScene) return;
+    CommandQueue.push_back(Command);
+}
 
-    // 1. 시뮬레이션 단계 진행 (비동기 시작)
-    // DeltaTime이 너무 크면 불안정할 수 있으므로, 보통은 고정 타임스텝(Fixed Timestep)을 쓰거나
-    // 최대값을 클램핑(Clamp)해주는 것이 좋음.
+void FPhysicsScene::ProcessCommandQueue()
+{
+    SCOPED_WRITE_LOCK(*mScene)
+
+    for (const auto& Cmd : CommandQueue)
+    {
+        Cmd(); // 명령 실행
+    }
+    CommandQueue.clear();
+}
+
+void FPhysicsScene::Simulation(float DeltaTime)
+{
+    // 비동기 시뮬레이션
     mScene->simulate(DeltaTime);
+}
 
-    // 2. 결과가 나올 때까지 대기 (Blocking)
-    // fetchResults(true)는 계산이 끝날 때까지 여기서 멈춰있음.
-    // (나중에 최적화하려면 이걸 false로 하고 다른 작업을 하다가 돌아올 수도 있음)
+void FPhysicsScene::FetchAndSync()
+{
+    // 시뮬레이션 완료될 때까지 기다림
     mScene->fetchResults(true);
+
+    {
+        // 멀티스레드 렌더링 환경 등을 고려하여 락을 거는 것이 안전
+        SCOPED_READ_LOCK(*mScene)
+
+        uint32 ActiveCount = 0;
+        PxActor** ActiveActors = mScene->getActiveActors(ActiveCount);
+
+        for (uint32 i = 0; i < ActiveCount; ++i)
+        {
+            PxActor* Actor = ActiveActors[i];
+            if (FBodyInstance* BodyInstance = static_cast<FBodyInstance*>(Actor->userData))
+            {
+                if (BodyInstance->OwnerComponent)
+                {
+                    FTransform PxWorldTransform = BodyInstance->GetWorldTransform();
+                    BodyInstance->OwnerComponent->SyncByPhysics(PxWorldTransform);
+                }
+            }
+        }
+    }
 }
 
 void FPhysicsScene::Shutdown()
 {
     if (mScene)
     {
-        // 씬 안에 있는 모든 액터를 강제로 비우고 싶다면 여기서 처리 가능
-        // 하지만 보통은 Actor들이 소멸될 때 RemoveActor를 호출하거나
-        // Scene release 시 자동 정리됨 (단, Actor 객체 메모리 관리는 별도 주의)
-        
+        // 씬 안에 있는 액터들은 World가 정리되며 자동으로 정리
         mScene->release();
         mScene = nullptr;
     }
@@ -77,6 +116,9 @@ void FPhysicsScene::AddActor(FBodyInstance* Body)
 {
     if (mScene && Body)
     {
+        // Add나 Remove는 Tick 도중 가능하기 때문에 Lock
+        SCOPED_WRITE_LOCK(*mScene)
+        Body->RigidActor->userData = Body;
         mScene->addActor(*Body->RigidActor);
     }
 }
@@ -85,6 +127,9 @@ void FPhysicsScene::RemoveActor(FBodyInstance* Body)
 {
     if (mScene && Body)
     {
+        // Add나 Remove는 Tick 도중 가능하기 때문에 Lock
+        SCOPED_WRITE_LOCK(*mScene)
         mScene->removeActor(*Body->RigidActor);
+        Body->RigidActor->userData = nullptr;
     }
 }

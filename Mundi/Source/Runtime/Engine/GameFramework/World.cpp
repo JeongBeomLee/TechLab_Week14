@@ -187,9 +187,16 @@ bool UWorld::LoadLevelFromFile(const FWideString& Path)
 // 함수 내부 코드 순서 유지 필요
 void UWorld::Tick(float DeltaSeconds)
 {
+	// 물리 시뮬레이션 시작 (비동기)
+	if (PhysicsScene && bPie)
+	{
+		PhysicsScene->ProcessCommandQueue();
+		PhysicsScene->Simulation(DeltaSeconds);
+	}
+	
 	// GameDelat: Unscaled * finalScale
 	float UnscaledDeltaSeconds = DeltaSeconds;
-
+	
 	// Time Stop 
 	if (TimeStopDuration > 0 || TimeDuration > 0)
 	{
@@ -296,30 +303,10 @@ void UWorld::Tick(float DeltaSeconds)
 		CollisionManager->UpdateCollisions(GetDeltaTime(EDeltaTime::Game));
 	}
 
-	// 물리 업데이트 (위치 다시 고민해보기)
+	// 물리 업데이트
 	if (PhysicsScene && bPie)
 	{
-		PhysicsScene->Tick(DeltaSeconds);
-		
-		// 물리 결과 동기화 (Sync) - 필수
-		// 시뮬레이션된 모든 강체의 위치를 PrimitiveComponent에 반영
-		for (AActor* Actor : Level->GetActors())
-		{
-			if (Actor && Actor->IsActorActive())
-			{
-				for (UActorComponent* Component: Actor->GetSceneComponents())
-				{
-					if (UPrimitiveComponent* PrimComp = Cast<UPrimitiveComponent>(Component))
-					{
-						// 물리 시뮬레이션이 켜져 있다면 동기화 수행
-						if (PrimComp->IsSimulatingPhysics())
-						{
-							PrimComp->SyncComponentToPhysics(); // 이전 답변에서 정의된 함수
-						}
-					}
-				}
-			}
-		}
+		PhysicsScene->FetchAndSync();
 	}
 }
 

@@ -2,6 +2,7 @@
 #include "PrimitiveComponent.h"
 #include "SceneComponent.h"
 #include "Actor.h"
+#include "PhysicsScene.h"
 #include "WorldPartitionManager.h"
 // IMPLEMENT_CLASS is now auto-generated in .generated.cpp
 UPrimitiveComponent::UPrimitiveComponent() : bGenerateOverlapEvents(true)
@@ -16,6 +17,7 @@ void UPrimitiveComponent::BeginPlay()
 
 void UPrimitiveComponent::EndPlay()
 {
+    GetWorld()->GetPhysicsScene()->RemoveActor(&BodyInstance);
     Super::EndPlay();
 }
 
@@ -49,7 +51,7 @@ void UPrimitiveComponent::OnUnregister()
 void UPrimitiveComponent::OnTransformUpdated()
 {
     Super::OnTransformUpdated();
-    if (bIsSyncingPhysicsToComponent) { return; }
+    if (bIsSyncingByPhysics) { return; }
     BodyInstance.SetWorldTransform(GetWorldTransform(), false);
 }
 
@@ -93,24 +95,18 @@ bool UPrimitiveComponent::IsOverlappingActor(const AActor* Other) const
     return false;
 }
 
-void UPrimitiveComponent::SyncComponentToPhysics()
-{
-    bIsSyncingPhysicsToComponent = true; 
-
-    // 물리가 켜져 있고, 바디 인스턴스가 유효한 경우에만 동기화
-    if (BodyInstance.IsValidBodyInstance() && IsSimulatingPhysics())
-    {
-        FTransform PxWorldTransform = BodyInstance.GetWorldTransform();
-        SetWorldTransform(PxWorldTransform); 
-    }
-    bIsSyncingPhysicsToComponent = false;
-}
-
 void UPrimitiveComponent::CreatePhysicsState()
 {
     if (!CanSimulatingPhysics() || !GetBodySetup()) { return; }
     FPhysicsScene* PhysScene = GetWorld() ? GetWorld()->GetPhysicsScene() : nullptr;
     BodyInstance.InitBody(GetBodySetup(), GetWorldTransform(), this, PhysScene);
+}
+
+void UPrimitiveComponent::SyncByPhysics(const FTransform& NewTransform)
+{
+    bIsSyncingByPhysics = true;
+    SetWorldTransform(NewTransform);
+    bIsSyncingByPhysics = false;
 }
 
 void UPrimitiveComponent::RecreatePhysicsState()

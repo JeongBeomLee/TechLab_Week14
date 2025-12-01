@@ -42,6 +42,7 @@ public:
 
 // --- 소유자 정보 ---
     UPrimitiveComponent* OwnerComponent = nullptr;
+    FPhysicsScene* CurrentScene = nullptr;
     FName BoneName = "None"; // 랙돌용 뼈 이름
     int32 BoneIndex = -1;
 // --- PhysX 객체 ---

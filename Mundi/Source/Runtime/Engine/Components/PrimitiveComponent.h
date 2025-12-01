@@ -66,9 +66,6 @@ public:
     bool IsOverlappingActor(const AActor* Other) const;
     virtual const TArray<FOverlapInfo>& GetOverlapInfos() const { static TArray<FOverlapInfo> Empty; return Empty; }
 
-    // 물리 시뮬레이션 결과를 컴포넌트에 반영하는 함수
-    void SyncComponentToPhysics();
-
     UPROPERTY(EditAnywhere, Category="Shape")
     bool bGenerateOverlapEvents;
 
@@ -79,15 +76,16 @@ protected:
     virtual void CreatePhysicsState();
     
 public:
+    void SyncByPhysics(const FTransform& NewTransform);
     void RecreatePhysicsState();
     virtual class UBodySetup* GetBodySetup() { return nullptr; }
+
+private:
+    bool bIsSyncingByPhysics = false;
 
 public:
     UPROPERTY(EditAnywhere, Category="Physics")
     FBodyInstance BodyInstance;
-
-protected:
-    bool bIsSyncingPhysicsToComponent = false;
 
 public:
     // ───── 복사 관련 ────────────────────────────

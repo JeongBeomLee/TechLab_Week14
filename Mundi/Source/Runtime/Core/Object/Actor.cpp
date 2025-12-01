@@ -542,7 +542,6 @@ bool AActor::IsActorVisible() const
 void AActor::PostDuplicate()
 {
 	Super::PostDuplicate();
-
 }
 
 bool AActor::IsOverlappingActor(const AActor* Other) const
@@ -684,6 +683,8 @@ void AActor::DuplicateSubObjects()
 			}
 		}
 	}
+
+	LuaGameObject = nullptr;
 }
 
 void AActor::Serialize(const bool bInIsLoading, JSON& InOutHandle)
