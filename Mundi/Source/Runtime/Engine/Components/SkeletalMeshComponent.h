@@ -24,6 +24,15 @@ public:
     void TickComponent(float DeltaTime) override;
     void SetSkeletalMesh(const FString& PathFileName) override;
 
+    // PhysicsAsset 디버그 시각화
+    void RenderDebugVolume(URenderer* Renderer) const override;
+
+    // 물리 상태 관리 (UPrimitiveComponent 오버라이드)
+    void OnCreatePhysicsState() override;
+    void OnDestroyPhysicsState() override;
+
+    // 프로퍼티 변경 시 물리 상태 재생성
+    void OnPropertyChanged(const FProperty& Prop) override;
     // Animation Integration
 public:
     void SetAnimInstance(class UAnimInstance* InInstance);
@@ -224,10 +233,6 @@ public:
     /** 연결된 물리 에셋 */
     UPROPERTY(EditAnywhere, Category="[피직스 에셋]")
     UPhysicsAsset* PhysicsAsset = nullptr;
-
-    /** 물리 시뮬레이션 활성화 여부 */
-    UPROPERTY(EditAnywhere, Category="[피직스]")
-    bool bSimulatePhysics = false;
 
     /** 본별 바디 인스턴스 (BoneIndex -> FBodyInstance) */
     TArray<FBodyInstance*> Bodies;

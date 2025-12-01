@@ -419,6 +419,7 @@ xcopy /y /d "$(ProjectDir)ThirdParty\lib\physx\$(Configuration)\*.dll" "$(OutDir
     <ClCompile Include="Source\Runtime\Engine\PhysicsEngine\BoxElem.cpp" />
     <ClCompile Include="Source\Runtime\Engine\PhysicsEngine\ConstraintInstance.cpp" />
     <ClCompile Include="Source\Runtime\Engine\PhysicsEngine\PhysicsAsset.cpp" />
+    <ClCompile Include="Source\Runtime\Engine\PhysicsEngine\PhysicsDebugUtils.cpp" />
     <ClCompile Include="Source\Runtime\Engine\PhysicsEngine\PhysicsTypes.cpp" />
     <ClCompile Include="Source\Runtime\Engine\PhysicsEngine\PhysScene.cpp" />
     <ClCompile Include="Source\Runtime\Engine\PhysicsEngine\PhysXSupport.cpp" />
@@ -955,6 +956,7 @@ xcopy /y /d "$(ProjectDir)ThirdParty\lib\physx\$(Configuration)\*.dll" "$(OutDir
     <ClInclude Include="Source\Runtime\Engine\PhysicsEngine\FBodySetup.h" />
     <ClInclude Include="Source\Runtime\Engine\PhysicsEngine\FConstraintSetup.h" />
     <ClInclude Include="Source\Runtime\Engine\PhysicsEngine\PhysicsAsset.h" />
+    <ClInclude Include="Source\Runtime\Engine\PhysicsEngine\PhysicsDebugUtils.h" />
     <ClInclude Include="Source\Runtime\Engine\PhysicsEngine\PhysicsTypes.h" />
     <ClInclude Include="Source\Runtime\Engine\PhysicsEngine\PhysScene.h" />
     <ClInclude Include="Source\Runtime\Engine\PhysicsEngine\PhysXPublic.h" />

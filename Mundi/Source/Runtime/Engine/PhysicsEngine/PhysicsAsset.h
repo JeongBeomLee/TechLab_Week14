@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "ResourceBase.h"
 #include "PhysicsTypes.h"
 #include "BodySetup.h"
@@ -24,7 +24,7 @@ class UPhysicsAsset : public UResourceBase
 public:
 	GENERATED_REFLECTION_BODY()
 
-	UPhysicsAsset() = default;
+	UPhysicsAsset() = default; 
 	virtual ~UPhysicsAsset() = default;
 
 	// ────────────────────────────────────────────────────────────────

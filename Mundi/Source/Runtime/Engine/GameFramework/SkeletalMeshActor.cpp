@@ -86,6 +86,7 @@ void ASkeletalMeshActor::EnsureViewerComponents()
             BoneAnchor->RegisterComponent(World);
         }
     }
+
 }
 
 void ASkeletalMeshActor::RebuildBoneLines(int32 SelectedBoneIndex)
@@ -617,3 +618,4 @@ int32 ASkeletalMeshActor::PickBone(const FRay& Ray, float& OutDistance) const
 
     return ClosestBoneIndex;
 }
+

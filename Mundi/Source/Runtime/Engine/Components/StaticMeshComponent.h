@@ -38,7 +38,7 @@ public:
 	void SetStaticMesh(const FString& PathFileName);
 
 	UStaticMesh* GetStaticMesh() const { return StaticMesh; }
-	
+
 	FAABB GetWorldAABB() const override;
 
 	void DuplicateSubObjects() override;
