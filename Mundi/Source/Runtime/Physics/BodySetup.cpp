@@ -60,17 +60,85 @@ UBodySetup::UBodySetup()
 
 UBodySetup::~UBodySetup()
 {
+    ClearAllShapes();
+}
+
+void UBodySetup::CreatePhysicsMeshes()
+{
+    ClearPhysicsMeshes();
+
+    FPhysicsSystem* System = GEngine.GetPhysicsSystem();
+    if (!System) { return; }
+    
+    auto* Cooking = System->GetCooking();
+    auto* Physics = System->GetPhysics();
+
+    if (!Cooking || !Physics) return;
+
+    for (FKConvexElem& Elem : AggGeom.ConvexElems)
+    {
+        if (Elem.CookedData.Num() > 0)
+        {
+            PxDefaultMemoryInputData Input(Elem.CookedData.GetData(), Elem.CookedData.Num());
+            Elem.ConvexMesh = Physics->createConvexMesh(Input);
+            continue;
+        }
+        
+        if (Elem.VertexData.Num() < 4) 
+        {
+            UE_LOG("[Physics] Skipping convex mesh with insufficient vertices.");
+            continue; 
+        }
+
+        TArray<PxVec3> PxVerts;
+        PxVerts.Reserve(Elem.VertexData.Num());
+        for (const FVector& V : Elem.VertexData)
+        {
+            PxVerts.Add(PhysXConvert::ToPx(V));
+        }
+
+        PxConvexMeshDesc Desc;
+        Desc.points.data = PxVerts.GetData();
+        Desc.points.count = PxVerts.Num();
+        Desc.points.stride = sizeof(PxVec3);
+        Desc.flags = PxConvexFlag::eCOMPUTE_CONVEX; // 자동 Convex 계산
+
+        PxDefaultMemoryOutputStream Output;
+        if (Cooking->cookConvexMesh(Desc, Output))
+        {
+            Elem.CookedData.SetNum(Output.getSize());
+            memcpy(Elem.CookedData.GetData(), Output.getData(), Output.getSize());
+            PxDefaultMemoryInputData Input(Elem.CookedData.GetData(), Elem.CookedData.Num());
+            Elem.ConvexMesh = Physics->createConvexMesh(Input);
+        }
+        else
+        {
+            UE_LOG("[Physics] Failed to cook convex mesh!");
+        }
+    }
+}
+
+void UBodySetup::ClearPhysicsMeshes()
+{
+    for (FKConvexElem& Elem : AggGeom.ConvexElems)
+    {
+        if (Elem.ConvexMesh)
+        {
+            Elem.ConvexMesh->release();
+            Elem.ConvexMesh = nullptr;
+        }
+    }
 }
 
 // --- PhysX Shape 생성 ---
-
 void UBodySetup::CreatePhysicsShapes(FBodyInstance* BodyInstance, const FVector& Scale3D,
-                                      UPhysicalMaterial* InMaterial)
+                                      UPhysicalMaterial* InMaterial, ECollisionShapeMode ShapeMode)
 {
     if (!BodyInstance || !BodyInstance->RigidActor) return;
 
     FPhysicsSystem* System = GEngine.GetPhysicsSystem();
     PxPhysics* Physics = System->GetPhysics();
+    
     if (!Physics) return;
 
     // 사용할 재질 결정
@@ -81,51 +149,71 @@ void UBodySetup::CreatePhysicsShapes(FBodyInstance* BodyInstance, const FVector&
         Material = UsedMat->MatHandle;
     }
 
-    // Sphere Shape 생성
-    for (int32 i = 0; i < AggGeom.SphereElems.Num(); ++i)
+    if (ShapeMode == ECollisionShapeMode::Simple)
     {
-        const FKSphereElem& Elem = AggGeom.SphereElems[i];
-        if (Elem.GetCollisionEnabled() == ECollisionEnabled::NoCollision) continue;
-
-        PxShape* Shape = CreateSphereShape(Elem, Scale3D, Material);
-        if (Shape)
+        // Sphere Shape 생성
+        for (int32 i = 0; i < AggGeom.SphereElems.Num(); ++i)
         {
-            ConfigureShapeFlags(Shape, Elem.GetCollisionEnabled(), BodyInstance->IsTrigger());
-            BodyInstance->RigidActor->attachShape(*Shape);
-            BodyInstance->Shapes.Add(Shape);
-            Shape->release(); // Actor가 소유권을 가짐
+            const FKSphereElem& Elem = AggGeom.SphereElems[i];
+            if (Elem.GetCollisionEnabled() == ECollisionEnabled::NoCollision) continue;
+
+            PxShape* Shape = CreateSphereShape(Elem, Scale3D, Material);
+            if (Shape)
+            {
+                ConfigureShapeFlags(Shape, Elem.GetCollisionEnabled(), BodyInstance->IsTrigger());
+                BodyInstance->RigidActor->attachShape(*Shape);
+                BodyInstance->Shapes.Add(Shape);
+                Shape->release(); // Actor가 소유권을 가짐
+            }
+        }
+
+        // Box Shape 생성
+        for (int32 i = 0; i < AggGeom.BoxElems.Num(); ++i)
+        {
+            const FKBoxElem& Elem = AggGeom.BoxElems[i];
+            if (Elem.GetCollisionEnabled() == ECollisionEnabled::NoCollision) continue;
+
+            PxShape* Shape = CreateBoxShape(Elem, Scale3D, Material);
+            if (Shape)
+            {
+                ConfigureShapeFlags(Shape, Elem.GetCollisionEnabled(), BodyInstance->IsTrigger());
+                BodyInstance->RigidActor->attachShape(*Shape);
+                BodyInstance->Shapes.Add(Shape);
+                Shape->release();
+            }
+        }
+
+        // Capsule Shape 생성
+        for (int32 i = 0; i < AggGeom.SphylElems.Num(); ++i)
+        {
+            const FKSphylElem& Elem = AggGeom.SphylElems[i];
+            if (Elem.GetCollisionEnabled() == ECollisionEnabled::NoCollision) continue;
+
+            PxShape* Shape = CreateCapsuleShape(Elem, Scale3D, Material);
+            if (Shape)
+            {
+                ConfigureShapeFlags(Shape, Elem.GetCollisionEnabled(), BodyInstance->IsTrigger());
+                BodyInstance->RigidActor->attachShape(*Shape);
+                BodyInstance->Shapes.Add(Shape);
+                Shape->release();
+            }
         }
     }
 
-    // Box Shape 생성
-    for (int32 i = 0; i < AggGeom.BoxElems.Num(); ++i)
+    if (ShapeMode == ECollisionShapeMode::Convex)
     {
-        const FKBoxElem& Elem = AggGeom.BoxElems[i];
-        if (Elem.GetCollisionEnabled() == ECollisionEnabled::NoCollision) continue;
-
-        PxShape* Shape = CreateBoxShape(Elem, Scale3D, Material);
-        if (Shape)
+        for (const auto& Elem : AggGeom.ConvexElems)
         {
-            ConfigureShapeFlags(Shape, Elem.GetCollisionEnabled(), BodyInstance->IsTrigger());
-            BodyInstance->RigidActor->attachShape(*Shape);
-            BodyInstance->Shapes.Add(Shape);
-            Shape->release();
-        }
-    }
-
-    // Capsule Shape 생성
-    for (int32 i = 0; i < AggGeom.SphylElems.Num(); ++i)
-    {
-        const FKSphylElem& Elem = AggGeom.SphylElems[i];
-        if (Elem.GetCollisionEnabled() == ECollisionEnabled::NoCollision) continue;
-
-        PxShape* Shape = CreateCapsuleShape(Elem, Scale3D, Material);
-        if (Shape)
-        {
-            ConfigureShapeFlags(Shape, Elem.GetCollisionEnabled(), BodyInstance->IsTrigger());
-            BodyInstance->RigidActor->attachShape(*Shape);
-            BodyInstance->Shapes.Add(Shape);
-            Shape->release();
+            if (Elem.ConvexMesh == nullptr) { continue; }
+            PxShape* Shape = CreateConvexShape(Elem, Scale3D, Material);
+            
+            if (Shape)
+            {
+                ConfigureShapeFlags(Shape, Elem.GetCollisionEnabled(), BodyInstance->IsTrigger());
+                BodyInstance->RigidActor->attachShape(*Shape);
+                BodyInstance->Shapes.Add(Shape);
+                Shape->release();
+            }
         }
     }
 }
@@ -236,6 +324,29 @@ PxShape* UBodySetup::CreateCapsuleShape(const FKSphylElem& Elem, const FVector& 
     return Shape;
 }
 
+physx::PxShape* UBodySetup::CreateConvexShape(const FKConvexElem& Elem, const FVector& Scale3D, physx::PxMaterial* Material)
+{
+    if (!Elem.ConvexMesh || !Material) return nullptr;
+
+    FPhysicsSystem* System = GEngine.GetPhysicsSystem();
+    PxPhysics* Physics = System->GetPhysics();
+
+    FVector TotalScale = Elem.Transform.Scale3D * Scale3D;
+    PxMeshScale MeshScale(PhysXConvert::ScaleToPx(TotalScale), PxQuat(PxIdentity));
+    PxConvexMeshGeometry ConvexGeom(Elem.ConvexMesh, MeshScale);
+
+    // Shape 생성 (isExclusive=true로 설정하여 최적화 권장)
+    PxShape* Shape = Physics->createShape(ConvexGeom, *Material, true);
+    if (!Shape) return nullptr;
+
+    FTransform T = Elem.Transform;
+    T.Scale3D = FVector::One(); 
+    PxTransform PxT = PhysXConvert::ToPx(T);
+    Shape->setLocalPose(PxT);
+
+    return Shape;
+}
+
 // --- 유틸리티 ---
 
 float UBodySetup::GetVolume(const FVector& Scale3D) const
@@ -271,8 +382,21 @@ int32 UBodySetup::AddCapsuleElem(float Radius, float HalfHeight,
     return AggGeom.AddSphylElem(Elem);
 }
 
+int32 UBodySetup::AddConvexElem(const TArray<FVector>& InVertices, const FTransform& InTransform)
+{
+    FKConvexElem NewElem;
+    
+    NewElem.VertexData = InVertices;
+    NewElem.Transform = InTransform;
+
+    NewElem.UpdateElemBox(); 
+
+    return AggGeom.ConvexElems.Add(NewElem);
+}
+
 void UBodySetup::ClearAllShapes()
 {
+    ClearPhysicsMeshes();
     AggGeom.EmptyElements();
 }
 
@@ -281,11 +405,11 @@ FArchive& operator<<(FArchive& Ar, UBodySetup& BodySetup)
 {
     if (Ar.IsSaving())
     {
-        // DefaultCollisionEnabled 저장
+        // 1. DefaultCollisionEnabled 저장
         int32 CollisionEnabled = static_cast<int32>(BodySetup.DefaultCollisionEnabled);
         Ar << CollisionEnabled;
 
-        // Sphere Elements
+        // 2. Sphere Elements
         int32 SphereCount = BodySetup.AggGeom.SphereElems.Num();
         Ar << SphereCount;
         for (int32 i = 0; i < SphereCount; ++i)
@@ -295,7 +419,7 @@ FArchive& operator<<(FArchive& Ar, UBodySetup& BodySetup)
             Ar << Elem.Center;
         }
 
-        // Box Elements
+        // 3. Box Elements
         int32 BoxCount = BodySetup.AggGeom.BoxElems.Num();
         Ar << BoxCount;
         for (int32 i = 0; i < BoxCount; ++i)
@@ -308,7 +432,7 @@ FArchive& operator<<(FArchive& Ar, UBodySetup& BodySetup)
             Ar << Elem.Rotation;
         }
 
-        // Capsule Elements
+        // 4. Capsule Elements
         int32 CapsuleCount = BodySetup.AggGeom.SphylElems.Num();
         Ar << CapsuleCount;
         for (int32 i = 0; i < CapsuleCount; ++i)
@@ -319,15 +443,35 @@ FArchive& operator<<(FArchive& Ar, UBodySetup& BodySetup)
             Ar << Elem.Center;
             Ar << Elem.Rotation;
         }
+
+        // 5. Convex Elements
+        int32 ConvexCount = BodySetup.AggGeom.ConvexElems.Num();
+        Ar << ConvexCount;
+
+        for (int32 i = 0; i < ConvexCount; ++i)
+        {
+            FKConvexElem& Elem = BodySetup.AggGeom.ConvexElems[i];
+            FVector Pos = Elem.Transform.Translation;
+            FQuat Rot = Elem.Transform.Rotation;
+            FVector Scale = Elem.Transform.Scale3D;
+
+            Ar << Pos;
+            Ar << Rot;
+            Ar << Scale;
+
+            Serialization::WriteArray(Ar, Elem.VertexData);
+            Serialization::WriteArray(Ar, Elem.IndexData);
+            Serialization::WriteArray(Ar, Elem.CookedData);
+        }
     }
     else if (Ar.IsLoading())
     {
-        // DefaultCollisionEnabled 로드
+        // 1. DefaultCollisionEnabled 로드
         int32 CollisionEnabled = 0;
         Ar << CollisionEnabled;
         BodySetup.DefaultCollisionEnabled = static_cast<ECollisionEnabled>(CollisionEnabled);
 
-        // Sphere Elements 로드
+        // 2. Sphere Elements 로드
         int32 SphereCount = 0;
         Ar << SphereCount;
         for (int32 i = 0; i < SphereCount; ++i)
@@ -339,7 +483,7 @@ FArchive& operator<<(FArchive& Ar, UBodySetup& BodySetup)
             BodySetup.AddSphereElem(Radius, Center);
         }
 
-        // Box Elements 로드
+        // 3. Box Elements 로드
         int32 BoxCount = 0;
         Ar << BoxCount;
         for (int32 i = 0; i < BoxCount; ++i)
@@ -353,7 +497,7 @@ FArchive& operator<<(FArchive& Ar, UBodySetup& BodySetup)
             BodySetup.AddBoxElem(X, Y, Z, Center, Rotation);
         }
 
-        // Capsule Elements 로드
+        // 4. Capsule Elements 로드
         int32 CapsuleCount = 0;
         Ar << CapsuleCount;
         for (int32 i = 0; i < CapsuleCount; ++i)
@@ -366,6 +510,46 @@ FArchive& operator<<(FArchive& Ar, UBodySetup& BodySetup)
             Ar << Rotation;
             BodySetup.AddCapsuleElem(Radius, Length * 0.5f, Center, Rotation);
         }
+
+        // 5. Convex Elements 로드
+        int32 ConvexCount = 0;
+        Ar << ConvexCount;
+
+        for (int32 i = 0; i < ConvexCount; ++i)
+        {
+            // A. Transform 로드
+            FVector Pos;
+            FQuat Rot;
+            FVector Scale;
+            Ar << Pos;
+            Ar << Rot;
+            Ar << Scale;
+
+            FTransform Transform(Pos, Rot, Scale);
+
+            TArray<FVector> LoadedVertices;
+            Serialization::ReadArray(Ar, LoadedVertices);
+
+            // C. IndexData Load
+            TArray<int32> LoadedIndices;
+            Serialization::ReadArray(Ar, LoadedIndices);
+
+            // D. BodySetup에 추가
+            int32 NewIdx = BodySetup.AddConvexElem(LoadedVertices, Transform);
+
+            // 인덱스 데이터 설정
+            if (BodySetup.AggGeom.ConvexElems.Num() > NewIdx && NewIdx >= 0)
+            {
+                BodySetup.AggGeom.ConvexElems[NewIdx].IndexData = LoadedIndices;
+                Serialization::ReadArray(Ar, BodySetup.AggGeom.ConvexElems[NewIdx].CookedData);
+            }
+            else
+            {
+                TArray<uint8> Dummy;
+                Serialization::ReadArray(Ar, Dummy);
+            }
+        }
     }
     return Ar;
 }
+

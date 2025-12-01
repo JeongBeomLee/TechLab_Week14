@@ -54,7 +54,7 @@ FBodyInstance FBodyInstance::DuplicateBodyInstance() const
     return Other;
 }
 
-void FBodyInstance::InitBody(UBodySetup* Setup, const FTransform& Transform, UPrimitiveComponent* PrimComp, FPhysicsScene* InRBScene)
+void FBodyInstance::InitBody(UBodySetup* Setup, const FTransform& Transform, UPrimitiveComponent* PrimComp, FPhysicsScene* InRBScene, ECollisionShapeMode ShapeMode)
 {
     if (!Setup || !Setup->HasValidShapes())
     {
@@ -69,7 +69,7 @@ void FBodyInstance::InitBody(UBodySetup* Setup, const FTransform& Transform, UPr
     if (!RigidActor) return;
 
     UPhysicalMaterial* MatToUse = PhysMaterialOverride ? PhysMaterialOverride : Setup->PhysMaterial;
-    Setup->CreatePhysicsShapes(this, Scale3D, MatToUse);
+    Setup->CreatePhysicsShapes(this, Scale3D, MatToUse, ShapeMode);
     ApplyBodySetupSettings(Setup);
     FinalizeInternalActor(InRBScene);
 }

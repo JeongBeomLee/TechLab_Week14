@@ -16,9 +16,22 @@ void FPhysicsSystem::Initialize()
     PxPvdTransport* transport = PxDefaultPvdSocketTransportCreate("127.0.0.1", 5425, 10);
     mPvd->connect(*transport, PxPvdInstrumentationFlag::eALL);
 
-    mPhysics = PxCreatePhysics(PX_PHYSICS_VERSION, *mFoundation, PxTolerancesScale(), true, mPvd);
-    if (!mPhysics) {
+    PxTolerancesScale Scale;
+    mPhysics = PxCreatePhysics(PX_PHYSICS_VERSION, *mFoundation, Scale, true, mPvd);
+    if (!mPhysics)
+    {
         UE_LOG("[FPhysicsSystem]: PxCreatePhysics Error");
+        return;
+    }
+
+    PxCookingParams Params(Scale);
+    Params.meshWeldTolerance = 0.1f; 
+    Params.meshPreprocessParams |= PxMeshPreprocessingFlag::eWELD_VERTICES;
+    Params.midphaseDesc.setToDefault(PxMeshMidPhase::eBVH34);
+    mCooking = PxCreateCooking(PX_PHYSICS_VERSION, *mFoundation, Params);
+    if (!mCooking)
+    {
+        UE_LOG("[FPhysicsSystem]: PxCreateCooking Error");
         return;
     }
 
@@ -37,6 +50,8 @@ void FPhysicsSystem::Shutdown()
     
     // 재질 해제
     if (mMaterial)      mMaterial->release();
+
+    if (mCooking)       mCooking->release();
 
     // 디스패처 해제
     if (mDispatcher)    mDispatcher->release();

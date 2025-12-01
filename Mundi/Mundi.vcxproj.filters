@@ -1161,6 +1161,9 @@
     <ClCompile Include="Generated\UBodySetupCore.generated.cpp">
       <Filter>Generated</Filter>
     </ClCompile>
+    <ClCompile Include="Generated\FKConvexElem.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Generated\UParticleModuleSizeScaleBySpeed.generated.h">
@@ -2436,6 +2439,9 @@
       <Filter>Generated</Filter>
     </ClInclude>
     <ClInclude Include="Generated\UBodySetupCore.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\FKConvexElem.generated.h">
       <Filter>Generated</Filter>
     </ClInclude>
   </ItemGroup>

@@ -76,7 +76,7 @@ public:
     bool bBlockComponent;
 
 protected:
-    void CreatePhysicsState();
+    virtual void CreatePhysicsState();
     
 public:
     void RecreatePhysicsState();

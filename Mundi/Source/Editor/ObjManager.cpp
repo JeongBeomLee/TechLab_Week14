@@ -342,6 +342,8 @@ FStaticMesh* FObjManager::LoadObjStaticMeshAsset(const FString& PathFileName)
 			NewFStaticMesh->CacheFilePath = BinPathFileName;
 			bLoadedSuccessfully = true;
 			UE_LOG("Successfully loaded '%s' from cache.", NormalizedPathStr.c_str());
+			
+			NewFStaticMesh->BodySetup->CreatePhysicsMeshes();
 		}
 		catch (const std::exception& e)
 		{
@@ -407,6 +409,7 @@ FStaticMesh* FObjManager::LoadObjStaticMeshAsset(const FString& PathFileName)
 		if (NewFStaticMesh->Vertices.size() > 0)
 		{
 			NewFStaticMesh->BodySetup = GenerateBodySetupFromMesh(NewFStaticMesh);
+			NewFStaticMesh->BodySetup->CreatePhysicsMeshes();
 		}
 
 #ifdef USE_OBJ_CACHE
@@ -439,9 +442,10 @@ FStaticMesh* FObjManager::LoadObjStaticMeshAsset(const FString& PathFileName)
 		if (!NewFStaticMesh->BodySetup && NewFStaticMesh->Vertices.size() > 0)
 		{
 			NewFStaticMesh->BodySetup = GenerateBodySetupFromMesh(NewFStaticMesh);
+			NewFStaticMesh->BodySetup->CreatePhysicsMeshes();
 			bNeedsUpdate = true;
 		}
-
+		
 		// 업데이트 필요하면 캐시 재저장
 		if (bNeedsUpdate)
 		{
@@ -553,25 +557,27 @@ UBodySetup* FObjManager::GenerateBodySetupFromMesh(FStaticMesh* InMesh)
 	UBodySetup* BodySetup = NewObject<UBodySetup>();
 	BodySetup->DefaultCollisionEnabled = ECollisionEnabled::QueryAndPhysics;
 
+	// Box Shape
 	FVector MinBound(FLT_MAX, FLT_MAX, FLT_MAX);
 	FVector MaxBound(-FLT_MAX, -FLT_MAX, -FLT_MAX);
 
+	TArray<FVector> ConvexVertices;
+	ConvexVertices.Reserve(InMesh->Vertices.size());
+
 	for (const auto& Vertex : InMesh->Vertices)
 	{
-		MinBound.X = FMath::Min(MinBound.X, Vertex.pos.X);
-		MinBound.Y = FMath::Min(MinBound.Y, Vertex.pos.Y);
-		MinBound.Z = FMath::Min(MinBound.Z, Vertex.pos.Z);
-
-		MaxBound.X = FMath::Max(MaxBound.X, Vertex.pos.X);
-		MaxBound.Y = FMath::Max(MaxBound.Y, Vertex.pos.Y);
-		MaxBound.Z = FMath::Max(MaxBound.Z, Vertex.pos.Z);
+		MinBound = MinBound.ComponentMin(Vertex.pos);
+		MaxBound = MaxBound.ComponentMax(Vertex.pos);
+		ConvexVertices.Add(Vertex.pos); 
 	}
 
 	FVector BoxCenter = (MinBound + MaxBound) * 0.5f;
 	FVector BoxExtent = (MaxBound - MinBound) * 0.5f;
-
-	// BodySetup에 Box Shape 추가
 	BodySetup->AddBoxElem(BoxExtent.X, BoxExtent.Y, BoxExtent.Z, BoxCenter, FQuat::Identity());
+
+	// Convex Shape
+	BodySetup->AddConvexElem(ConvexVertices);
+
 	return BodySetup;
 }
 
