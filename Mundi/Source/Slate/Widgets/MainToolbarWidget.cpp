@@ -50,7 +50,7 @@ void UMainToolbarWidget::LoadToolbarIcons()
     IconPrefab = UResourceManager::GetInstance().Load<UTexture>("Data/Icon/Toolbar_Prefab.png");
     IconParticle = UResourceManager::GetInstance().Load<UTexture>("Data/Icon/Toolbar_Particle.png");
     IconPhysicsAsset = UResourceManager::GetInstance().Load<UTexture>("Data/Icon/Toolbar_PhysicsAsset.png");
-    IconPhysicalMaterial = UResourceManager::GetInstance().Load<UTexture>("Data/Icon/Toolbar_PhysicsAsset.png");
+    IconPhysicalMaterial = UResourceManager::GetInstance().Load<UTexture>("Data/Icon/PhysicalMaterial_64.png");
     LogoTexture = UResourceManager::GetInstance().Load<UTexture>("Data/Icon/Mundi_Logo.png");
 }
 
