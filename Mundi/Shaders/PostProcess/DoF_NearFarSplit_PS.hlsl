@@ -22,29 +22,13 @@ PSOutput mainPS(float4 position : SV_Position, float2 texcoord : TEXCOORD0)
     float nearCoC = cocSample.g;  // Near 필드 CoC
     float depth = cocSample.a;    // 깊이 값
 
-    // Near 필드: nearCoC가 있는 영역만 색상을 가지고, 나머지는 투명/검은색
+    // Near 필드: 원본 색상 + CoC 값 (검은색 라인 방지)
     // Alpha에 nearCoC를 저장하여 블러 강도 정보 유지
-    // 임계점 상향 (0.01 -> 0.05) - 약한 블러 영역 제외
-    if (nearCoC > 0.05)
-    {
-        output.NearField = float4(sceneColor.rgb, nearCoC);
-    }
-    else
-    {
-        output.NearField = float4(0.0, 0.0, 0.0, 0.0);
-    }
+    output.NearField = float4(sceneColor.rgb, nearCoC);
 
-    // Far 필드: farCoC가 있는 영역만 색상을 가지고, 나머지는 투명/검은색
+    // Far 필드: 원본 색상 + CoC 값 (검은색 라인 방지)
     // Alpha에 farCoC를 저장하여 블러 강도 정보 유지
-    // 임계점 상향 (0.01 -> 0.05) - 약한 블러 영역 제외
-    if (farCoC > 0.05)
-    {
-        output.FarField = float4(sceneColor.rgb, farCoC);
-    }
-    else
-    {
-        output.FarField = float4(0.0, 0.0, 0.0, 0.0);
-    }
+    output.FarField = float4(sceneColor.rgb, farCoC);
 
     return output;
 }

@@ -24,10 +24,10 @@ float4 mainPS(float4 position : SV_Position, float2 texcoord : TEXCOORD0) : SV_T
     float4 centerSample = g_InputTexture.Sample(g_LinearSampler, texcoord);
     float centerCoC = centerSample.a;  // 알파 채널에 CoC가 저장되어 있음
 
-    // CoC 임계점 상향 (0.01 -> 0.05) - 약한 블러 영역 제외
+    // CoC 임계점 미만이면 원본 그대로 반환 (검은색 라인 방지)
     if (centerCoC < 0.05)
     {
-        return float4(0.0, 0.0, 0.0, 0.0);
+        return centerSample;
     }
 
     // Hexagonal blur 적용
@@ -82,14 +82,16 @@ float4 mainPS(float4 position : SV_Position, float2 texcoord : TEXCOORD0) : SV_T
 
         // 최종 가중치
         float weight = hexWeight * brightnessBoost * cocWeight * gaussianFalloff;
-        weight *= (sampleCoC > 0.05) ? 1.0 : 0.0;  // 유효한 CoC만 포함
+
+        // 임계점 대신 부드러운 페이드 적용 (검은색 제거)
+        weight *= smoothstep(0.0, 0.05, sampleCoC);
 
         colorSum += sampleColor * weight;
         weightSum += weight;
     }
 
-    // 가중 평균 계산
-    if (weightSum > 0.0)
+    // 가중 평균 계산 (최소 가중치 보장으로 검은색 방지)
+    if (weightSum > 0.001)
     {
         colorSum /= weightSum;
         colorSum.a = centerCoC;  // CoC 값 유지

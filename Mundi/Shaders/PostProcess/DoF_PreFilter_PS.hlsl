@@ -10,10 +10,10 @@ float4 mainPS(float4 position : SV_Position, float2 texcoord : TEXCOORD0) : SV_T
     float4 centerSample = g_InputTexture.Sample(g_LinearSampler, texcoord);
     float centerCoC = centerSample.a;
 
-    // CoC 임계점 상향 (0.01 -> 0.05) - 약한 블러 영역 제외
+    // CoC 임계점 미만이면 원본 그대로 반환 (검은색 라인 방지)
     if (centerCoC < 0.05)
     {
-        return float4(0.0, 0.0, 0.0, 0.0);
+        return centerSample;
     }
 
     // 3x3 다운샘플링 + 하이라이트 부스트
@@ -32,27 +32,24 @@ float4 mainPS(float4 position : SV_Position, float2 texcoord : TEXCOORD0) : SV_T
             float2 offset = float2(x, y) * pixelSize;
             float4 sample = g_InputTexture.Sample(g_LinearSampler, texcoord + offset);
 
-            // CoC가 유효한 샘플만 포함 (임계점 상향)
-            if (sample.a > 0.05)
-            {
-                // 밝기 계산
-                float luminance = dot(sample.rgb, float3(0.2126, 0.7152, 0.0722));
+            // 밝기 계산
+            float luminance = dot(sample.rgb, float3(0.2126, 0.7152, 0.0722));
 
-                // 밝은 영역 5배 증폭 (하이라이트 강조, 아티팩트 완화)
-                float boost = 1.0 + saturate((luminance - 0.5) * 2.0) * 5.0;
-                sample.rgb *= boost;
+            // 밝은 영역 5배 증폭 (하이라이트 강조, 아티팩트 완화)
+            float boost = 1.0 + saturate((luminance - 0.5) * 2.0) * 5.0;
+            sample.rgb *= boost;
 
-                // 균일한 가중치 (가우시안 분포 제거)
-                float weight = 1.0;
+            // CoC 기반 부드러운 가중치 (하드 임계점 제거)
+            float cocWeight = smoothstep(0.0, 0.05, sample.a);
+            float weight = cocWeight;
 
-                colorSum += sample * weight;
-                weightSum += weight;
-            }
+            colorSum += sample * weight;
+            weightSum += weight;
         }
     }
 
-    // 가중 평균
-    if (weightSum > 0.0)
+    // 가중 평균 (최소 가중치 보장으로 검은색 방지)
+    if (weightSum > 0.001)
     {
         colorSum /= weightSum;
         colorSum.a = centerCoC;  // 중심 픽셀의 CoC 유지
