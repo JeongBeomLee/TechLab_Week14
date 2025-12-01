@@ -24,7 +24,8 @@ PSOutput mainPS(float4 position : SV_Position, float2 texcoord : TEXCOORD0)
 
     // Near 필드: nearCoC가 있는 영역만 색상을 가지고, 나머지는 투명/검은색
     // Alpha에 nearCoC를 저장하여 블러 강도 정보 유지
-    if (nearCoC > 0.01)
+    // 임계점 상향 (0.01 -> 0.05) - 약한 블러 영역 제외
+    if (nearCoC > 0.05)
     {
         output.NearField = float4(sceneColor.rgb, nearCoC);
     }
@@ -35,7 +36,8 @@ PSOutput mainPS(float4 position : SV_Position, float2 texcoord : TEXCOORD0)
 
     // Far 필드: farCoC가 있는 영역만 색상을 가지고, 나머지는 투명/검은색
     // Alpha에 farCoC를 저장하여 블러 강도 정보 유지
-    if (farCoC > 0.01)
+    // 임계점 상향 (0.01 -> 0.05) - 약한 블러 영역 제외
+    if (farCoC > 0.05)
     {
         output.FarField = float4(sceneColor.rgb, farCoC);
     }

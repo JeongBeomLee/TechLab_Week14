@@ -15,25 +15,21 @@ float4 mainPS(float4 position : SV_Position, float2 texcoord : TEXCOORD0) : SV_T
     float nearCoC = cocSample.g;  // 원본 CoC 맵에서 Near CoC
     float farCoC = cocSample.r;   // 원본 CoC 맵에서 Far CoC
 
+    // ===== 부드러운 Near/Far 블렌딩 (윤곽선 아티팩트 제거) =====
+
+    // Near와 Far의 가중치를 부드럽게 계산 (동일한 범위)
+    float nearWeight = smoothstep(0.02, 0.08, nearCoC);
+    float farWeight = smoothstep(0.02, 0.08, farCoC);
+
     // Near가 Far보다 우선순위가 높음 (전경이 배경을 가림)
-    float4 finalBlur;
-    if (nearCoC > 0.01)
-    {
-        // Near 영역: nearBlur 사용
-        finalBlur = nearBlur;
-        finalBlur.a = nearCoC;  // CoC 값 설정
-    }
-    else if (farCoC > 0.01)
-    {
-        // Far 영역: farBlur 사용
-        finalBlur = farBlur;
-        finalBlur.a = farCoC;  // CoC 값 설정
-    }
-    else
-    {
-        // 초점 영역: 블러 없음
-        finalBlur = float4(0, 0, 0, 0);
-    }
+    farWeight *= (1.0 - nearWeight);
+
+    // Near와 Far를 부드럽게 블렌딩
+    float4 finalBlur = nearBlur * nearWeight + farBlur * farWeight;
+
+    // 최종 CoC 값 설정 (Near가 우선, 없으면 Far)
+    float finalCoC = max(nearCoC, farCoC);
+    finalBlur.a = finalCoC;
 
     return finalBlur;
 }
