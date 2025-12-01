@@ -24,6 +24,13 @@ void FPhysicsSystem::Initialize()
         return;
     }
 
+    // Vehicle SDK 초기화
+    if (!PxInitVehicleSDK(*mPhysics))
+    {
+        UE_LOG("[error][FPhysicsSystem]: PxInitVehicleSDK Error");
+        return;
+    }
+
     // Extensions 초기화 (Joint, Serialization 등 확장 기능 사용을 위해 필수)
     if (!PxInitExtensions(*mPhysics, mPvd))
     {
@@ -62,6 +69,9 @@ void FPhysicsSystem::Shutdown()
     // 디스패처 해제
     if (mDispatcher)    mDispatcher->release();
 
+    // Vehicle SDK 해제
+    PxCloseVehicleSDK();
+    
     // Extensions 해제 (Physics 해제 전에 호출해야 함)
     PxCloseExtensions();
 

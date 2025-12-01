@@ -298,6 +298,7 @@ xcopy /y /d "$(ProjectDir)ThirdParty\lib\Lua\lua54.dll" "$(OutDir)"</Command>
     <ClCompile Include="Source\Runtime\Engine\Components\SkeletalMeshComponent.cpp" />
     <ClCompile Include="Source\Runtime\Engine\Components\SkinnedMeshComponent.cpp" />
     <ClCompile Include="Source\Runtime\Engine\Components\SpringArmComponent.cpp" />
+    <ClCompile Include="Source\Runtime\Engine\Components\VehicleComponent.cpp" />
     <ClCompile Include="Source\Runtime\Engine\GameFramework\Character.cpp" />
     <ClCompile Include="Source\Runtime\Engine\GameFramework\Controller.cpp" />
     <ClCompile Include="Source\Runtime\Engine\GameFramework\DancingCharacter.cpp" />
@@ -407,6 +408,7 @@ xcopy /y /d "$(ProjectDir)ThirdParty\lib\Lua\lua54.dll" "$(OutDir)"</Command>
     <ClCompile Include="Source\Runtime\Engine\GameFramework\Info.cpp" />
     <ClCompile Include="Source\Runtime\Engine\GameFramework\PointLightActor.cpp" />
     <ClCompile Include="Source\Runtime\Engine\GameFramework\SpotLightActor.cpp" />
+    <ClCompile Include="Source\Runtime\Engine\GameFramework\VehicleActor.cpp" />
     <ClCompile Include="Source\Runtime\Engine\Particles\Distribution.cpp" />
     <ClCompile Include="Source\Runtime\Engine\Particles\Modules\ParticleModuleMeshRotation.cpp" />
     <ClCompile Include="Source\Runtime\Engine\Particles\Modules\ParticleModuleTrailSource.cpp" />
@@ -704,6 +706,8 @@ xcopy /y /d "$(ProjectDir)ThirdParty\lib\Lua\lua54.dll" "$(OutDir)"</Command>
     <ClCompile Include="Generated\FConstraintInstance.generated.cpp" />
     <ClCompile Include="Generated\UBodySetupCore.generated.cpp" />
     <ClCompile Include="Generated\FKConvexElem.generated.cpp" />
+    <ClCompile Include="Generated\UVehicleComponent.generated.cpp" />
+    <ClCompile Include="Generated\AVehicleActor.generated.cpp" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Shaders\Common\LightingBuffers.hlsl">
@@ -903,6 +907,7 @@ xcopy /y /d "$(ProjectDir)ThirdParty\lib\Lua\lua54.dll" "$(OutDir)"</Command>
     <ClInclude Include="Source\Runtime\Engine\Components\SkinnedMeshComponent.h" />
     <ClInclude Include="Source\Runtime\Engine\Components\SphereComponent.h" />
     <ClInclude Include="Source\Runtime\Engine\Components\SpringArmComponent.h" />
+    <ClInclude Include="Source\Runtime\Engine\Components\VehicleComponent.h" />
     <ClInclude Include="Source\Runtime\Engine\GameFramework\AmbientLightActor.h" />
     <ClInclude Include="Source\Runtime\Engine\GameFramework\Camera\CamMod_LetterBox.h" />
     <ClInclude Include="Source\Runtime\Engine\GameFramework\Camera\CamMod_Vignette.h" />
@@ -928,6 +933,7 @@ xcopy /y /d "$(ProjectDir)ThirdParty\lib\Lua\lua54.dll" "$(OutDir)"</Command>
     <ClInclude Include="Source\Runtime\Engine\GameFramework\RibbonActor.h" />
     <ClInclude Include="Source\Runtime\Engine\GameFramework\SkeletalMeshActor.h" />
     <ClInclude Include="Source\Runtime\Engine\GameFramework\SpotLightActor.h" />
+    <ClInclude Include="Source\Runtime\Engine\GameFramework\VehicleActor.h" />
     <ClInclude Include="Source\Runtime\Engine\Particles\Distribution.h" />
     <ClInclude Include="Source\Runtime\Engine\Particles\Modules\ParticleEventGeneratorInfo.h" />
     <ClInclude Include="Source\Runtime\Engine\Particles\Modules\ParticleModuleEventReceiverBase.h" />
@@ -1269,6 +1275,9 @@ xcopy /y /d "$(ProjectDir)ThirdParty\lib\Lua\lua54.dll" "$(OutDir)"</Command>
     <ClInclude Include="Generated\FConstraintInstance.generated.h" />
     <ClInclude Include="Generated\UBodySetupCore.generated.h" />
     <ClInclude Include="Generated\FKConvexElem.generated.h" />
+    <ClInclude Include="VehicleDataStruct.h" />
+    <ClInclude Include="Generated\UVehicleComponent.generated.h" />
+    <ClInclude Include="Generated\AVehicleActor.generated.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="BuildTools\CodeGenerator\generate.py" />

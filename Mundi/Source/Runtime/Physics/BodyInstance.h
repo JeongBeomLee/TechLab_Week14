@@ -33,6 +33,7 @@ public:
 private:
     physx::PxRigidDynamic* GetDynamicActor() const;
     physx::PxRigidDynamic* CreateInternalActor(const FTransform& Transform);
+public:
     void FinalizeInternalActor(FPhysicsScene* InRBScene);
 
 public:
