@@ -277,33 +277,95 @@ void UBodySetup::ClearAllShapes()
 }
 
 // --- 직렬화 ---
-
-void UBodySetup::Serialize(const bool bInIsLoading, JSON& InOutHandle)
+FArchive& operator<<(FArchive& Ar, UBodySetup& BodySetup)
 {
-    Super::Serialize(bInIsLoading, InOutHandle);
+    if (Ar.IsSaving())
+    {
+        // DefaultCollisionEnabled 저장
+        int32 CollisionEnabled = static_cast<int32>(BodySetup.DefaultCollisionEnabled);
+        Ar << CollisionEnabled;
 
-    //if (bInIsLoading)
-    //{
-    //    // 로드
-    //    if (InOutHandle.hasKey("BoneName"))
-    //    {
-    //        BoneName = FName(InOutHandle["BoneName"].ToString().c_str());
-    //    }
+        // Sphere Elements
+        int32 SphereCount = BodySetup.AggGeom.SphereElems.Num();
+        Ar << SphereCount;
+        for (int32 i = 0; i < SphereCount; ++i)
+        {
+            FKSphereElem& Elem = BodySetup.AggGeom.SphereElems[i];
+            Ar << Elem.Radius;
+            Ar << Elem.Center;
+        }
 
-    //    if (InOutHandle.hasKey("DefaultCollisionEnabled"))
-    //    {
-    //        DefaultCollisionEnabled = static_cast<ECollisionEnabled>(InOutHandle["DefaultCollisionEnabled"].ToInt());
-    //    }
+        // Box Elements
+        int32 BoxCount = BodySetup.AggGeom.BoxElems.Num();
+        Ar << BoxCount;
+        for (int32 i = 0; i < BoxCount; ++i)
+        {
+            FKBoxElem& Elem = BodySetup.AggGeom.BoxElems[i];
+            Ar << Elem.X;
+            Ar << Elem.Y;
+            Ar << Elem.Z;
+            Ar << Elem.Center;
+            Ar << Elem.Rotation;
+        }
 
-    //    // TODO: AggGeom 직렬화 (Shape 배열)
-    //}
-    //else
-    //{
-    //    // 저장
-    //    InOutHandle["BoneName"] = BoneName.ToString().c_str();
-    //    InOutHandle["DefaultCollisionEnabled"] = static_cast<int>(DefaultCollisionEnabled);
+        // Capsule Elements
+        int32 CapsuleCount = BodySetup.AggGeom.SphylElems.Num();
+        Ar << CapsuleCount;
+        for (int32 i = 0; i < CapsuleCount; ++i)
+        {
+            FKSphylElem& Elem = BodySetup.AggGeom.SphylElems[i];
+            Ar << Elem.Radius;
+            Ar << Elem.Length;
+            Ar << Elem.Center;
+            Ar << Elem.Rotation;
+        }
+    }
+    else if (Ar.IsLoading())
+    {
+        // DefaultCollisionEnabled 로드
+        int32 CollisionEnabled = 0;
+        Ar << CollisionEnabled;
+        BodySetup.DefaultCollisionEnabled = static_cast<ECollisionEnabled>(CollisionEnabled);
 
-    //    // TODO: AggGeom 직렬화 (Shape 배열)
-    //}
+        // Sphere Elements 로드
+        int32 SphereCount = 0;
+        Ar << SphereCount;
+        for (int32 i = 0; i < SphereCount; ++i)
+        {
+            float Radius;
+            FVector Center;
+            Ar << Radius;
+            Ar << Center;
+            BodySetup.AddSphereElem(Radius, Center);
+        }
+
+        // Box Elements 로드
+        int32 BoxCount = 0;
+        Ar << BoxCount;
+        for (int32 i = 0; i < BoxCount; ++i)
+        {
+            float X, Y, Z;
+            FVector Center;
+            FQuat Rotation;
+            Ar << X << Y << Z;
+            Ar << Center;
+            Ar << Rotation;
+            BodySetup.AddBoxElem(X, Y, Z, Center, Rotation);
+        }
+
+        // Capsule Elements 로드
+        int32 CapsuleCount = 0;
+        Ar << CapsuleCount;
+        for (int32 i = 0; i < CapsuleCount; ++i)
+        {
+            float Radius, Length;
+            FVector Center;
+            FQuat Rotation;
+            Ar << Radius << Length;
+            Ar << Center;
+            Ar << Rotation;
+            BodySetup.AddCapsuleElem(Radius, Length * 0.5f, Center, Rotation);
+        }
+    }
+    return Ar;
 }
-

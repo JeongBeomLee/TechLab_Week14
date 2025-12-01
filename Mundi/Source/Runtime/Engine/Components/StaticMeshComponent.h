@@ -47,4 +47,5 @@ protected:
 	void OnTransformUpdated() override;
 
 protected:
+	UBodySetup* GetBodySetup() override;
 };

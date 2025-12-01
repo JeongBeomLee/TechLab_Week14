@@ -207,6 +207,11 @@ void UStaticMeshComponent::OnTransformUpdated()
 	MarkWorldPartitionDirty();
 }
 
+UBodySetup* UStaticMeshComponent::GetBodySetup()
+{
+	return StaticMesh->GetStaticMeshAsset()->BodySetup;
+}
+
 void UStaticMeshComponent::DuplicateSubObjects()
 {
 	Super::DuplicateSubObjects();
