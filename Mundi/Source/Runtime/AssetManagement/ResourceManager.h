@@ -29,6 +29,9 @@ class USound;
 class UResourceManager : public UObject
 {
 public:
+	static const char* FullScreenVSPath;
+	static const char* BlitPSPath;
+public:
 	DECLARE_CLASS(UResourceManager, UObject)
 
 	// --- 싱글톤 및 초기화 ---
