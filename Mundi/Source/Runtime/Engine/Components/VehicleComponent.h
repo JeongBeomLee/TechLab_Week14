@@ -16,6 +16,8 @@ public:
     void EndPlay() override;
     void DuplicateSubObjects() override;
 
+    virtual bool CanSimulatingPhysics() const  override { return true; }
+
     // 매 프레임 업데이트 (입력 처리 -> 물리 업데이트 -> 렌더링 동기화)
     // void TickComponent(float DeltaTime) override;
 
