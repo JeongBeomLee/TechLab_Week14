@@ -38,4 +38,10 @@ public:
 private:
     PxScene* mScene = nullptr;
     TArray<PhysicsCommand> CommandQueue;
+
+// Stat Getter
+public:
+    uint32 GetTotalActorCount() const;
+    uint32 GetActiveActorCount() const;
+    uint32 GetSleepingActorCount() const;
 };

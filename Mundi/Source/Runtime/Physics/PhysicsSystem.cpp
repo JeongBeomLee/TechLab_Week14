@@ -138,3 +138,8 @@ void FPhysicsSystem::ReconnectPVD()
         mPvd->connect(*transport, PxPvdInstrumentationFlag::eALL);
     }
 }
+
+uint32 FPhysicsSystem::GetWorkerThreadCount() const
+{
+    return GetCpuDispatcher()->getWorkerCount();
+}

@@ -20,6 +20,7 @@ public:
     void SetShowShadow(bool b) { bShowShadow = b; }
     void SetShowSkinning(bool b) { bShowSkinning = b; }
     void SetShowParticles(bool b) { bShowParticles = b; }
+    void SetShowPhysics(bool b) { bShowPhysics = b; }
     void ToggleFPS() { bShowFPS = !bShowFPS; }
     void ToggleMemory() { bShowMemory = !bShowMemory; }
     void TogglePicking() { bShowPicking = !bShowPicking; }
@@ -29,6 +30,7 @@ public:
     void ToggleShadow() { bShowShadow = !bShowShadow; }
     void ToggleSkinning() { bShowSkinning = !bShowSkinning; }
     void ToggleParticles() { bShowParticles = !bShowParticles; }
+    void TogglePhysics() { bShowPhysics = !bShowPhysics; }
     bool IsFPSVisible() const { return bShowFPS; }
     bool IsMemoryVisible() const { return bShowMemory; }
     bool IsPickingVisible() const { return bShowPicking; }
@@ -60,7 +62,7 @@ private:
     bool bShowLights = false;
     bool bShowSkinning = false;
     bool bShowParticles = false;
-    bool bShowPhysics = false;
+    bool bShowPhysics = true;
 
     ID3D11Device* D3DDevice = nullptr;
     ID3D11DeviceContext* D3DContext = nullptr;

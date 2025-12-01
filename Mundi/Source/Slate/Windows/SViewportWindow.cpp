@@ -1541,6 +1541,16 @@ void SViewportWindow::RenderShowFlagDropdownMenu()
 				ImGui::SetTooltip("파티클 시스템 통계를 표시합니다. (시스템 수, 이미터 수, 파티클 수, 메모리 사용량)");
 			}
 
+			bool bPhysicsStats = UStatsOverlayD2D::Get().IsPhysicsVisible();
+			if (ImGui::Checkbox(" PHYSICS", &bPhysicsStats))
+			{
+				UStatsOverlayD2D::Get().TogglePhysics();
+			}
+			if (ImGui::IsItemHovered())
+			{
+				ImGui::SetTooltip("물리 시스템 통계를 표시합니다. (쓰레드 수, 활성 물리 액터 수, 동기화 시간)");
+			}
+
 			ImGui::EndMenu();
 		}
 

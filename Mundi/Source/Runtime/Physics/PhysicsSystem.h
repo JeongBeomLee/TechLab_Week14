@@ -35,4 +35,7 @@ private:
     PxMaterial* mMaterial = nullptr;
     PxPvd* mPvd = nullptr;
     PxCooking* mCooking = nullptr;
+
+public:
+    uint32 GetWorkerThreadCount() const;
 };

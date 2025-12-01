@@ -137,3 +137,47 @@ void FPhysicsScene::RemoveActor(FBodyInstance* Body)
         Body->RigidActor->userData = nullptr;
     }
 }
+
+uint32 FPhysicsScene::GetTotalActorCount() const
+{
+    if (!mScene) { return 0; }
+    SCOPED_READ_LOCK(*mScene)
+    return mScene->getNbActors(PxActorTypeFlag::eRIGID_DYNAMIC | PxActorTypeFlag::eRIGID_STATIC);
+}
+
+uint32 FPhysicsScene::GetActiveActorCount() const
+{
+    if (!mScene) { return 0; }
+    SCOPED_READ_LOCK(*mScene)
+    uint32 ActiveCount = 0;
+    mScene->getActiveActors(ActiveCount);
+    return ActiveCount;
+}
+
+uint32 FPhysicsScene::GetSleepingActorCount() const
+{
+    if (!mScene) { return 0; }
+    SCOPED_READ_LOCK(*mScene)
+
+    uint32 SleepingCount = 0;
+    uint32 DynamicCount = mScene->getNbActors(PxActorTypeFlag::eRIGID_DYNAMIC);
+    
+    if (DynamicCount == 0) { return 0; }
+
+    PxActor** DynamicActors = new PxActor*[DynamicCount];
+    mScene->getActors(PxActorTypeFlag::eRIGID_DYNAMIC, DynamicActors, DynamicCount);
+
+    for (uint32 i = 0; i < DynamicCount; ++i)
+    {
+        if (PxRigidDynamic* RigidDynamic = DynamicActors[i]->is<PxRigidDynamic>())
+        {
+            if (RigidDynamic->isSleeping())
+            {
+                SleepingCount++;
+            }
+        }
+    }
+
+    delete[] DynamicActors;
+    return SleepingCount;
+}

@@ -16,6 +16,7 @@
 #include "SkinningStats.h"
 #include "SkinnedMeshComponent.h"
 #include "ParticleStats.h"
+#include "PhysicsScene.h"
 
 #pragma comment(lib, "d2d1")
 #pragma comment(lib, "dwrite")
@@ -495,6 +496,84 @@ void UStatsOverlayD2D::Draw()
 
 
 		NextY += particlePanelHeight + Space;
+	}
+	
+	if (bShowParticles)
+	{
+		const FParticleStats& Stats = FParticleStatManager::GetInstance().GetStats();
+		const FParticleStatManager& Mgr = FParticleStatManager::GetInstance();
+
+		// 메모리를 KB 또는 MB로 표시
+		wchar_t MemoryStr[64];
+		if (Stats.MemoryBytes >= 1024 * 1024)
+		{
+			swprintf_s(MemoryStr, L"%.2f MB", Stats.MemoryBytes / (1024.0 * 1024.0));
+		}
+		else
+		{
+			swprintf_s(MemoryStr, L"%.2f KB", Stats.MemoryBytes / 1024.0);
+		}
+
+		wchar_t ParticleBuf[768];
+		swprintf_s(ParticleBuf,
+			L"[Particles]\n"
+			L"Systems: %d\n"
+			L"Emitters: %d\n"
+			L"Sprite: %d\n"
+			L"Mesh: %d\n"
+			L"Beam: %d\n"
+			L"Ribbon: %d\n"
+			L"Total: %d\n"
+			L"Max/Min: (%d/%d)\n"
+			L"Avg: %.1f\n"
+			L"Spawned/Killed: %d/%d\n"
+			L"Memory: %s",
+			Stats.ParticleSystemCount,
+			Stats.EmitterCount,
+			Stats.SpriteParticleCount,
+			Stats.MeshParticleCount,
+			Stats.BeamParticleCount,
+			Stats.RibbonParticleCount,
+			Stats.TotalParticleCount(),
+			Mgr.GetMaxParticles(),
+			Mgr.GetMinParticles(),
+			Mgr.GetAvgParticles(),
+			Stats.SpawnedThisFrame,
+			Stats.KilledThisFrame,
+			MemoryStr);
+
+		const float particlePanelHeight = 260.0f;
+		D2D1_RECT_F particleRc = D2D1::RectF(Margin, NextY, Margin + PanelWidth, NextY + particlePanelHeight);
+		DrawTextBlock(D2DContext, TextFormat, ParticleBuf, particleRc, BrushBlack, BrushCyan);
+
+
+		NextY += particlePanelHeight + Space;
+	}
+
+	if (bShowPhysics)
+	{
+		FPhysicsSystem* PhysSystem = GEngine.GetPhysicsSystem();
+		FPhysicsScene* PhysScene = GWorld->GetPhysicsScene();
+		
+		uint32 TotalActors = PhysScene->GetTotalActorCount();
+		uint32 ActiveActors = PhysScene->GetActiveActorCount();
+		uint32 SleepingActors = PhysScene->GetSleepingActorCount();
+		uint32 WorkerThreadCount = PhysSystem->GetWorkerThreadCount();
+		float SyncTimeMs = FScopeCycleCounter::GetTimeProfile("PhysicsSyncTime").Milliseconds;
+		
+		wchar_t Buf[512];
+		swprintf_s(Buf, L"[Physics Stats]\nTotal Actors: %u\n  Active: %u\n  Sleeping: %u\n\nWorker Threads: %u\n\nSync Time: %.2f ms",
+		   TotalActors,
+		   ActiveActors,
+		   SleepingActors,
+		   WorkerThreadCount,
+		   SyncTimeMs);
+
+		const float physicsPanelHeight = 200.0f;
+		D2D1_RECT_F rc = D2D1::RectF(Margin, NextY, Margin + PanelWidth, NextY + physicsPanelHeight);
+		DrawTextBlock(D2DContext, TextFormat, Buf, rc, BrushBlack, BrushCyan);
+
+		NextY += physicsPanelHeight + Space;
 	}
 
 	D2DContext->EndDraw();
