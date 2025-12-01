@@ -487,6 +487,11 @@ void USkeletalMeshComponent::InitRagdoll()
         RagdollBodies.Num(), RagdollConstraints.Num());
 }
 
+void USkeletalMeshComponent::TermRagdoll()
+{
+
+}
+
 void USkeletalMeshComponent::CreateRagdollConstraints()
 {
     if (!SkeletalMesh)
@@ -583,5 +588,110 @@ void USkeletalMeshComponent::ApplyCollisionDisableTable()
                 // 현재는 PhysicsAsset에서 설정된 테이블만 참조
             }
         }
+    }
+}
+
+void USkeletalMeshComponent::StartRagdoll(bool bBlend)
+{
+    // 이미 Active면 무시
+    if (RagdollState == ERagdollState::Active)
+    {
+        return;
+    }
+
+    // Bodies가 없으면 초기화
+    if (RagdollBodies.IsEmpty())
+    {
+        InitRagdoll();
+        if (RagdollBodies.IsEmpty())
+        {
+            UE_LOG("[Ragdoll] StartRagdoll failed: No bodies created");
+            return;
+        }
+    }
+
+    // 현재 애니메이션 포즈 저장 (블렌딩용)
+    PreRagdollPose = CurrentLocalSpacePose;
+
+    // Body를 현재 애니메이션 위치로 텔레포트
+    SyncRagdollToAnimation();
+
+    // 모든 Body를 Dynamic으로 전환
+    for (FBodyInstance* Body : RagdollBodies)
+    {
+        if (Body)
+        {
+            Body->SetSimulatePhysics(true);
+            Body->WakeUp();
+        }
+    }
+
+    // 상태 전환
+    if (bBlend)
+    {
+        RagdollState = ERagdollState::BlendingIn;
+        RagdollBlendAlpha = 0.0f;
+    }
+    else
+    {
+        RagdollState = ERagdollState::Active;
+        RagdollBlendAlpha = 1.0f;
+    }
+
+    // 애니메이션 비활성화
+    bUseAnimation = false;
+
+    UE_LOG("[Ragdoll] StartRagdoll: state=%d, blend=%s",
+        static_cast<int>(RagdollState), bBlend ? "true" : "false");
+}
+
+void USkeletalMeshComponent::StopRagdoll(bool bBlend)
+{
+    // 이미 Disabled면 무시
+    if (RagdollState == ERagdollState::Disabled)
+    {
+        return;
+    }
+
+    // 모든 Body를 Kinematic으로 전환 (재사용)
+    for (FBodyInstance* Body : RagdollBodies)
+    {
+        if (Body)
+        {
+            Body->SetSimulatePhysics(false);
+        }
+    }
+
+    // 상태 전환
+    if (bBlend)
+    {
+        RagdollState = ERagdollState::BlendingOut;
+        RagdollBlendAlpha = 1.0f;
+    }
+    else
+    {
+        RagdollState = ERagdollState::Disabled;
+        RagdollBlendAlpha = 0.0f;
+    }
+
+    // 애니메이션 재활성화
+    bUseAnimation = true;
+
+    UE_LOG("[Ragdoll] StopRagdoll: state=%d, blend=%s",
+        static_cast<int>(RagdollState), bBlend ? "true" : "false");
+}
+
+void USkeletalMeshComponent::SyncRagdollToAnimation()
+{
+    // 애니메이션 포즈를 물리 Body에 텔레포트
+    for (FBodyInstance* Body : RagdollBodies)
+    {
+        if (!Body || Body->BoneIndex < 0)
+        {
+            continue;
+        }
+
+        FTransform BoneWorldTM = GetBoneWorldTransform(Body->BoneIndex);
+        Body->SetWorldTransform(BoneWorldTM, true);  // bTeleport = true
     }
 }
