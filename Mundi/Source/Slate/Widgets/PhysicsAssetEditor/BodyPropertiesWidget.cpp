@@ -72,6 +72,8 @@ bool UBodyPropertiesWidget::RenderShapeProperties(UBodySetup* Body)
 		Body->AggGeom.SphereElems.Add(NewSphere);
 		EditorState->bIsDirty = true;
 		EditorState->RequestLinesRebuild();
+		// 새로 추가된 primitive 선택
+		EditorState->SelectPrimitive(EditorState->SelectedBodyIndex, EAggCollisionShape::Sphere, Body->AggGeom.SphereElems.Num() - 1);
 		bChanged = true;
 	}
 	ImGui::SameLine();
@@ -81,6 +83,8 @@ bool UBodyPropertiesWidget::RenderShapeProperties(UBodySetup* Body)
 		Body->AggGeom.BoxElems.Add(NewBox);
 		EditorState->bIsDirty = true;
 		EditorState->RequestLinesRebuild();
+		// 새로 추가된 primitive 선택
+		EditorState->SelectPrimitive(EditorState->SelectedBodyIndex, EAggCollisionShape::Box, Body->AggGeom.BoxElems.Num() - 1);
 		bChanged = true;
 	}
 	ImGui::SameLine();
@@ -90,25 +94,70 @@ bool UBodyPropertiesWidget::RenderShapeProperties(UBodySetup* Body)
 		Body->AggGeom.SphylElems.Add(NewCapsule);
 		EditorState->bIsDirty = true;
 		EditorState->RequestLinesRebuild();
+		// 새로 추가된 primitive 선택
+		EditorState->SelectPrimitive(EditorState->SelectedBodyIndex, EAggCollisionShape::Sphyl, Body->AggGeom.SphylElems.Num() - 1);
 		bChanged = true;
 	}
 
 	ImGui::Separator();
 
+	// 현재 선택된 primitive 정보
+	EAggCollisionShape SelectedType = EditorState->SelectedPrimitive.PrimitiveType;
+	int32 SelectedIndex = EditorState->SelectedPrimitive.PrimitiveIndex;
+
 	// Sphere 형태 편집
 	for (int32 i = 0; i < SphereCount; ++i)
 	{
 		ImGui::PushID(i);
-		if (ImGui::TreeNode("Sphere", "Sphere [%d]", i))
+
+		// 선택 상태 확인 및 하이라이트
+		bool bIsSelected = (SelectedType == EAggCollisionShape::Sphere && SelectedIndex == i);
+		if (bIsSelected)
+		{
+			ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.26f, 0.59f, 0.98f, 0.8f));
+			ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.26f, 0.59f, 0.98f, 1.0f));
+		}
+
+		ImGuiTreeNodeFlags NodeFlags = ImGuiTreeNodeFlags_None;
+		if (bIsSelected) NodeFlags |= ImGuiTreeNodeFlags_Selected;
+
+		bool bOpened = ImGui::TreeNodeEx("Sphere", NodeFlags, "Sphere [%d]%s", i, bIsSelected ? " *" : "");
+
+		// 클릭 시 해당 primitive 선택
+		if (ImGui::IsItemClicked())
+		{
+			EditorState->SelectPrimitive(EditorState->SelectedBodyIndex, EAggCollisionShape::Sphere, i);
+		}
+
+		if (bIsSelected)
+		{
+			ImGui::PopStyleColor(2);
+		}
+
+		if (bOpened)
 		{
 			bChanged |= RenderSphereShape(Body, i);
 
 			if (ImGui::Button("Remove"))
 			{
+				// 삭제 전 선택 상태 확인
+				bool bWasSelected = bIsSelected;
+
 				Body->AggGeom.SphereElems.RemoveAt(i);
 				EditorState->bIsDirty = true;
 				EditorState->RequestLinesRebuild();
 				bChanged = true;
+
+				// 선택 조정
+				if (bWasSelected)
+				{
+					EditorState->SelectBody(EditorState->SelectedBodyIndex);  // 첫 번째 primitive 재선택
+				}
+				else if (SelectedType == EAggCollisionShape::Sphere && SelectedIndex > i)
+				{
+					EditorState->SelectedPrimitive.PrimitiveIndex--;  // 인덱스 조정
+				}
+
 				ImGui::TreePop();
 				ImGui::PopID();
 				break;  // 배열이 변경되었으므로 루프 종료
@@ -122,16 +171,51 @@ bool UBodyPropertiesWidget::RenderShapeProperties(UBodySetup* Body)
 	for (int32 i = 0; i < BoxCount; ++i)
 	{
 		ImGui::PushID(SphereCount + i);
-		if (ImGui::TreeNode("Box", "Box [%d]", i))
+
+		bool bIsSelected = (SelectedType == EAggCollisionShape::Box && SelectedIndex == i);
+		if (bIsSelected)
+		{
+			ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.26f, 0.59f, 0.98f, 0.8f));
+			ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.26f, 0.59f, 0.98f, 1.0f));
+		}
+
+		ImGuiTreeNodeFlags NodeFlags = ImGuiTreeNodeFlags_None;
+		if (bIsSelected) NodeFlags |= ImGuiTreeNodeFlags_Selected;
+
+		bool bOpened = ImGui::TreeNodeEx("Box", NodeFlags, "Box [%d]%s", i, bIsSelected ? " *" : "");
+
+		if (ImGui::IsItemClicked())
+		{
+			EditorState->SelectPrimitive(EditorState->SelectedBodyIndex, EAggCollisionShape::Box, i);
+		}
+
+		if (bIsSelected)
+		{
+			ImGui::PopStyleColor(2);
+		}
+
+		if (bOpened)
 		{
 			bChanged |= RenderBoxShape(Body, i);
 
 			if (ImGui::Button("Remove"))
 			{
+				bool bWasSelected = bIsSelected;
+
 				Body->AggGeom.BoxElems.RemoveAt(i);
 				EditorState->bIsDirty = true;
 				EditorState->RequestLinesRebuild();
 				bChanged = true;
+
+				if (bWasSelected)
+				{
+					EditorState->SelectBody(EditorState->SelectedBodyIndex);
+				}
+				else if (SelectedType == EAggCollisionShape::Box && SelectedIndex > i)
+				{
+					EditorState->SelectedPrimitive.PrimitiveIndex--;
+				}
+
 				ImGui::TreePop();
 				ImGui::PopID();
 				break;
@@ -145,16 +229,51 @@ bool UBodyPropertiesWidget::RenderShapeProperties(UBodySetup* Body)
 	for (int32 i = 0; i < SphylCount; ++i)
 	{
 		ImGui::PushID(SphereCount + BoxCount + i);
-		if (ImGui::TreeNode("Capsule", "Capsule [%d]", i))
+
+		bool bIsSelected = (SelectedType == EAggCollisionShape::Sphyl && SelectedIndex == i);
+		if (bIsSelected)
+		{
+			ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.26f, 0.59f, 0.98f, 0.8f));
+			ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.26f, 0.59f, 0.98f, 1.0f));
+		}
+
+		ImGuiTreeNodeFlags NodeFlags = ImGuiTreeNodeFlags_None;
+		if (bIsSelected) NodeFlags |= ImGuiTreeNodeFlags_Selected;
+
+		bool bOpened = ImGui::TreeNodeEx("Capsule", NodeFlags, "Capsule [%d]%s", i, bIsSelected ? " *" : "");
+
+		if (ImGui::IsItemClicked())
+		{
+			EditorState->SelectPrimitive(EditorState->SelectedBodyIndex, EAggCollisionShape::Sphyl, i);
+		}
+
+		if (bIsSelected)
+		{
+			ImGui::PopStyleColor(2);
+		}
+
+		if (bOpened)
 		{
 			bChanged |= RenderSphylShape(Body, i);
 
 			if (ImGui::Button("Remove"))
 			{
+				bool bWasSelected = bIsSelected;
+
 				Body->AggGeom.SphylElems.RemoveAt(i);
 				EditorState->bIsDirty = true;
 				EditorState->RequestLinesRebuild();
 				bChanged = true;
+
+				if (bWasSelected)
+				{
+					EditorState->SelectBody(EditorState->SelectedBodyIndex);
+				}
+				else if (SelectedType == EAggCollisionShape::Sphyl && SelectedIndex > i)
+				{
+					EditorState->SelectedPrimitive.PrimitiveIndex--;
+				}
+
 				ImGui::TreePop();
 				ImGui::PopID();
 				break;

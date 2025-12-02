@@ -14,6 +14,7 @@
 #include "Source/Runtime/Engine/PhysicsEngine/FConstraintSetup.h"
 #include "Source/Runtime/Engine/PhysicsEngine/PhysicsDebugUtils.h"
 #include "Source/Runtime/Engine/PhysicsEngine/BodyShapeCalculator.h"
+#include "Source/Runtime/Engine/Viewer/PhysicsPickingHelper.h"
 #include "Source/Runtime/Core/Misc/VertexData.h"
 #include "SkeletalMeshActor.h"
 #include "SkeletalMesh.h"
@@ -917,7 +918,7 @@ void SPhysicsAssetEditorWindow::OnUpdate(float DeltaSeconds)
 		// ─────────────────────────────────────────────────
 		// 기즈모 연동: 선택된 바디의 트랜스폼 편집
 		// ─────────────────────────────────────────────────
-		if (State->bBodySelectionMode && State->SelectedBodyIndex >= 0 && State->World)
+		if (State->bBodySelectionMode && State->HasPrimitiveSelection() && State->World)
 		{
 			AGizmoActor* Gizmo = State->World->GetGizmoActor();
 			bool bCurrentlyDragging = Gizmo && Gizmo->GetbIsDragging();
@@ -928,12 +929,12 @@ void SPhysicsAssetEditorWindow::OnUpdate(float DeltaSeconds)
 			if (bCurrentlyDragging && !bIsFirstDragFrame)
 			{
 				// 첫 프레임이 아닐 때만 기즈모로부터 트랜스폼 업데이트
-				UpdateBodyTransformFromGizmo();
+				UpdatePrimitiveTransformFromGizmo();
 			}
 			else if (!bCurrentlyDragging)
 			{
-				// 드래그 중이 아니면 기즈모 앵커를 바디 위치로 이동
-				RepositionAnchorToBody(State->SelectedBodyIndex);
+				// 드래그 중이 아니면 기즈모 앵커를 선택된 primitive 위치로 이동
+				RepositionAnchorToPrimitive();
 			}
 
 			// 드래그 상태 업데이트 (다음 프레임에서 첫 프레임 감지용)
@@ -942,6 +943,12 @@ void SPhysicsAssetEditorWindow::OnUpdate(float DeltaSeconds)
 		else
 		{
 			State->bWasGizmoDragging = false;
+
+			// Primitive가 없으면 기즈모 숨기기
+			if (State->bBodySelectionMode && State->SelectedBodyIndex >= 0 && !State->HasPrimitiveSelection())
+			{
+				State->HideGizmo();
+			}
 		}
 
 		// 라인 재구성이 필요한 경우 (바디/제약조건 추가/제거)
@@ -1846,6 +1853,10 @@ void SPhysicsAssetEditorWindow::UpdateSelectedBodyLines()
 
 void SPhysicsAssetEditorWindow::UpdateSelectionColors()
 {
+	// TODO: 현재 Body 단위 하이라이트 -> Primitive 단위 하이라이트로 변경 고려
+	//       선택된 primitive만 SelectedColor, 같은 body의 다른 primitive는 NormalColor
+	//       (현재는 gizmo 위치로 선택된 primitive 분간 가능)
+
 	PhysicsAssetEditorState* State = GetActivePhysicsState();
 	if (!State || !State->EditingAsset) return;
 
@@ -2365,31 +2376,24 @@ void SPhysicsAssetEditorWindow::AddPrimitiveToBody(int32 BodyIndex, int32 Primit
 	{
 	case 0:  // Box
 	{
-		FKBoxElem NewBox;
-		NewBox.X = 10.0f;
-		NewBox.Y = 10.0f;
-		NewBox.Z = 10.0f;
-		NewBox.Center = FVector(0, 0, 0);
-		NewBox.Rotation = FQuat::Identity();
+		FKBoxElem NewBox(0.3f, 0.3f, 0.3f);
 		Body->AggGeom.BoxElems.Add(NewBox);
+		State->SelectPrimitive(BodyIndex, EAggCollisionShape::Box, Body->AggGeom.BoxElems.Num() - 1);
 		break;
 	}
 	case 1:  // Sphere
 	{
 		FKSphereElem NewSphere;
-		NewSphere.Radius = 5.0f;
-		NewSphere.Center = FVector(0, 0, 0);
+		NewSphere.Radius = 0.15f;
 		Body->AggGeom.SphereElems.Add(NewSphere);
+		State->SelectPrimitive(BodyIndex, EAggCollisionShape::Sphere, Body->AggGeom.SphereElems.Num() - 1);
 		break;
 	}
 	case 2:  // Capsule
 	{
-		FKSphylElem NewCapsule;
-		NewCapsule.Radius = 3.0f;
-		NewCapsule.Length = 10.0f;
-		NewCapsule.Center = FVector(0, 0, 0);
-		NewCapsule.Rotation = FQuat::Identity();
+		FKSphylElem NewCapsule(0.15f, 0.5f);
 		Body->AggGeom.SphylElems.Add(NewCapsule);
+		State->SelectPrimitive(BodyIndex, EAggCollisionShape::Sphyl, Body->AggGeom.SphylElems.Num() - 1);
 		break;
 	}
 	}
@@ -2463,9 +2467,9 @@ void SPhysicsAssetEditorWindow::OnMouseDown(FVector2D MousePos, uint32 Button)
 
 						auto T2 = std::chrono::high_resolution_clock::now();
 
-						// 모든 바디에 대해 레이캐스트
+						// 모든 바디에 대해 레이캐스트 (Primitive 레벨)
 						int32 ClosestBodyIndex = -1;
-						float ClosestT = FLT_MAX;
+						FPrimitiveHitResult ClosestPrimitiveHit;
 
 						USkeletalMeshComponent* SkelComp = State->GetPreviewMeshComponent();
 
@@ -2479,12 +2483,12 @@ void SPhysicsAssetEditorWindow::OnMouseDown(FVector2D MousePos, uint32 Button)
 								// 본 월드 트랜스폼
 								FTransform BoneWorldTransform = SkelComp->GetBoneWorldTransform(Body->BoneIndex);
 
-								float HitT;
-								if (IntersectRayBody(Ray, Body, BoneWorldTransform, HitT))
+								FPrimitiveHitResult HitResult;
+								if (PhysicsPickingHelper::IntersectRayBodyWithPrimitive(Ray, Body, BoneWorldTransform, HitResult))
 								{
-									if (HitT < ClosestT)
+									if (HitResult.HitT < ClosestPrimitiveHit.HitT)
 									{
-										ClosestT = HitT;
+										ClosestPrimitiveHit = HitResult;
 										ClosestBodyIndex = i;
 									}
 								}
@@ -2493,10 +2497,10 @@ void SPhysicsAssetEditorWindow::OnMouseDown(FVector2D MousePos, uint32 Button)
 
 						auto T3 = std::chrono::high_resolution_clock::now();
 
-						if (ClosestBodyIndex >= 0)
+						if (ClosestBodyIndex >= 0 && ClosestPrimitiveHit.IsValid())
 						{
-							// 바디 선택 (색상만 업데이트 - 전체 rebuild 불필요)
-							State->SelectBody(ClosestBodyIndex);
+							// Primitive 선택 (정확히 클릭된 primitive)
+							State->SelectPrimitive(ClosestBodyIndex, ClosestPrimitiveHit.PrimitiveType, ClosestPrimitiveHit.PrimitiveIndex);
 
 							// 선택된 바디의 본 인덱스도 업데이트 (그래프 동기화)
 							UBodySetup* SelectedBody = State->EditingAsset->BodySetups[ClosestBodyIndex];
@@ -2508,8 +2512,8 @@ void SPhysicsAssetEditorWindow::OnMouseDown(FVector2D MousePos, uint32 Button)
 							// 그래프 기준도 선택된 바디로 업데이트
 							State->GraphPivotBodyIndex = ClosestBodyIndex;
 
-							// 기즈모 위치 업데이트
-							RepositionAnchorToBody(ClosestBodyIndex);
+							// 기즈모 위치 업데이트 (선택된 primitive 기준)
+							RepositionAnchorToPrimitive();
 						}
 						else
 						{
@@ -2680,12 +2684,16 @@ void SPhysicsAssetEditorWindow::UpdateSubWidgetEditorState()
 // 기즈모 연동
 // ────────────────────────────────────────────────────────────────
 
-void SPhysicsAssetEditorWindow::RepositionAnchorToBody(int32 BodyIndex)
+void SPhysicsAssetEditorWindow::RepositionAnchorToPrimitive()
 {
 	PhysicsAssetEditorState* State = GetActivePhysicsState();
 	if (!State || !State->EditingAsset || !State->PreviewActor || !State->World)
 		return;
 
+	if (!State->HasPrimitiveSelection())
+		return;
+
+	int32 BodyIndex = State->SelectedBodyIndex;
 	if (BodyIndex < 0 || BodyIndex >= static_cast<int32>(State->EditingAsset->BodySetups.size()))
 		return;
 
@@ -2715,36 +2723,52 @@ void SPhysicsAssetEditorWindow::RepositionAnchorToBody(int32 BodyIndex)
 		BoneWorldTransform = MeshComp->GetWorldTransform();
 	}
 
-	// AggGeom의 첫 번째 Shape 중심을 기즈모 위치로 사용
+	// 선택된 Primitive의 Center/Rotation 가져오기
 	FVector ShapeCenter = FVector(0.0f, 0.0f, 0.0f);
 	FQuat ShapeRotation = FQuat::Identity();
-	if (!Body->AggGeom.SphereElems.IsEmpty())
+
+	EAggCollisionShape PrimType = State->SelectedPrimitive.PrimitiveType;
+	int32 PrimIndex = State->SelectedPrimitive.PrimitiveIndex;
+
+	switch (PrimType)
 	{
-		ShapeCenter = Body->AggGeom.SphereElems[0].Center;
-	}
-	else if (!Body->AggGeom.BoxElems.IsEmpty())
-	{
-		ShapeCenter = Body->AggGeom.BoxElems[0].Center;
-		ShapeRotation = Body->AggGeom.BoxElems[0].Rotation;
-	}
-	else if (!Body->AggGeom.SphylElems.IsEmpty())
-	{
-		ShapeCenter = Body->AggGeom.SphylElems[0].Center;
-		ShapeRotation = Body->AggGeom.SphylElems[0].Rotation;
+	case EAggCollisionShape::Sphere:
+		if (PrimIndex >= 0 && PrimIndex < Body->AggGeom.SphereElems.Num())
+		{
+			ShapeCenter = Body->AggGeom.SphereElems[PrimIndex].Center;
+			// Sphere has no rotation
+		}
+		break;
+	case EAggCollisionShape::Box:
+		if (PrimIndex >= 0 && PrimIndex < Body->AggGeom.BoxElems.Num())
+		{
+			ShapeCenter = Body->AggGeom.BoxElems[PrimIndex].Center;
+			ShapeRotation = Body->AggGeom.BoxElems[PrimIndex].Rotation;
+		}
+		break;
+	case EAggCollisionShape::Sphyl:
+		if (PrimIndex >= 0 && PrimIndex < Body->AggGeom.SphylElems.Num())
+		{
+			ShapeCenter = Body->AggGeom.SphylElems[PrimIndex].Center;
+			ShapeRotation = Body->AggGeom.SphylElems[PrimIndex].Rotation;
+		}
+		break;
+	default:
+		return;
 	}
 
-	// Shape의 로컬 트랜스폼을 본의 월드 트랜스폼으로 변환 (스케일 무시 - Shape Center는 스케일 독립적 오프셋)
+	// Shape의 로컬 트랜스폼을 본의 월드 트랜스폼으로 변환
 	FVector WorldCenter = BoneWorldTransform.Translation + BoneWorldTransform.Rotation.RotateVector(ShapeCenter);
 	FQuat WorldRotation = BoneWorldTransform.Rotation * ShapeRotation;
 
-	// 앵커를 바디의 월드 위치로 이동
+	// 앵커를 primitive의 월드 위치로 이동
 	Anchor->SetWorldLocation(WorldCenter);
 	Anchor->SetWorldRotation(WorldRotation);
 
 	// 앵커 편집 가능 상태로 설정
 	if (UBoneAnchorComponent* BoneAnchor = Cast<UBoneAnchorComponent>(Anchor))
 	{
-		BoneAnchor->SetSuppressWriteback(true);  // 본 수정 방지 (바디만 수정)
+		BoneAnchor->SetSuppressWriteback(true);  // 본 수정 방지
 		BoneAnchor->SetEditability(true);
 		BoneAnchor->SetVisibility(true);
 	}
@@ -2758,14 +2782,17 @@ void SPhysicsAssetEditorWindow::RepositionAnchorToBody(int32 BodyIndex)
 	}
 }
 
-void SPhysicsAssetEditorWindow::UpdateBodyTransformFromGizmo()
+void SPhysicsAssetEditorWindow::UpdatePrimitiveTransformFromGizmo()
 {
 	PhysicsAssetEditorState* State = GetActivePhysicsState();
 	if (!State || !State->EditingAsset || !State->PreviewActor || !State->World)
 		return;
 
-	if (State->SelectedBodyIndex < 0 ||
-		State->SelectedBodyIndex >= static_cast<int32>(State->EditingAsset->BodySetups.size()))
+	if (!State->HasPrimitiveSelection())
+		return;
+
+	int32 BodyIndex = State->SelectedBodyIndex;
+	if (BodyIndex < 0 || BodyIndex >= static_cast<int32>(State->EditingAsset->BodySetups.size()))
 		return;
 
 	ASkeletalMeshActor* SkelActor = State->GetPreviewSkeletalActor();
@@ -2781,7 +2808,7 @@ void SPhysicsAssetEditorWindow::UpdateBodyTransformFromGizmo()
 	if (!MeshComp || !Anchor || !Gizmo)
 		return;
 
-	UBodySetup* Body = State->EditingAsset->BodySetups[State->SelectedBodyIndex];
+	UBodySetup* Body = State->EditingAsset->BodySetups[BodyIndex];
 	if (!Body) return;
 
 	// 기즈모 모드 확인
@@ -2801,7 +2828,7 @@ void SPhysicsAssetEditorWindow::UpdateBodyTransformFromGizmo()
 		BoneWorldTransform = MeshComp->GetWorldTransform();
 	}
 
-	// 원하는 로컬 트랜스폼 계산: 본 월드 기준 앵커의 상대 트랜스폼 (스케일 무시 - Shape Center는 스케일 독립적 오프셋)
+	// 원하는 로컬 트랜스폼 계산: 본 월드 기준 앵커의 상대 트랜스폼
 	FQuat InvBoneRotation = BoneWorldTransform.Rotation.Inverse();
 	FVector DesiredLocalCenter = InvBoneRotation.RotateVector(AnchorWorldTransform.Translation - BoneWorldTransform.Translation);
 	FQuat DesiredLocalRotation = InvBoneRotation * AnchorWorldTransform.Rotation;
@@ -2816,36 +2843,47 @@ void SPhysicsAssetEditorWindow::UpdateBodyTransformFromGizmo()
 
 	bool bChanged = false;
 
-	// AggGeom의 첫 번째 Shape의 Center/Rotation 업데이트
-	// (기즈모는 첫 번째 Shape를 기준으로 위치함)
+	EAggCollisionShape PrimType = State->SelectedPrimitive.PrimitiveType;
+	int32 PrimIndex = State->SelectedPrimitive.PrimitiveIndex;
+
+	// 선택된 Primitive의 Center/Rotation 업데이트
 	switch (CurrentGizmoMode)
 	{
 	case EGizmoMode::Translate:
 		{
 			FVector NewCenter = DesiredLocalCenter;
-			if (!Body->AggGeom.SphereElems.IsEmpty())
+			switch (PrimType)
 			{
-				if (!VectorEquals(NewCenter, Body->AggGeom.SphereElems[0].Center, 0.001f))
+			case EAggCollisionShape::Sphere:
+				if (PrimIndex >= 0 && PrimIndex < Body->AggGeom.SphereElems.Num())
 				{
-					Body->AggGeom.SphereElems[0].Center = NewCenter;
-					bChanged = true;
+					if (!VectorEquals(NewCenter, Body->AggGeom.SphereElems[PrimIndex].Center, 0.001f))
+					{
+						Body->AggGeom.SphereElems[PrimIndex].Center = NewCenter;
+						bChanged = true;
+					}
 				}
-			}
-			else if (!Body->AggGeom.BoxElems.IsEmpty())
-			{
-				if (!VectorEquals(NewCenter, Body->AggGeom.BoxElems[0].Center, 0.001f))
+				break;
+			case EAggCollisionShape::Box:
+				if (PrimIndex >= 0 && PrimIndex < Body->AggGeom.BoxElems.Num())
 				{
-					Body->AggGeom.BoxElems[0].Center = NewCenter;
-					bChanged = true;
+					if (!VectorEquals(NewCenter, Body->AggGeom.BoxElems[PrimIndex].Center, 0.001f))
+					{
+						Body->AggGeom.BoxElems[PrimIndex].Center = NewCenter;
+						bChanged = true;
+					}
 				}
-			}
-			else if (!Body->AggGeom.SphylElems.IsEmpty())
-			{
-				if (!VectorEquals(NewCenter, Body->AggGeom.SphylElems[0].Center, 0.001f))
+				break;
+			case EAggCollisionShape::Sphyl:
+				if (PrimIndex >= 0 && PrimIndex < Body->AggGeom.SphylElems.Num())
 				{
-					Body->AggGeom.SphylElems[0].Center = NewCenter;
-					bChanged = true;
+					if (!VectorEquals(NewCenter, Body->AggGeom.SphylElems[PrimIndex].Center, 0.001f))
+					{
+						Body->AggGeom.SphylElems[PrimIndex].Center = NewCenter;
+						bChanged = true;
+					}
 				}
+				break;
 			}
 		}
 		break;
@@ -2854,23 +2892,30 @@ void SPhysicsAssetEditorWindow::UpdateBodyTransformFromGizmo()
 		{
 			FQuat NewRotation = DesiredLocalRotation;
 			// Box와 Capsule만 회전을 가짐 (Sphere는 회전 무의미)
-			if (!Body->AggGeom.BoxElems.IsEmpty())
+			switch (PrimType)
 			{
-				float Dot = std::abs(FQuat::Dot(Body->AggGeom.BoxElems[0].Rotation, NewRotation));
-				if (Dot < 0.9999f)
+			case EAggCollisionShape::Box:
+				if (PrimIndex >= 0 && PrimIndex < Body->AggGeom.BoxElems.Num())
 				{
-					Body->AggGeom.BoxElems[0].Rotation = NewRotation;
-					bChanged = true;
+					float Dot = std::abs(FQuat::Dot(Body->AggGeom.BoxElems[PrimIndex].Rotation, NewRotation));
+					if (Dot < 0.9999f)
+					{
+						Body->AggGeom.BoxElems[PrimIndex].Rotation = NewRotation;
+						bChanged = true;
+					}
 				}
-			}
-			else if (!Body->AggGeom.SphylElems.IsEmpty())
-			{
-				float Dot = std::abs(FQuat::Dot(Body->AggGeom.SphylElems[0].Rotation, NewRotation));
-				if (Dot < 0.9999f)
+				break;
+			case EAggCollisionShape::Sphyl:
+				if (PrimIndex >= 0 && PrimIndex < Body->AggGeom.SphylElems.Num())
 				{
-					Body->AggGeom.SphylElems[0].Rotation = NewRotation;
-					bChanged = true;
+					float Dot = std::abs(FQuat::Dot(Body->AggGeom.SphylElems[PrimIndex].Rotation, NewRotation));
+					if (Dot < 0.9999f)
+					{
+						Body->AggGeom.SphylElems[PrimIndex].Rotation = NewRotation;
+						bChanged = true;
+					}
 				}
+				break;
 			}
 		}
 		break;

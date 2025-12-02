@@ -280,3 +280,38 @@ void PhysicsAssetEditorState::HideGizmo()
 		World->GetSelectionManager()->ClearSelection();
 	}
 }
+
+void PhysicsAssetEditorState::SelectBody(int32 BodyIndex)
+{
+	SelectedBodyIndex = BodyIndex;
+	SelectedConstraintIndex = -1;
+	bBodySelectionMode = true;
+	bSelectionColorDirty = true;
+
+	// 첫 번째 Primitive 자동 선택
+	SelectedPrimitive.Clear();
+
+	if (!EditingAsset || BodyIndex < 0 ||
+		BodyIndex >= static_cast<int32>(EditingAsset->BodySetups.size()))
+		return;
+
+	UBodySetup* Body = EditingAsset->BodySetups[BodyIndex];
+	if (!Body) return;
+
+	// 우선순위: Sphere -> Box -> Sphyl
+	if (!Body->AggGeom.SphereElems.IsEmpty())
+	{
+		SelectedPrimitive.PrimitiveType = EAggCollisionShape::Sphere;
+		SelectedPrimitive.PrimitiveIndex = 0;
+	}
+	else if (!Body->AggGeom.BoxElems.IsEmpty())
+	{
+		SelectedPrimitive.PrimitiveType = EAggCollisionShape::Box;
+		SelectedPrimitive.PrimitiveIndex = 0;
+	}
+	else if (!Body->AggGeom.SphylElems.IsEmpty())
+	{
+		SelectedPrimitive.PrimitiveType = EAggCollisionShape::Sphyl;
+		SelectedPrimitive.PrimitiveIndex = 0;
+	}
+}

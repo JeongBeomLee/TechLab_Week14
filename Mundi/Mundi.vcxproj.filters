@@ -70,6 +70,9 @@
     <FxCompile Include="Shaders\Particle\ParticleRibbon.hlsl">
       <Filter>Shaders\Particle</Filter>
     </FxCompile>
+    <FxCompile Include="Shaders\PostProcess\DOF_BokehBlur_PS.hlsl" />
+    <FxCompile Include="Shaders\PostProcess\DOF_COCGaussianBlur_PS.hlsl" />
+    <FxCompile Include="Shaders\PostProcess\DOF_McIntosh_PS.hlsl" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Generated\UParticleModuleSizeScaleBySpeed.generated.cpp">
@@ -1187,6 +1190,22 @@
     <ClCompile Include="Generated\UPhysicalMaterial.generated.cpp">
       <Filter>Generated</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Editor\PhysicalMaterialLoader.cpp" />
+    <ClCompile Include="Source\Runtime\Engine\Components\DOFComponent.cpp" />
+    <ClCompile Include="Source\Runtime\Engine\Components\TriangleMeshComponent.cpp" />
+    <ClCompile Include="Source\Runtime\Engine\GameFramework\BoxActor.cpp" />
+    <ClCompile Include="Source\Runtime\Engine\GameFramework\Camera\CamMod_Gamma.cpp" />
+    <ClCompile Include="Source\Runtime\Engine\GameFramework\CapsuleActor.cpp" />
+    <ClCompile Include="Source\Runtime\Engine\GameFramework\SphereActor.cpp" />
+    <ClCompile Include="Source\Runtime\Engine\PhysicsEngine\BodyShapeCalculator.cpp" />
+    <ClCompile Include="Source\Runtime\Engine\PhysicsEngine\ConstraintInstance.cpp" />
+    <ClCompile Include="Source\Runtime\Engine\PhysicsEngine\PhysicalMaterial.cpp" />
+    <ClCompile Include="Source\Runtime\Renderer\PostProcessing\DepthOfFieldPass.cpp" />
+    <ClCompile Include="Source\Runtime\Renderer\RenderTexture.cpp" />
+    <ClCompile Include="Source\Slate\Widgets\PhysicsAssetEditor\ToolsWidget.cpp" />
+    <ClCompile Include="Source\Slate\Windows\PhysicalMaterialEditorWindow.cpp" />
+    <ClCompile Include="ThirdParty\include\ImGui\imnodes.cpp" />
+    <ClCompile Include="Source\Runtime\Engine\Viewer\PhysicsPickingHelper.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Generated\UParticleModuleSizeScaleBySpeed.generated.h">
@@ -2508,6 +2527,33 @@
     <ClInclude Include="Generated\UPhysicalMaterial.generated.h">
       <Filter>Generated</Filter>
     </ClInclude>
+    <ClInclude Include="Source\Editor\PhysicalMaterialLoader.h" />
+    <ClInclude Include="Source\Runtime\Engine\Components\DOFComponent.h" />
+    <ClInclude Include="Source\Runtime\Engine\Components\TriangleMeshComponent.h" />
+    <ClInclude Include="Source\Runtime\Engine\GameFramework\BoxActor.h" />
+    <ClInclude Include="Source\Runtime\Engine\GameFramework\Camera\CamMod_Gamma.h" />
+    <ClInclude Include="Source\Runtime\Engine\GameFramework\CapsuleActor.h" />
+    <ClInclude Include="Source\Runtime\Engine\GameFramework\SphereActor.h" />
+    <ClInclude Include="Source\Runtime\Engine\PhysicsEngine\BodyShapeCalculator.h" />
+    <ClInclude Include="Source\Runtime\Engine\PhysicsEngine\ConstraintInstance.h" />
+    <ClInclude Include="Source\Runtime\Engine\PhysicsEngine\PhysicalMaterial.h" />
+    <ClInclude Include="Source\Runtime\Renderer\PostProcessing\DepthOfFieldPass.h" />
+    <ClInclude Include="Source\Runtime\Renderer\RenderTexture.h" />
+    <ClInclude Include="Source\Slate\Widgets\ModalDialog.h" />
+    <ClInclude Include="Source\Slate\Widgets\PhysicsAssetEditor\ToolsWidget.h" />
+    <ClInclude Include="Source\Slate\Windows\PhysicalMaterialEditorWindow.h" />
+    <ClInclude Include="ThirdParty\include\ImGui\imnodes.h" />
+    <ClInclude Include="ThirdParty\include\ImGui\imnodes_internal.h" />
+    <ClInclude Include="Generated\ABoxActor.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\ACapsuleActor.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\ASphereActor.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Engine\Viewer\PhysicsPickingHelper.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="BuildTools\CodeGenerator\generate.py">

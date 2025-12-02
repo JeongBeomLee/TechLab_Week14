@@ -2,12 +2,46 @@
 
 #include "ViewerState.h"
 #include "LinesBatch.h"
+#include "EAggCollisionShape.h"
 
 class UPhysicsAsset;
 class ULineComponent;
 class UTriangleMeshComponent;
 class ASkeletalMeshActor;
 class USkeletalMeshComponent;
+
+/**
+ * FPrimitiveSelection
+ *
+ * 선택된 Primitive를 식별하는 구조체
+ * PrimitiveType과 해당 타입 배열 내 인덱스로 구성
+ */
+struct FPrimitiveSelection
+{
+	EAggCollisionShape PrimitiveType = EAggCollisionShape::Unknown;
+	int32 PrimitiveIndex = -1;
+
+	bool IsValid() const
+	{
+		return PrimitiveType != EAggCollisionShape::Unknown && PrimitiveIndex >= 0;
+	}
+
+	void Clear()
+	{
+		PrimitiveType = EAggCollisionShape::Unknown;
+		PrimitiveIndex = -1;
+	}
+
+	bool operator==(const FPrimitiveSelection& Other) const
+	{
+		return PrimitiveType == Other.PrimitiveType && PrimitiveIndex == Other.PrimitiveIndex;
+	}
+
+	bool operator!=(const FPrimitiveSelection& Other) const
+	{
+		return !(*this == Other);
+	}
+};
 
 /**
  * PhysicsAssetEditorState
@@ -37,10 +71,13 @@ struct PhysicsAssetEditorState : public ViewerState
 	/** 선택된 바디 인덱스 (-1이면 선택 없음) */
 	int32 SelectedBodyIndex = -1;
 
+	/** 선택된 Primitive (바디 내 개별 Shape) */
+	FPrimitiveSelection SelectedPrimitive;
+
 	/** 선택된 제약 조건 인덱스 (-1이면 선택 없음) */
 	int32 SelectedConstraintIndex = -1;
 
-	/** 선택 모드 (true: Body, false: Constraint) */
+	/** 선택 모드 (true: Body/Primitive, false: Constraint) */
 	bool bBodySelectionMode = true;
 
 	// ────────────────────────────────────────────────
@@ -87,6 +124,7 @@ struct PhysicsAssetEditorState : public ViewerState
 
 	/** 이전 선택 상태 (색상 업데이트용) */
 	int32 CachedSelectedBodyIndex = -1;
+	FPrimitiveSelection CachedSelectedPrimitive;
 	int32 CachedSelectedConstraintIndex = -1;
 
 	/** 기즈모 드래그 상태 (첫 프레임 감지용) */
@@ -110,13 +148,18 @@ struct PhysicsAssetEditorState : public ViewerState
 	// 헬퍼 메서드
 	// ────────────────────────────────────────────────
 
-	/** 바디 선택 (색상만 업데이트) */
-	void SelectBody(int32 BodyIndex)
+	/** 바디 선택 (첫 번째 primitive 자동 선택) */
+	void SelectBody(int32 BodyIndex);
+
+	/** 특정 Primitive 선택 (Viewport 피킹용) */
+	void SelectPrimitive(int32 BodyIndex, EAggCollisionShape PrimitiveType, int32 PrimitiveIndex)
 	{
 		SelectedBodyIndex = BodyIndex;
+		SelectedPrimitive.PrimitiveType = PrimitiveType;
+		SelectedPrimitive.PrimitiveIndex = PrimitiveIndex;
 		SelectedConstraintIndex = -1;
 		bBodySelectionMode = true;
-		bSelectionColorDirty = true;  // 색상만 업데이트
+		bSelectionColorDirty = true;
 	}
 
 	/** 제약 조건 선택 (색상만 업데이트) */
@@ -124,16 +167,18 @@ struct PhysicsAssetEditorState : public ViewerState
 	{
 		SelectedConstraintIndex = ConstraintIndex;
 		SelectedBodyIndex = -1;
+		SelectedPrimitive.Clear();
 		bBodySelectionMode = false;
-		bSelectionColorDirty = true;  // 색상만 업데이트
+		bSelectionColorDirty = true;
 	}
 
 	/** 선택 해제 (색상만 업데이트) */
 	void ClearSelection()
 	{
 		SelectedBodyIndex = -1;
+		SelectedPrimitive.Clear();
 		SelectedConstraintIndex = -1;
-		bSelectionColorDirty = true;  // 색상만 업데이트
+		bSelectionColorDirty = true;
 	}
 
 	/** 라인 재구성 요청 (바디/제약조건 추가/제거 시) */
@@ -152,6 +197,12 @@ struct PhysicsAssetEditorState : public ViewerState
 	bool HasSelection() const
 	{
 		return SelectedBodyIndex >= 0 || SelectedConstraintIndex >= 0;
+	}
+
+	/** Primitive 선택이 유효한지 확인 */
+	bool HasPrimitiveSelection() const
+	{
+		return SelectedBodyIndex >= 0 && SelectedPrimitive.IsValid();
 	}
 
 	/** 프리뷰 액터를 SkeletalMeshActor로 캐스팅 */
