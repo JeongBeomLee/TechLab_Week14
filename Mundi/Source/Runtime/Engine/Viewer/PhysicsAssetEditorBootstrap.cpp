@@ -1,4 +1,4 @@
-#include "pch.h"
+﻿#include "pch.h"
 #include "PhysicsAssetEditorBootstrap.h"
 #include "ViewerState.h"
 #include "CameraActor.h"
@@ -108,25 +108,24 @@ void PhysicsAssetEditorBootstrap::DestroyViewerState(ViewerState*& State)
 
 	PhysicsAssetEditorState* PhysState = static_cast<PhysicsAssetEditorState*>(State);
 
-	// World 정리 (PreviewActor와 LineComponent들은 World가 소유하므로 자동 정리)
-	if (PhysState->World)
-	{
-		PhysState->World->CleanupWorld();
-		DeleteObject(PhysState->World);
-		PhysState->World = nullptr;
+	// Viewport/Client 정리
+	if (PhysState->Viewport) 
+	{ 
+		delete PhysState->Viewport; 
+		PhysState->Viewport = nullptr; 
 	}
 
-	// Viewport/Client 정리
-	if (PhysState->Client)
-	{
-		delete PhysState->Client;
-		PhysState->Client = nullptr;
+	if (PhysState->Client) 
+	{ 
+		delete PhysState->Client; 
+		PhysState->Client = nullptr; 
 	}
-	if (PhysState->Viewport)
-	{
-		PhysState->Viewport->Cleanup();
-		delete PhysState->Viewport;
-		PhysState->Viewport = nullptr;
+
+	// World 정리 (PreviewActor와 LineComponent들은 World가 소유하므로 자동 정리)
+	if (PhysState->World) 
+	{ 
+		ObjectFactory::DeleteObject(PhysState->World); 
+		PhysState->World = nullptr; 
 	}
 
 	delete PhysState;
