@@ -317,7 +317,7 @@ PxShape* UBodySetup::CreateCapsuleShape(const FKSphylElem& Elem, const FVector& 
         FQuat ElemRotation = Elem.Rotation.GetNormalized();
         PxQuat PxElemRotation = PhysXConvert::ToPx(ElemRotation);
 
-        // 3. 캡슐 축 회전 적용 (프로젝트 Z축 → PhysX X축)
+        // 3. 캡슐 축 회전 적용 (누워 있는 캡슐을 로컬 공간에서 Y축 방향으로 세움)
         PxQuat AxisRotation = PhysXConvert::GetCapsuleAxisRotation();
 
         // 최종 회전 = 요소 회전 * 축 변환 회전

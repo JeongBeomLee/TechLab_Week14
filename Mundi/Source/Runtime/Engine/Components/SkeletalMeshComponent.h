@@ -41,6 +41,7 @@ public:
     void TickComponent(float DeltaTime) override;
     void PostPhysicsTick(float DeltaTime) override;
     void SetSkeletalMesh(const FString& PathFileName) override;
+    void DuplicateSubObjects() override;
 
     // Animation Integration
 public:
@@ -154,6 +155,8 @@ private:
 // Physics Asset & Simulation Section
 // ===========================
 public:
+    void SyncByPhysics(const FTransform& NewTransform) override;
+    
     /** 물리 엔진용 바디와 제약조건을 생성하고 초기화 */
     void InitPhysics();
     /** 물리 리소스를 해제 */
@@ -171,7 +174,7 @@ public:
      * @param bSimulate - true면 PhysicsAsset Bodies Simulate, false면 KINEMATIC
      * @param bBlend - true면 블렌딩 전환, false면 즉시 전환
      */
-    void SetSimulatePhysics(bool bSimulate, bool bBlend = true);
+    void SetSimulatePhysics(bool bSimulate, bool bBlend = false);
 
     // --- 상태 조회 ---
     EPhysicsBlendState GetRagdollState() const { return PhysicsBlendState; }

@@ -23,17 +23,30 @@ USkeletalMeshComponent::USkeletalMeshComponent()
     // Keep constructor lightweight for editor/viewer usage.
     // Load a simple default test mesh if available; viewer UI can override.
     SetSkeletalMesh(GDataDir + "/DancingRacer.fbx");
-    // TODO - 애니메이션 나중에 써먹으세요
+    // TODO - 애니메이션 나중에 써먹으세요    
     
-	UAnimationAsset* AnimationAsset = UResourceManager::GetInstance().Get<UAnimSequence>("Data/DancingRacer_mixamo.com");
+    UAnimationAsset* AnimationAsset = UResourceManager::GetInstance().Get<UAnimSequence>("Data/DancingRacer_mixamo.com");
     PlayAnimation(AnimationAsset, true, 1.f);
-    
 }
 
 
 void USkeletalMeshComponent::BeginPlay()
 {
     Super::BeginPlay();
+
+    if (AnimInstance)
+    {
+        AnimInstance->NativeUpdateAnimation(0.016f);  // 대략 60fps 기준
+        
+        FPoseContext OutputPose;
+        OutputPose.Initialize(this, SkeletalMesh->GetSkeleton(), 0.016f);
+        AnimInstance->EvaluateAnimation(OutputPose);
+        
+        CurrentLocalSpacePose = OutputPose.LocalSpacePose;
+        ForceRecomputePose();
+    }
+    
+    // 이제 정확한 포즈 상태에서 물리 초기화
     InitPhysics();
 }
 
@@ -50,7 +63,7 @@ void USkeletalMeshComponent::TickComponent(float DeltaTime)
     if (!SkeletalMesh) { return; }
     
     UInputManager& Input = UInputManager::GetInstance();
-        
+
     // R키: 래그돌 토글
     if (Input.IsKeyPressed('R'))
     {
@@ -94,10 +107,9 @@ void USkeletalMeshComponent::TickComponent(float DeltaTime)
         CurrentLocalSpacePose = OutputPose.LocalSpacePose;
         ForceRecomputePose();
 
-        if (PhysicsBlendState == EPhysicsBlendState::Disabled || 
-            PhysicsBlendState == EPhysicsBlendState::BlendingOut)
+        if (!Bodies.IsEmpty())
         {
-            //UpdateKinematicBonesToAnim(); 
+            UpdateKinematicBonesToAnim();
         }
     }
 }
@@ -160,6 +172,20 @@ void USkeletalMeshComponent::SetSkeletalMesh(const FString& PathFileName)
         TempFinalSkinningMatrices.Empty();
         PhysicsAsset = nullptr;
     }
+}
+
+void USkeletalMeshComponent::DuplicateSubObjects()
+{
+    Super::DuplicateSubObjects();
+    PhysicsBlendState = EPhysicsBlendState::Disabled;
+    PhysicsBlendWeight = 0.0f;
+    
+    Constraints.Empty();
+    Bodies.Empty();
+    BodyIndexMap.Empty();
+    PhysicsBlendPoseSaved.Empty();
+    PhysicsResultPose.Empty();
+    bUseAnimation = true;
 }
 
 void USkeletalMeshComponent::OnPropertyChanged(const FProperty& Property)
@@ -461,6 +487,13 @@ void USkeletalMeshComponent::TriggerAnimNotify(const FAnimNotifyEvent& NotifyEve
     }
 }
 
+void USkeletalMeshComponent::SyncByPhysics(const FTransform& NewTransform)
+{
+    FTransform FinalTransform = NewTransform;
+    FinalTransform.Scale3D = GetWorldScale();
+    Super::SyncByPhysics(FinalTransform);
+}
+
 void USkeletalMeshComponent::InitPhysics()
 {
     TermPhysics();
@@ -468,7 +501,7 @@ void USkeletalMeshComponent::InitPhysics()
     {
         return; 
     }
-    ResetToRefPose();
+    ForceRecomputePose();
     UPhysicsAsset* TargetPhysAsset = PhysicsAsset; // 컴포넌트의 프로퍼티
 
     if (!TargetPhysAsset || !TargetPhysAsset->IsValid())
@@ -494,7 +527,7 @@ void USkeletalMeshComponent::InitPhysics()
 
     FPhysicsScene* PhysScene = World->GetPhysicsScene();
 
-    // 3. Body 생성
+    // Body 생성
     const int32 NumBodies = TargetPhysAsset->GetBodySetupCount();
     Bodies.Reserve(NumBodies);
 
@@ -520,7 +553,7 @@ void USkeletalMeshComponent::InitPhysics()
 
         FTransform BoneWorldTM = GetBoneWorldTransform(BoneIndex);
         BoneWorldTM.Rotation.Normalize();
-        Body->InitBody(BodySetup, BoneWorldTM, nullptr, PhysScene);
+        Body->InitBody(BodySetup, BoneWorldTM, (i == 0) ? this : nullptr, PhysScene);
 
         // 컴포넌트의 BodyInstance 설정을 개별 Body에 전파
         Body->SetEnableGravity(BodyInstance.IsEnabledGravity());
@@ -592,7 +625,7 @@ void USkeletalMeshComponent::TermPhysics()
     // 애니메이션 재활성화
     bUseAnimation = true;
 
-    UE_LOG("[Ragdoll] TermRagdoll: All bodies and constraints released");
+    UE_LOG("[Physics] TermPhysics: All bodies and constraints released");
 }
 
 void USkeletalMeshComponent::CreatePhysicsConstraints()
@@ -651,15 +684,7 @@ void USkeletalMeshComponent::CreatePhysicsConstraints()
 }
 
 void USkeletalMeshComponent::SetSimulatePhysics(bool bSimulate, bool bBlend)
-{
-    bool bIsCurrentlySimulating = (PhysicsBlendState == EPhysicsBlendState::Active || 
-                                   PhysicsBlendState == EPhysicsBlendState::BlendingIn);
-
-    if (bSimulate == bIsCurrentlySimulating)
-    {
-        return;
-    }
-
+{    
     if (Bodies.IsEmpty())
     {
         InitPhysics();
@@ -671,9 +696,11 @@ void USkeletalMeshComponent::SetSimulatePhysics(bool bSimulate, bool bBlend)
     }
 
     if (bSimulate)
-    {        
+    {
+        if (PhysicsBlendState == EPhysicsBlendState::Active) { return; }
         PhysicsBlendPoseSaved = CurrentLocalSpacePose;
-        UpdateKinematicBonesToAnim(); 
+        UpdateKinematicBonesToAnim();
+        ForceRecomputePose();
 
         // Kinematic -> Dynamic 전환
         for (FBodyInstance* Body : Bodies)
@@ -702,6 +729,7 @@ void USkeletalMeshComponent::SetSimulatePhysics(bool bSimulate, bool bBlend)
     }
     else
     {
+        if (PhysicsBlendState == EPhysicsBlendState::Disabled) { return; }
         // Dynamic -> Kinematic 전환
         for (FBodyInstance* Body : Bodies)
         {
@@ -721,6 +749,7 @@ void USkeletalMeshComponent::SetSimulatePhysics(bool bSimulate, bool bBlend)
         {
             PhysicsBlendState = EPhysicsBlendState::Disabled;
             PhysicsBlendWeight = 0.0f;
+            UpdateKinematicBonesToAnim();
         }
 
         bUseAnimation = true;
@@ -817,7 +846,6 @@ void USkeletalMeshComponent::BlendPhysicsBones()
 
     // 컴포넌트 월드 트랜스폼의 역행렬 (월드 → 컴포넌트 로컬 변환용)
     const FTransform ComponentWorldTM = GetWorldTransform();
-    const FTransform InvComponentTM = ComponentWorldTM.Inverse();
 
     // 본 인덱스 → Body 인스턴스 매핑 구축
     TMap<int32, FBodyInstance*> BoneToBody;
@@ -845,7 +873,7 @@ void USkeletalMeshComponent::BlendPhysicsBones()
             // Body가 있는 본: 물리 시뮬레이션에서 트랜스폼 획득
             FBodyInstance* Body = *BodyPtr;
             FTransform BodyWorldTM = Body->GetWorldTransform();
-            FTransform BodyComponentTM = InvComponentTM.GetWorldTransform(BodyWorldTM);
+            FTransform BodyComponentTM = ComponentWorldTM.GetRelativeTransform(BodyWorldTM);
 
             // ComponentSpace 직접 설정
             CurrentComponentSpacePose[BoneIdx] = BodyComponentTM;

@@ -81,14 +81,12 @@ namespace PhysXConvert
      * 프로젝트: Z축이 캡슐 축
      * PhysX:    X축이 캡슐 축
      *
-     * Z축 → X축 변환을 위해 Y축 기준 -90도 회전 필요
-     * (좌표계 변환 후 적용)
+     * 이미 Y Up으로 회전 후 X축으로 눕혀진 캡슐을 세워야함
      */
     inline physx::PxQuat GetCapsuleAxisRotation()
     {
-        // PhysX 좌표계에서 Y축 기준 90도 회전
-        // 이렇게 하면 Z축(프로젝트의 캡슐 축)이 X축(PhysX의 캡슐 축)으로 정렬됨
-        return physx::PxQuat(physx::PxHalfPi, physx::PxVec3(0.0f, 1.0f, 0.0f));
+        // PhysX 좌표계에서 Z축 기준 90도 회전
+        return physx::PxQuat(physx::PxHalfPi, physx::PxVec3(0.0f, 0.0f, 1.0f));
     }
 
     /**

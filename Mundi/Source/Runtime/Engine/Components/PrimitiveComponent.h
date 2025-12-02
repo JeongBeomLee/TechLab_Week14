@@ -76,7 +76,7 @@ protected:
     virtual void CreatePhysicsState();
     
 public:
-    void SyncByPhysics(const FTransform& NewTransform);
+    virtual void SyncByPhysics(const FTransform& NewTransform);
     void RecreatePhysicsState();
     virtual class UBodySetup* GetBodySetup() { return nullptr; }
 
