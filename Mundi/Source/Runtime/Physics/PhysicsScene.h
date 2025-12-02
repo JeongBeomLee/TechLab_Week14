@@ -4,6 +4,8 @@
 using namespace physx;
 class FPhysicsSystem;
 class FPhysXSimEventCallback;
+class FBodyInstance;
+class UVehicleComponent;
 
 class FPhysicsScene
 {
@@ -33,12 +35,22 @@ public:
     void AddActor(FBodyInstance* Body);
     void RemoveActor(FBodyInstance* Body);
 
+    // 차량 관리
+    void AddVehicle(UVehicleComponent* Vehicle);
+    void RemoveVehicle(UVehicleComponent* Vehicle);
+
     PxScene* GetPxScene() const { return mScene; }
     
 private:
     PxScene* mScene = nullptr;
     FPhysXSimEventCallback* mSimulationEventCallback = nullptr;
     TArray<PhysicsCommand> CommandQueue;
+
+    TArray<UVehicleComponent*> Vehicles;
+
+    const float FixedDeltaTime = 1.0f / 60.0f;
+    float LeftoverTime = 0.0f;
+    bool bIsSimulated = false;  // 이번 Tick에 Simulate 을 수행했는지
 
 // Stat Getter
 public:

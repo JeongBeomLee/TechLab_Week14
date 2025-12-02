@@ -7,6 +7,10 @@ namespace snippetvehicle
 {
 	class VehicleSceneQueryData;
 }
+namespace physx
+{
+	class PxVehicleDrivableSurfaceToTireFrictionPairs;
+}
 
 UCLASS(DisplayName = "자동차 물리 컴포넌트", Description = "자동차 물리 처리 컴포넌트입니다")
 class UVehicleComponent : public UPrimitiveComponent
@@ -20,14 +24,21 @@ public:
 	void EndPlay() override;
 	void TickComponent(float DeltaTime) override;
 	void DuplicateSubObjects() override;
+	void PostPhysicsTick(float DeltaTime) override;
 
 	bool CanSimulatingPhysics() const  override { return true; }
 
-	void PostPhysicsTick(float DeltaTime) override;
+	void Simulate(float DeltaTime);
 
 	// 차량 데이터 준비
 	UPROPERTY(EditAnywhere, Category = "Vehicle")
 	FVehicleData VehicleData;
+
+	// Getter for Physics Scene
+	physx::PxVehicleDrive4W* GetPhysXVehicle() const { return PhysXVehicle; }
+	snippetvehicle::VehicleSceneQueryData* GetVehicleQueryData() const { return VehicleQueryData; }
+	PxBatchQuery* GetBatchQuery() const { return BatchQuery; }
+	PxVehicleDrivableSurfaceToTireFrictionPairs* GetFrictionPairs() const { return FrictionPairs; }
 
 protected:
 	void CreatePhysicsState() override;

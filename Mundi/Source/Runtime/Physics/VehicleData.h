@@ -16,7 +16,7 @@ public:
 	UPROPERTY(EditAnywhere, Category = "VehicleData")
 	float ChassisMass = 1500.0f;
 	UPROPERTY(EditAnywhere, Category = "VehicleData")
-	FVector ChassisDims = { 10.5f, 2.0f, 15.0f };
+	FVector ChassisDims = { 1.8f, 1.4f, 4.5f }; // 일반적인 승용차의 너비, 높이, 길이 (미터)
 	FVector CenterOfMassOffset = { 0.0f, -0.25f, 0.0f }; // 바닥 기준이 아닌 중심 기준 오프셋
 
 	physx::PxU32 NumWheels = 4;
@@ -31,7 +31,7 @@ public:
 	UPROPERTY(EditAnywhere, Category = "VehicleData")
 	float WheelRadius = 0.5f;          // 바퀴 반지름
 	UPROPERTY(EditAnywhere, Category = "VehicleData")
-	float WheelWidth = 1.0f;           // 바퀴 폭
+	float WheelWidth = 0.4f;           // 바퀴 폭
 	UPROPERTY(EditAnywhere, Category = "VehicleData")
 	float WheelMass = 20.0f;           // 바퀴 무게
 	UPROPERTY(EditAnywhere, Category = "VehicleData")

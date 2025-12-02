@@ -335,7 +335,7 @@ namespace
 		PX_UNUSED(constantBlock);
 		PX_UNUSED(constantBlockSize);
 		PX_UNUSED(queryFlags);
-		return ((0 == (filterData1.word3 & DRIVABLE_SURFACE)) ? PxQueryHitType::eNONE : PxQueryHitType::eBLOCK);
+		return ((0xffffffff == (filterData1.word3 | DRIVABLE_SURFACE)) ? PxQueryHitType::eNONE : PxQueryHitType::eBLOCK);
 	}
 
 	PxVehicleDrivableSurfaceToTireFrictionPairs* CreateFrictionPairs(const PxMaterial* DefaultMaterial)
@@ -369,6 +369,11 @@ UVehicleComponent::UVehicleComponent()
 
 UVehicleComponent::~UVehicleComponent()
 {
+	if (GetWorld() && GetWorld()->GetPhysicsScene())
+	{
+		GetWorld()->GetPhysicsScene()->RemoveVehicle(this);
+	}
+
 	if (ChassisMaterial)
 	{
 		delete ChassisMaterial;
@@ -419,7 +424,6 @@ void UVehicleComponent::EndPlay()
 void UVehicleComponent::TickComponent(float DeltaTime)
 {
 	Super::TickComponent(DeltaTime);
-
 }
 
 void UVehicleComponent::DuplicateSubObjects()
@@ -439,7 +443,7 @@ void UVehicleComponent::PostPhysicsTick(float DeltaTime)
 {
 	Super::PostPhysicsTick(DeltaTime);
 
-	if (PhysXVehicle && BodyInstance.RigidActor && VehicleQueryData && BatchQuery && FrictionPairs)
+	if (PhysXVehicle)
 	{
 		// 1. 입력 상태 수집 (이 부분은 게임의 입력 시스템에 따라 달라집니다.)
 		// 예시: 가상의 입력 값
@@ -464,18 +468,16 @@ void UVehicleComponent::PostPhysicsTick(float DeltaTime)
 		PhysXVehicle->mDriveDynData.setAnalogInput(PxVehicleDrive4WControl::eANALOG_INPUT_STEER_RIGHT, Steer);
 		PhysXVehicle->mDriveDynData.setAnalogInput(PxVehicleDrive4WControl::eANALOG_INPUT_HANDBRAKE, HandBrake);
 
-		//// 기어 명령 설정
-		//PhysXVehicle->mDriveDynData.setCurrentGear(Gear);
-		PhysXVehicle->mDriveDynData.forceGearChange(PxVehicleGearsData::eFIRST);
+		// 기어 명령 설정
+		PhysXVehicle->mDriveDynData.setCurrentGear(PxVehicleGearsData::eFIRST);
+		//PhysXVehicle->mDriveDynData.mUseAutoGears = true;
+	}
+}
 
-		// 3. PhysX Scene 업데이트 (이 부분은 PhysicsScene 클래스에 따라 달라집니다.)
-		// 일반적으로 물리 업데이트는 PhysicsScene에서 이루어지며,
-		// 차량 업데이트는 시뮬레이션 단계에서 PxVehicleUpdater::updateAndFetchResults를 통해 처리됩니다.
-		// 이 프로젝트의 구조에서는 GEngine.GetWorld()->GetPhysicsScene()->Simulation(DeltaTime) 호출 시
-		// Vehicle 업데이트가 함께 이루어질 것으로 예상됩니다.
-		// 만약 TickComponent에서 직접 차량을 업데이트해야 한다면, 다음과 같은 방식이 될 수 있습니다.
-		PxScene* PxScene = GetWorld()->GetPhysicsScene()->GetPxScene();
-
+void UVehicleComponent::Simulate(float DeltaTime)
+{
+	if (PhysXVehicle && BodyInstance.RigidActor && VehicleQueryData && BatchQuery && FrictionPairs)
+	{
 		//Raycasts.
 		PxVehicleWheels* Vehicles[1] = { PhysXVehicle };
 		PxRaycastQueryResult* RaycastResults = VehicleQueryData->getRaycastQueryResultBuffer(0);
@@ -483,7 +485,7 @@ void UVehicleComponent::PostPhysicsTick(float DeltaTime)
 		PxVehicleSuspensionRaycasts(BatchQuery, 1, Vehicles, RaycastResultsSize, RaycastResults);
 
 		//Vehicle update.
-		const PxVec3 Grav = PxScene->getGravity();
+		const PxVec3 Grav = GetWorld()->GetPhysicsScene()->GetPxScene()->getGravity();
 		PxWheelQueryResult WheelQueryResults[PX_MAX_NB_WHEELS];
 		PxVehicleWheelQueryResult VehicleQueryResults[1] = { {WheelQueryResults, PhysXVehicle->mWheelsSimData.getNbWheels()} };
 		PxVehicleUpdates(DeltaTime, Grav, *FrictionPairs, 1, Vehicles, VehicleQueryResults);
@@ -511,6 +513,8 @@ void UVehicleComponent::CreatePhysicsState()
 	BodyInstance.OwnerComponent = this;
 
 	BodyInstance.FinalizeInternalActor(GetWorld()->GetPhysicsScene());
+
+	GetWorld()->GetPhysicsScene()->AddVehicle(this);
 }
 
 PxVehicleDrive4W* UVehicleComponent::CreateVehicle4W(FVehicleData VehicleData, physx::PxPhysics* Physics, PxCooking* Cooking, const FTransform& WorldTransform)
@@ -521,11 +525,11 @@ PxVehicleDrive4W* UVehicleComponent::CreateVehicle4W(FVehicleData VehicleData, p
 
 	if (!ChassisMaterial)
 	{
-		ChassisMaterial = UPhysicalMaterial::CreateRubberMaterial();;
+		ChassisMaterial = UPhysicalMaterial::CreateDefaultMaterial();
 	}
 	if (!WheelMaterial)
 	{
-		WheelMaterial = UPhysicalMaterial::CreateRubberMaterial();;
+		WheelMaterial = UPhysicalMaterial::CreateDefaultMaterial();
 	}
 
 	if (!FrictionPairs)
@@ -629,8 +633,19 @@ PxVehicleDrive4W* UVehicleComponent::CreateVehicle4W(FVehicleData VehicleData, p
 		//Gears
 		PxVehicleGearsData GearsData;
 		GearsData.mSwitchTime = VehicleData.GearSwitchTime;
-		DriveSimData.setGearsData(GearsData);
+		// FVehicleData의 Gears 배열을 PxVehicleGearsData에 복사
+		GearsData.mNbRatios = PxMin<PxU32>((PxU32)VehicleData.Gears.Num(), PxVehicleGearsData::eGEARSRATIO_COUNT);
+		for (PxU32 i = 0; i < GearsData.mNbRatios; ++i)
+		{
+			GearsData.mRatios[i] = VehicleData.Gears[i];
+		}
+		// 후진 기어는 따로 설정
+		if (VehicleData.Gears.Num() > 0)
+		{
+			GearsData.mRatios[PxVehicleGearsData::eREVERSE] = VehicleData.Gears[0]; // 보통 첫 번째가 후진 기어
+		}
 
+		DriveSimData.setGearsData(GearsData);
 		//Clutch
 		PxVehicleClutchData ClutchData;
 		ClutchData.mStrength = VehicleData.ClutchStrength;

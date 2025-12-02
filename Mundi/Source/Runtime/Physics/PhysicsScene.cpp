@@ -5,6 +5,7 @@
 #include "PhysXSimEventCallback.h"
 #include "PlatformTime.h"
 #include "PrimitiveComponent.h"
+#include "VehicleComponent.h"
 
 #define SCOPED_READ_LOCK(Scene) PxSceneReadLock ScopedReadLock(Scene);
 #define SCOPED_WRITE_LOCK(Scene) PxSceneWriteLock ScopedWriteLock(Scene);
@@ -94,14 +95,44 @@ void FPhysicsScene::ProcessCommandQueue()
     CommandQueue.clear();
 }
 
+// 비동기 시뮬레이션
 void FPhysicsScene::Simulation(float DeltaTime)
 {
-    // 비동기 시뮬레이션
-    mScene->simulate(DeltaTime);
+    LeftoverTime += DeltaTime;
+
+    // 고정 시간 시뮬레이션
+    while (FixedDeltaTime <= LeftoverTime)
+    {
+        LeftoverTime -= FixedDeltaTime;
+
+        mScene->simulate(FixedDeltaTime);
+
+        for (UVehicleComponent* Vehicle : Vehicles)
+        {
+            if (Vehicle && Vehicle->bIsActive)  // NOTE: bIsActive 말고 검사가 더 필요한가?
+            {
+                Vehicle->Simulate(FixedDeltaTime);
+            }
+        }
+
+        bIsSimulated = true;
+
+        if (FixedDeltaTime <= LeftoverTime)
+        {
+            FetchAndSync();
+        }
+    }
 }
 
 void FPhysicsScene::FetchAndSync()
 {
+    if (!bIsSimulated)
+    {
+        return;
+    }
+
+    bIsSimulated = false;
+
     {
         TIME_PROFILE(PhysicsSyncTime)
         // 시뮬레이션 완료될 때까지 기다림
@@ -165,6 +196,16 @@ void FPhysicsScene::RemoveActor(FBodyInstance* Body)
         mScene->removeActor(*Body->RigidActor);
         Body->RigidActor->userData = nullptr;
     }
+}
+
+void FPhysicsScene::AddVehicle(UVehicleComponent* Vehicle)
+{
+    Vehicles.Add(Vehicle);
+}
+
+void FPhysicsScene::RemoveVehicle(UVehicleComponent* Vehicle)
+{
+    Vehicles.Remove(Vehicle);
 }
 
 uint32 FPhysicsScene::GetTotalActorCount() const
