@@ -28,10 +28,10 @@ void UStaticMeshComponent::BeginPlay()
 void UStaticMeshComponent::OnHit(UPrimitiveComponent* This, UPrimitiveComponent* Other, FHitResult HitResult)
 {
 	// OnHit Test Code!
-	if (Other->IsA(UStaticMeshComponent::StaticClass()))
-	{
-		Other->DestroyComponent();
-	}
+	// if (Other->IsA(UStaticMeshComponent::StaticClass()))
+	// {
+	// 	Other->DestroyComponent();
+	// }
 }
 
 void UStaticMeshComponent::OnStaticMeshReleased(UStaticMesh* ReleasedMesh)
