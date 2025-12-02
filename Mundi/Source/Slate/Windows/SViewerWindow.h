@@ -157,9 +157,13 @@ private:
 	// 본 계층 구조 아이콘
 	class UTexture* IconBone = nullptr;
 
-	// 뷰어 아이콘
+	// 뷰어 아이콘 (private - Save만)
 	class UTexture* IconSave = nullptr;
+
+protected:
+	// 뷰어 전환 아이콘 (자식 클래스에서 접근 가능)
 	class UTexture* IconSkeletalViewer = nullptr;
 	class UTexture* IconAnimationViewer = nullptr;
 	class UTexture* IconBlendSpaceEditor = nullptr;
+	class UTexture* IconPhysicsAssetEditor = nullptr;
 };

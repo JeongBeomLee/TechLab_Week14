@@ -65,7 +65,7 @@ void SPhysicsAssetEditorWindow::LoadToolbarIcons()
 	IconLoad = UResourceManager::GetInstance().Load<UTexture>(GDataDir + "/Icon/Toolbar_Load.png");
 	IconPlay = UResourceManager::GetInstance().Load<UTexture>(GDataDir + "/Icon/Toolbar_Play.png");
 	IconStop = UResourceManager::GetInstance().Load<UTexture>(GDataDir + "/Icon/Toolbar_Stop.png");
-	IconReset = UResourceManager::GetInstance().Load<UTexture>(GDataDir + "/Icon/Viewport_Toolbar_Rotate.png");
+	IconReset = UResourceManager::GetInstance().Load<UTexture>(GDataDir + "/Icon/Toolbar_RePlay.png");
 }
 
 ViewerState* SPhysicsAssetEditorWindow::CreateViewerState(const char* Name, UEditorAssetPreviewContext* Context)
@@ -360,6 +360,44 @@ void SPhysicsAssetEditorWindow::RenderTabsAndToolbar(EViewerType CurrentViewerTy
 	// "+" 버튼 제거 - 새 에셋은 PropertyRenderer나 ContentBrowser에서만 열기
 
 	ImGui::EndTabBar();
+
+	// ============================================
+	// 2. Render Viewer Type Buttons (Right-aligned)
+	// ============================================
+	ImGui::BeginChild("ViewerTypeToolbar", ImVec2(0, 30.0f), false, ImGuiWindowFlags_NoScrollbar);
+
+	const ImGuiStyle& style = ImGui::GetStyle();
+	const ImVec2 IconSizeVec(22, 22);
+	float BtnHeight = IconSizeVec.y + style.FramePadding.y * 2.0f;
+	float availableHeight = ImGui::GetContentRegionAvail().y;
+	ImGui::SetCursorPosY(ImGui::GetCursorPosY() + (availableHeight - BtnHeight) * 0.5f);
+
+	// 버튼 너비 계산 및 우측 정렬
+	const float framePaddingX = style.FramePadding.x;
+	const float spacingX = style.ItemSpacing.x;
+	const float singleButtonTotalWidth = IconSizeVec.x + framePaddingX * 2;
+	const float totalButtonsWidth = (singleButtonTotalWidth * 4) + (spacingX * 3);
+
+	float availableWidth = ImGui::GetContentRegionAvail().x;
+	float RightPadding = 14.0f;
+	ImGui::SetCursorPosX(ImGui::GetCursorPosX() + availableWidth - totalButtonsWidth - RightPadding);
+
+	// Skeletal Viewer Button
+	RenderViewerButton(EViewerType::Skeletal, CurrentViewerType, "##SkelViewBtn", "Skeletal Mesh Viewer", IconSkeletalViewer);
+	ImGui::SameLine();
+
+	// Animation Viewer Button
+	RenderViewerButton(EViewerType::Animation, CurrentViewerType, "##AnimViewBtn", "Animation Viewer", IconAnimationViewer);
+	ImGui::SameLine();
+
+	// BlendSpace Editor Button
+	RenderViewerButton(EViewerType::BlendSpace, CurrentViewerType, "##BlendSpaceBtn", "BlendSpace Editor", IconBlendSpaceEditor);
+	ImGui::SameLine();
+
+	// Physics Asset Editor Button (현재 에디터 - 비활성화됨)
+	RenderViewerButton(EViewerType::PhysicsAsset, CurrentViewerType, "##PhysicsAssetBtn", "Physics Asset Editor", IconPhysicsAssetEditor);
+
+	ImGui::EndChild();
 }
 
 void SPhysicsAssetEditorWindow::RenderToolbar()
