@@ -70,9 +70,9 @@
     <FxCompile Include="Shaders\Particle\ParticleRibbon.hlsl">
       <Filter>Shaders\Particle</Filter>
     </FxCompile>
-    <FxCompile Include="Shaders\PostProcess\DOF_BokehBlur_PS.hlsl" />
     <FxCompile Include="Shaders\PostProcess\DOF_COCGaussianBlur_PS.hlsl" />
-    <FxCompile Include="Shaders\PostProcess\DOF_McIntosh_PS.hlsl" />
+    <FxCompile Include="Shaders\PostProcess\DownSampling_PS.hlsl" />
+    <FxCompile Include="Shaders\PostProcess\UpSampling_PS.hlsl" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Generated\UParticleModuleSizeScaleBySpeed.generated.cpp">
@@ -1205,7 +1205,6 @@
     <ClCompile Include="Source\Slate\Widgets\PhysicsAssetEditor\ToolsWidget.cpp" />
     <ClCompile Include="Source\Slate\Windows\PhysicalMaterialEditorWindow.cpp" />
     <ClCompile Include="ThirdParty\include\ImGui\imnodes.cpp" />
-    <ClCompile Include="Source\Runtime\Engine\Viewer\PhysicsPickingHelper.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Generated\UParticleModuleSizeScaleBySpeed.generated.h">
@@ -2553,7 +2552,6 @@
     <ClInclude Include="Generated\ASphereActor.generated.h">
       <Filter>Generated</Filter>
     </ClInclude>
-    <ClInclude Include="Source\Runtime\Engine\Viewer\PhysicsPickingHelper.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="BuildTools\CodeGenerator\generate.py">
