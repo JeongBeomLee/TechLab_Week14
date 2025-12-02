@@ -170,6 +170,19 @@ public:
 	UPROPERTY(EditAnywhere, Category="Floor", Tooltip="자동으로 오를 수 있는 최대 계단 높이 (cm)")
 	float MaxStepHeight;
 
+	// ────────────────────────────────────────────────
+	// 경사면 미끄러짐 설정
+	// ────────────────────────────────────────────────
+
+	UPROPERTY(EditAnywhere, Category="Slope", Tooltip="가파른 경사에서 미끄러짐 활성화")
+	bool bEnableSlopeSliding;
+
+	UPROPERTY(EditAnywhere, Category="Slope", Tooltip="경사면 미끄러짐 속도 배율")
+	float SlopeSlideSpeed;
+
+	UPROPERTY(EditAnywhere, Category="Slope", Tooltip="경사면 마찰력 (0.0 = 마찰 없음, 1.0 = 최대 마찰)")
+	float SlopeFriction;
+
 	/** 현재 바닥 정보 */
 	FFindFloorResult CurrentFloor;
 
@@ -331,6 +344,18 @@ protected:
 	 * @return 침투가 해제되었으면 true
 	 */
 	bool ResolvePenetration();
+
+	/**
+	 * 가파른 경사면에서 미끄러짐을 처리합니다.
+	 * @param DeltaTime - 프레임 시간
+	 */
+	void HandleSlopeSliding(float DeltaTime);
+
+	/**
+	 * 현재 바닥이 걸을 수 없는 가파른 경사인지 확인합니다.
+	 * @return 가파른 경사면이면 true
+	 */
+	bool IsOnSteepSlope() const;
 
 	// ────────────────────────────────────────────────
 	// 복제

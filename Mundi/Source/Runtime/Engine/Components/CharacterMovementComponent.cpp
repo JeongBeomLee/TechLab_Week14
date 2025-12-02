@@ -38,6 +38,10 @@ UCharacterMovementComponent::UCharacterMovementComponent()
 	, WalkableFloorAngle(44.0f)
 	, FloorSnapDistance(0.02f)
 	, MaxStepHeight(45.0f)
+	// 경사면 미끄러짐 설정
+	, bEnableSlopeSliding(true)
+	, SlopeSlideSpeed(1.0f)
+	, SlopeFriction(0.3f)
 {
 	bCanEverTick = true;
 }
@@ -71,14 +75,17 @@ void UCharacterMovementComponent::TickComponent(float DeltaTime)
 	// 2. 중력 적용
 	ApplyGravity(DeltaTime);
 
-	// 3. 위치 업데이트
+	// 3. 가파른 경사면 미끄러짐 처리
+	HandleSlopeSliding(DeltaTime);
+
+	// 4. 위치 업데이트
 	MoveUpdatedComponent(DeltaTime);
 
-	// 4. 지면 체크
+	// 5. 지면 체크
 	bool bWasGrounded = IsGrounded();
 	bool bIsNowGrounded = CheckGround();
 
-	// 5. 이동 모드 업데이트
+	// 6. 이동 모드 업데이트
 	if (bIsNowGrounded && !bWasGrounded)
 	{
 		// 착지
@@ -94,7 +101,7 @@ void UCharacterMovementComponent::TickComponent(float DeltaTime)
 		SetMovementMode(EMovementMode::Falling);
 	}
 
-	// 6. 공중 시간 체크
+	// 7. 공중 시간 체크
 	if (IsFalling())
 	{
 		TimeInAir += DeltaTime;
@@ -417,6 +424,22 @@ void UCharacterMovementComponent::SlideAlongSurface(const FVector& Delta, int32 
 		// 슬라이드 벡터 계산
 		RemainingDelta = ComputeSlideVector(LeftoverDelta, Hit.ImpactNormal, Hit);
 
+		// 가파른 경사면(걸을 수 없는 표면)에서 위로 올라가는 것 방지
+		if (!IsWalkable(Hit.ImpactNormal))
+		{
+			// 슬라이드 결과가 위로 향하면 제거
+			if (RemainingDelta.Z > 0.0f)
+			{
+				RemainingDelta.Z = 0.0f;
+			}
+
+			// 속도에서도 위로 향하는 성분 제거
+			if (Velocity.Z > 0.0f && !bIsJumping)
+			{
+				Velocity.Z = 0.0f;
+			}
+		}
+
 		Iterations++;
 	}
 }
@@ -588,6 +611,108 @@ bool UCharacterMovementComponent::ResolvePenetration()
 	}
 
 	return false;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// 경사면 미끄러짐
+// ────────────────────────────────────────────────────────────────────────────
+
+bool UCharacterMovementComponent::IsOnSteepSlope() const
+{
+	// 바닥이 감지되었고, 걸을 수 없는 가파른 경사인 경우
+	if (CurrentFloor.bBlockingHit && !CurrentFloor.bWalkableFloor)
+	{
+		return true;
+	}
+
+	return false;
+}
+
+void UCharacterMovementComponent::HandleSlopeSliding(float DeltaTime)
+{
+	if (!bEnableSlopeSliding)
+	{
+		return;
+	}
+
+	if (!UpdatedComponent || !CharacterOwner)
+	{
+		return;
+	}
+
+	// 가파른 경사에 있는지 확인
+	// 먼저 바닥을 탐색해서 경사 정보를 얻음
+	FFindFloorResult FloorResult;
+	if (!FindFloor(FloorResult, FloorSnapDistance + 0.5f))
+	{
+		return;
+	}
+
+	// 걸을 수 있는 바닥이면 미끄러짐 없음
+	if (FloorResult.bWalkableFloor)
+	{
+		return;
+	}
+
+	// 바닥이 감지되었지만 걸을 수 없는 가파른 경사면
+	if (FloorResult.bBlockingHit)
+	{
+		// 경사면의 법선 벡터
+		FVector FloorNormal = FloorResult.FloorNormal;
+
+		// 경사면 아래 방향 계산 (중력 방향을 경사면에 투영)
+		// SlideDirection = GravityDirection - (GravityDirection · FloorNormal) * FloorNormal
+		float DotWithNormal = FVector::Dot(GravityDirection, FloorNormal);
+		FVector SlideDirection = GravityDirection - FloorNormal * DotWithNormal;
+
+		// 슬라이드 방향 정규화
+		if (SlideDirection.SizeSquared() > KINDA_SMALL_NUMBER)
+		{
+			SlideDirection = SlideDirection.GetNormalized();
+		}
+		else
+		{
+			return;
+		}
+
+		// 경사 각도에 따른 미끄러짐 강도 계산
+		// 각도가 가파를수록 더 빠르게 미끄러짐
+		FVector UpDirection = GravityDirection * -1.0f;
+		float CosAngle = FVector::Dot(FloorNormal, UpDirection);
+		float WalkableCos = std::cos(DegreesToRadians(WalkableFloorAngle));
+
+		// 0 (WalkableFloorAngle 경계) ~ 1 (90도 수직) 사이의 강도
+		float SlopeStrength = 1.0f - (CosAngle / WalkableCos);
+		SlopeStrength = FMath::Clamp(SlopeStrength, 0.0f, 1.0f);
+
+		// 마찰력 적용 (마찰력이 높을수록 느리게 미끄러짐)
+		float FrictionMultiplier = 1.0f - SlopeFriction;
+
+		// 미끄러짐 속도 계산
+		float SlideSpeed = SlopeSlideSpeed * SlopeStrength * FrictionMultiplier * DefaultGravity * GravityScale;
+
+		// 속도에 미끄러짐 추가
+		FVector SlideVelocity = SlideDirection * SlideSpeed;
+
+		// 기존 수평 속도와 합산 (수평 성분만)
+		FVector HorizontalSlide = SlideVelocity;
+		float VerticalComponent = FVector::Dot(SlideVelocity, GravityDirection);
+		HorizontalSlide -= GravityDirection * VerticalComponent;
+
+		// 수평 속도에 추가
+		FVector CurrentHorizontal = Velocity;
+		float CurrentVertical = FVector::Dot(Velocity, GravityDirection);
+		CurrentHorizontal -= GravityDirection * CurrentVertical;
+
+		// 미끄러짐 방향으로 속도 추가
+		Velocity = CurrentHorizontal + HorizontalSlide + GravityDirection * (CurrentVertical + VerticalComponent);
+
+		// 이동 모드를 Falling으로 설정 (가파른 경사에서는 Walking 불가)
+		if (MovementMode == EMovementMode::Walking)
+		{
+			SetMovementMode(EMovementMode::Falling);
+		}
+	}
 }
 
 // ────────────────────────────────────────────────────────────────────────────
