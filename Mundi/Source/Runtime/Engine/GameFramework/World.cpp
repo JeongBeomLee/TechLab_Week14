@@ -34,6 +34,10 @@
 #include "Hash.h"
 #include "ParticleEventManager.h"
 #include "PhysicsScene.h"
+#include "GameModeBase.h"
+#include "GameStateBase.h"
+#include "PlayerController.h"
+#include "Pawn.h"
 
 IMPLEMENT_CLASS(UWorld)
 
@@ -127,6 +131,39 @@ void UWorld::Initialize()
 	// 에디터 전용 액터들을 초기화합니다.
 	InitializeGrid();
 	InitializeGizmo();
+}
+
+void UWorld::BeginPlay()
+{
+	// GameMode 생성 (World Settings에 설정된 클래스 사용)
+	// GameMode 클래스 자체에 DefaultPawnClass, PlayerControllerClass 등이 정의되어 있음
+	AGameModeBase* GameMode = nullptr;
+	if (GameModeClass)
+	{
+		AActor* GameModeActor = SpawnActor(GameModeClass);
+		GameMode = Cast<AGameModeBase>(GameModeActor);
+	}
+	else
+	{
+		// 기본 GameMode 생성
+		GameMode = SpawnActor<AGameModeBase>();
+	}
+
+	if (GameMode)
+	{
+		GameModeInstance = GameMode;
+		UE_LOG("[info] GameMode created: %s", GameMode->GetClass()->Name);
+	}
+
+	// 모든 액터에 대해 BeginPlay 호출
+	TArray<AActor*> LevelActors = GetLevel()->GetActors();
+	for (AActor* Actor : LevelActors)
+	{
+		Actor->BeginPlay();
+	}
+
+	// BeginPlay 중에 삭제된 액터 처리
+	CleanUpPendingKill();
 }
 
 void UWorld::InitializeGrid()
@@ -347,6 +384,9 @@ UWorld* UWorld::DuplicateWorldForPIE(UWorld* InEditorWorld)
 	// Copy RenderSettings from EditorWorld to PIEWorld
 	PIEWorld->GetRenderSettings() = InEditorWorld->GetRenderSettings();
 
+	// Copy World Settings from EditorWorld to PIEWorld (GameModeClass만 복사)
+	PIEWorld->GameModeClass = InEditorWorld->GameModeClass;
+
 	FWorldContext PIEWorldContext = FWorldContext(PIEWorld, EWorldType::Game);
 	GEngine.AddWorldContext(PIEWorldContext);
 
@@ -373,21 +413,22 @@ UWorld* UWorld::DuplicateWorldForPIE(UWorld* InEditorWorld)
 			continue;
 		}
 
+		// 게임플레이 관련 액터들은 복제하지 않음 (World Settings 기반으로 GameMode가 새로 생성함)
+		if (SourceActor->IsA(AGameModeBase::StaticClass()) ||
+			SourceActor->IsA(AGameStateBase::StaticClass()) ||
+			SourceActor->IsA(APlayerController::StaticClass()) ||
+			SourceActor->IsA(APawn::StaticClass()) ||
+			SourceActor->IsA(APlayerCameraManager::StaticClass()))
+		{
+			continue;
+		}
+
 		AActor* NewActor = SourceActor->Duplicate();
 
 		if (!NewActor)
 		{
 			UE_LOG("Duplicate failed: NewActor is nullptr");
 			continue;
-		}
-
-		// PlayerCameraManager 복사
-		if (InEditorWorld->PlayerCameraManager == SourceActor)
-		{
-			if (APlayerCameraManager* NewPlayerCameraManager = Cast<APlayerCameraManager>(NewActor))
-			{
-				PIEWorld->PlayerCameraManager = NewPlayerCameraManager;
-			}
 		}
 
 		PIEWorld->AddActorToLevel(NewActor);
@@ -585,8 +626,8 @@ void UWorld::SetLevel(std::unique_ptr<ULevel> InLevel)
 	// 씬에서 PCM 검색
 	this->PlayerCameraManager = FindActor<APlayerCameraManager>();
 
-	// 씬에서 APCM을 찾지 못했다면, 비상용으로 새로 생성
-	if (this->PlayerCameraManager == nullptr)
+	// 에디터 월드에서만 PlayerCameraManager 자동 생성 (게임 월드는 GameMode가 생성함)
+	if (this->PlayerCameraManager == nullptr && !bPie)
 	{
 		AActor* NewPlayerCameraManager = SpawnActor(APlayerCameraManager::StaticClass());
 		this->PlayerCameraManager = Cast<APlayerCameraManager>(NewPlayerCameraManager);

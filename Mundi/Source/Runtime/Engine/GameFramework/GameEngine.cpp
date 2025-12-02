@@ -220,15 +220,9 @@ bool UGameEngine::Startup(HINSTANCE hInstance)
         // 씬 로드 실패 시 경고만 표시하고 빈 월드로 계속 진행
         UE_LOG("Warning: Failed to load startup scene: %s (continuing with empty world)", StartupScenePath.c_str());
     }
-    else
-    {
-        // 로드된 월드의 모든 액터에 대해 BeginPlay() 호출
-        TArray<AActor*> LevelActors = GWorld->GetLevel()->GetActors();
-        for (AActor* Actor : LevelActors)
-        {
-            Actor->BeginPlay();
-        }
-    }
+
+    // World Settings 기반 GameMode 생성 및 모든 액터 BeginPlay 호출
+    GWorld->BeginPlay();
 
     bPlayActive = true;
     bRunning = true;

@@ -34,7 +34,13 @@ AGameModeBase::AGameModeBase()
 
 void AGameModeBase::BeginPlay()
 {
+	if (bHasBegunPlay)
+	{
+		return;
+	}
 	Super::BeginPlay();
+	// 이미 BeginPlay가 호출된 경우 중복 실행 방지
+	
 
 	// TODO: World 시스템과 통합 후 활성화. 2번째 게임잼때 통합하면 될듯?
 	// World의 설정을 GameMode에 적용

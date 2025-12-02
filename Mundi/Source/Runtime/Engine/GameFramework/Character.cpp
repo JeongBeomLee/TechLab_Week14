@@ -7,10 +7,11 @@
 #include "CharacterMovementComponent.h"
 #include "CapsuleComponent.h"
 #include "SkeletalMeshComponent.h"
+#include "SpringArmComponent.h"
+#include "CameraComponent.h"
 #include "InputComponent.h"
 #include "World.h"
 #include "PlayerCameraManager.h"
-#include "CameraComponent.h"
 
 // ────────────────────────────────────────────────────────────────────────────
 // 생성자 / 소멸자
@@ -20,6 +21,8 @@ ACharacter::ACharacter()
 	: CharacterMovement(nullptr)
 	, CapsuleComponent(nullptr)
 	, MeshComponent(nullptr)
+	, SpringArmComponent(nullptr)
+	, CameraComponent(nullptr)
 	, bIsCrouched(false)
 	, CrouchedHeightRatio(0.5f)
 {
@@ -39,6 +42,25 @@ ACharacter::ACharacter()
 
 	// CharacterMovementComponent 생성
 	CharacterMovement = CreateDefaultSubobject<UCharacterMovementComponent>("CharacterMovement");
+
+	// SpringArmComponent 생성 (3인칭 카메라용)
+	SpringArmComponent = CreateDefaultSubobject<USpringArmComponent>("SpringArm");
+	if (SpringArmComponent && CapsuleComponent)
+	{
+		SpringArmComponent->SetupAttachment(CapsuleComponent);
+		SpringArmComponent->SetTargetArmLength(10.0f);
+		SpringArmComponent->SetSocketOffset(FVector(0.0f, 0.0f, 0.0f));
+		SpringArmComponent->SetEnableCameraLag(true);
+		SpringArmComponent->SetCameraLagSpeed(10.0f);
+		SpringArmComponent->SetUsePawnControlRotation(true);  // Controller 회전 사용
+	}
+
+	// CameraComponent 생성 (SpringArm 끝에 부착)
+	CameraComponent = CreateDefaultSubobject<UCameraComponent>("Camera");
+	if (CameraComponent && SpringArmComponent)
+	{
+		CameraComponent->SetupAttachment(SpringArmComponent);
+	}
 }
 
 ACharacter::~ACharacter()
@@ -57,6 +79,13 @@ void ACharacter::BeginPlay()
 void ACharacter::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
+
+	// 카메라 위치 로그
+	if (CameraComponent)
+	{
+		FVector CamPos = CameraComponent->GetWorldLocation();
+		UE_LOG("[Character::Tick] Camera Position: (%.2f, %.2f, %.2f)", CamPos.X, CamPos.Y, CamPos.Z);
+	}
 
 	// 쿼터뷰 카메라 업데이트
 	UpdateQuarterViewCamera(DeltaSeconds);
@@ -143,7 +172,19 @@ void ACharacter::SetupPlayerInputComponent(UInputComponent* InInputComponent)
 {
 	Super::SetupPlayerInputComponent(InInputComponent);
 
-	// 입력 바인딩은 파생 클래스 또는 Lua 스크립트에서 처리
+	if (!InInputComponent)
+	{
+		return;
+	}
+
+	// WASD 이동 바인딩
+	InInputComponent->BindAxis("MoveForward", 'W', 1.0f, this, &ACharacter::MoveForward);
+	InInputComponent->BindAxis("MoveForward", 'S', -1.0f, this, &ACharacter::MoveForward);
+	InInputComponent->BindAxis("MoveRight", 'D', 1.0f, this, &ACharacter::MoveRight);
+	InInputComponent->BindAxis("MoveRight", 'A', -1.0f, this, &ACharacter::MoveRight);
+
+	// 점프 바인딩
+	InInputComponent->BindAction("Jump", VK_SPACE, this, &ACharacter::Jump, &ACharacter::StopJumping);
 }
 
 // ────────────────────────────────────────────────────────────────────────────

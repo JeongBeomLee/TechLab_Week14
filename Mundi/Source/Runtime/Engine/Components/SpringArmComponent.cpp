@@ -5,6 +5,8 @@
 #include "pch.h"
 #include "SpringArmComponent.h"
 #include "Actor.h"
+#include "Pawn.h"
+#include "Controller.h"
 
 // ────────────────────────────────────────────────────────────────────────────
 // 생성자 / 소멸자
@@ -25,6 +27,7 @@ USpringArmComponent::USpringArmComponent()
 	, PreviousDesiredRotation(FQuat::Identity())
 	, bDoCollisionTest(true)
 	, ProbeSize(1.20f)
+	, bUsePawnControlRotation(false)
 	, SocketLocation(FVector())
 	, SocketRotation(FQuat::Identity())
 {
@@ -103,8 +106,20 @@ void USpringArmComponent::UpdateDesiredArmLocation(float DeltaTime, FVector& Out
 		return;
 	}
 
-	// 회전 - Owner(캐릭터)의 월드 회전을 따라감
+	// 회전 결정 - bUsePawnControlRotation이면 Controller 회전, 아니면 Owner 회전
 	FQuat OwnerRotation = OwnerActor->GetActorRotation();
+
+	if (bUsePawnControlRotation)
+	{
+		// Owner가 Pawn이면 Controller의 회전을 사용
+		if (APawn* Pawn = Cast<APawn>(OwnerActor))
+		{
+			if (AController* Controller = Pawn->GetController())
+			{
+				OwnerRotation = Controller->GetControlRotation();
+			}
+		}
+	}
 
 	// 기본 위치: Owner의 위치 + TargetOffset (Owner의 로컬 좌표계 기준)
 	FVector OwnerLocation = OwnerActor->GetActorLocation();

@@ -24,9 +24,17 @@ private:
     void RenderCenterViewport(float Width, float Height);
     void LoadSkeletalMesh(ViewerState* State, const FString& Path);
 
+    // File operations
+    void SaveBlendSpace();
+    void SaveBlendSpaceAs();
+    void LoadBlendSpace();
+
 private:
     // Cached instance on preview skeletal mesh component
     class UAnimBlendSpaceInstance* BlendInst = nullptr;
+
+    // Current file path for save/load
+    FString CurrentFilePath;
 
     // UI state
     float UI_SampleX = 0.0f;

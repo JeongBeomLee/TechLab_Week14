@@ -16,6 +16,7 @@
 #include <string>
 #include <EditorEngine.h>
 #include "DirectionalLightComponent.h"
+#include "GameModeBase.h"
 //// UE_LOG 대체 매크로
 //#define UE_LOG(fmt, ...)
 
@@ -129,6 +130,59 @@ void USceneManagerWidget::Update()
 void USceneManagerWidget::RenderWidget()
 {
 	ImGui::Text("Scene Manager");
+
+	// World Settings 버튼
+	ImGui::SameLine();
+	float buttonWidth = 100.0f;
+	float availX = ImGui::GetContentRegionAvail().x;
+	ImGui::SetCursorPosX(ImGui::GetCursorPosX() + availX - buttonWidth);
+	if (ImGui::Button("World Settings", ImVec2(buttonWidth, 0)))
+	{
+		ImGui::OpenPopup("WorldSettingsPopup");
+	}
+
+	// World Settings 팝업
+	if (ImGui::BeginPopup("WorldSettingsPopup"))
+	{
+		ImGui::Text("World Settings");
+		ImGui::Separator();
+
+		UWorld* World = GWorld;
+		if (World)
+		{
+			// GameMode 클래스 선택 (GameMode 클래스에 DefaultPawn, PlayerController 등이 정의됨)
+			ImGui::Text("GameMode Class");
+			if (ImGui::BeginCombo("##GameModeClass", World->GameModeClass ? World->GameModeClass->Name : "None"))
+			{
+				// None 옵션
+				if (ImGui::Selectable("None", World->GameModeClass == nullptr))
+				{
+					World->GameModeClass = nullptr;
+				}
+				// AGameModeBase를 상속하는 모든 클래스 표시
+				for (UClass* Class : UClass::GetAllClasses())
+				{
+					if (Class && Class->IsChildOf(AGameModeBase::StaticClass()))
+					{
+						bool bSelected = (World->GameModeClass == Class);
+						if (ImGui::Selectable(Class->Name, bSelected))
+						{
+							World->GameModeClass = Class;
+						}
+					}
+				}
+				ImGui::EndCombo();
+			}
+			ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "(DefaultPawn, PlayerController, SpawnLocation are defined in GameMode class)");
+		}
+		else
+		{
+			ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "No World Available");
+		}
+
+		ImGui::EndPopup();
+	}
+
 	// World status
 	UWorld* World = GWorld;
 	if (!World)

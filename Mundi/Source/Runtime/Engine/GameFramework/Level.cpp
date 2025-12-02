@@ -68,6 +68,18 @@ void ULevel::Serialize(const bool bInIsLoading, JSON& InOutHandle)
         // 이전 씬의 dangling pointer 방지를 위해 SceneIdMap 클리어
         USceneComponent::GetSceneIdMap().clear();
 
+        // World Settings 로드 (GameModeClass만 - 나머지는 GameMode 클래스에 정의됨)
+        JSON WorldSettingsJson;
+        if (FJsonSerializer::ReadObject(InOutHandle, "WorldSettings", WorldSettingsJson))
+        {
+            FString GameModeClassName;
+            FJsonSerializer::ReadString(WorldSettingsJson, "GameModeClass", GameModeClassName, "", false);
+
+            // 클래스 이름으로 UClass 찾기
+            if (!GameModeClassName.empty())
+                GWorld->GameModeClass = UClass::FindClass(GameModeClassName);
+        }
+
         // 카메라 정보
         JSON PerspectiveCameraData;
         if (FJsonSerializer::ReadObject(InOutHandle, "PerspectiveCamera", PerspectiveCameraData))
@@ -144,6 +156,12 @@ void ULevel::Serialize(const bool bInIsLoading, JSON& InOutHandle)
         // 기본 정보
         InOutHandle["Version"] = 1;
         InOutHandle["NextUUID"] = UObject::PeekNextUUID();
+
+        // World Settings 저장 (GameModeClass만 - 나머지는 GameMode 클래스에 정의됨)
+        JSON WorldSettingsJson = json::Object();
+        if (GWorld->GameModeClass)
+            WorldSettingsJson["GameModeClass"] = GWorld->GameModeClass->Name;
+        InOutHandle["WorldSettings"] = WorldSettingsJson;
 
         // 카메라 정보
         const ACameraActor* Camera = GWorld->GetEditorCameraActor();

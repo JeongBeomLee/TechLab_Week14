@@ -1,6 +1,7 @@
 #pragma once
 #include "AnimNodeBase.h"
 #include "AnimBlendMath.h"
+#include "JsonSerializer.h"
 
 class UAnimSequenceBase;
 
@@ -54,6 +55,9 @@ struct FAnimNode_BlendSpace2D : public FAnimNode_Base
     // FAnimNode_Base overrides
     void Update(FAnimationBaseContext& Context) override;
     void Evaluate(FPoseContext& Output) override;
+
+    // Serialization
+    void Serialize(bool bLoading, JSON& JsonData);
 
 private:
     struct FTrianglePick

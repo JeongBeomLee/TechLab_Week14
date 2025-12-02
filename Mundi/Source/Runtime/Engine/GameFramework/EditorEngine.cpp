@@ -403,13 +403,8 @@ void UEditorEngine::StartPIE()
 
     bPIEActive = true;
 
-    // BeginPlay 중에 새로운 actor가 추가될 수도 있어서 복사 후 호출
-    TArray<AActor*> LevelActors = GWorld->GetLevel()->GetActors();
-    for (AActor* Actor : LevelActors)
-    {
-        // NOTE: PIE 시작 후에는 액터 생성 시 직접 불러줌
-        Actor->BeginPlay();
-    }
+    // World Settings 기반 GameMode 생성 및 모든 액터 BeginPlay 호출
+    GWorld->BeginPlay();
 
     // NOTE: BeginPlay 중에 삭제된 액터 삭제 후 Tick 시작
     GWorld->CleanUpPendingKill();

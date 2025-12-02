@@ -77,6 +77,14 @@ public:
 	virtual FVector GetPlayerSpawnLocation() const { return PlayerSpawnLocation; }
 	virtual void SetPlayerSpawnLocation(const FVector& Location) { PlayerSpawnLocation = Location; }
 
+	/** DefaultPawnClass Getter/Setter */
+	UClass* GetDefaultPawnClass() const { return DefaultPawnClass; }
+	void SetDefaultPawnClass(UClass* InClass) { DefaultPawnClass = InClass; }
+
+	/** PlayerControllerClass Getter/Setter */
+	UClass* GetPlayerControllerClass() const { return PlayerControllerClass; }
+	void SetPlayerControllerClass(UClass* InClass) { PlayerControllerClass = InClass; }
+
 	/** PlayerController 생성 */
 	virtual APlayerController* SpawnPlayerController();
 

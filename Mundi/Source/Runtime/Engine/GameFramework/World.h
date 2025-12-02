@@ -31,6 +31,7 @@ class FOcclusionCullingManagerCPU;
 class APlayerCameraManager;
 class AParticleEventManager;
 class UCollisionManager;
+class AGameModeBase;
 
 struct FTransform;
 struct FSceneCompData;
@@ -59,11 +60,25 @@ public:
     void SetWorldType(EWorldType InWorldType) { WorldType = InWorldType; }
     EWorldType GetWorldType() const { return WorldType; }
     bool IsPreviewWorld() const { return WorldType == EWorldType::PreviewMinimal; }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // World Settings (GameMode 관련)
+    // ════════════════════════════════════════════════════════════════════════
+
+    /** GameMode 클래스 설정 (GameMode 클래스 자체에 DefaultPawnClass, PlayerControllerClass 등이 정의됨) */
+    UClass* GameModeClass = nullptr;
+
+    /** GameMode 인스턴스 접근자 */
+    AGameModeBase* GetGameMode() const { return GameModeInstance; }
+
 public:
     /** 초기화 */
     void Initialize();
     void InitializeGrid();
     void InitializeGizmo();
+
+    /** 게임 시작 - World Settings 기반 GameMode 생성 및 모든 액터 BeginPlay 호출 */
+    void BeginPlay();
 
     bool TryLoadLastUsedLevel();
     bool LoadLevelFromFile(const FWideString& Path);
@@ -153,6 +168,9 @@ private:
     AGizmoActor* GizmoActor = nullptr;
     APlayerCameraManager* PlayerCameraManager;
     AParticleEventManager* ParticleEventManager = nullptr;
+
+    /** === GameMode 인스턴스 === */
+    AGameModeBase* GameModeInstance = nullptr;
 
     /** === 레벨 컨테이너 === */
     std::unique_ptr<ULevel> Level;

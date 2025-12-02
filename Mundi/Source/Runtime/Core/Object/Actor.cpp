@@ -38,11 +38,18 @@ AActor::~AActor()
 
 void AActor::BeginPlay()
 {
+	// 이미 BeginPlay가 호출된 경우 중복 실행 방지
+	if (bHasBegunPlay)
+	{
+		return;
+	}
+	bHasBegunPlay = true;
+
 	// Lua Game Object 초기화
 	LuaGameObject = new FGameObject();
 	LuaGameObject ->SetOwner(this); /*순서 보장 필수!*/
 	LuaGameObject->UUID = this->UUID;
-	
+
 	// NOTE: 아직 InitializeComponent/BeginPlay 순서가 완벽히 보장되지 않음 (PIE 시작 순간에는 지연 생성 처리 필요)
 	// 컴포넌트들 Initialize/BeginPlay 순회
 	for (UActorComponent* Comp : OwnedComponents)
