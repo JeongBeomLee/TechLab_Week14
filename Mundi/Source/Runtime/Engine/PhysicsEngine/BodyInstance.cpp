@@ -137,7 +137,7 @@ void FBodyInstance::InitBody(UBodySetup* Setup, const FTransform& Transform, UPr
     }
     else if (PhysScene->GetPxScene())
     {
-        PhysScene->GetPxScene()->addActor(*RigidActor);
+        PhysScene->DeferAddActor(RigidActor);
         OwningAggregate = nullptr;
     }
 }
@@ -171,7 +171,14 @@ void FBodyInstance::TermBody()
             }
         }
 
-        RigidActor->release();
+        if (PhysScene)
+        {
+            PhysScene->DeferReleaseActor(RigidActor); 
+        }
+        else
+        {
+            RigidActor->release();
+        }
         RigidActor = nullptr;
     }
 

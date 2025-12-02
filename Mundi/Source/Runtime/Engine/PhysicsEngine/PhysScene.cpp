@@ -62,6 +62,7 @@ void FPhysScene::StartFrame()
 {
     if (OwningWorld)
     {
+        FlushDeferredAdds();
         float DeltaTime = OwningWorld->GetDeltaTime(EDeltaTime::Game);
         TickPhysScene(DeltaTime);
     }
@@ -88,6 +89,63 @@ void FPhysScene::AddPendingCollisionNotify(FCollisionNotifyInfo&& NotifyInfo)
 {
     std::lock_guard<std::mutex> Lock(NotifyMutex);
     PendingCollisionNotifies.push_back(std::move(NotifyInfo));
+}
+
+void FPhysScene::DeferAddActor(PxActor* InActor)
+{
+    if (!InActor) { return; }
+
+    InActor->userData = nullptr;
+
+    std::lock_guard<std::mutex> Lock(DeferredReleaseMutex);
+    DeferredAddQueue.Add(InActor);
+}
+
+void FPhysScene::FlushDeferredAdds()
+{
+    if (!PhysXScene) { return; }
+    
+    std::lock_guard<std::mutex> Lock(DeferredAddMutex);
+
+    {
+        SCOPED_SCENE_WRITE_LOCK(PhysXScene);
+
+        for (PxActor* Actor : DeferredAddQueue)
+        {
+            if (Actor)
+            {
+                PhysXScene->addActor(*Actor);
+            }
+        }
+    }
+
+    DeferredAddQueue.Empty();
+}
+
+void FPhysScene::DeferReleaseActor(PxActor* InActor)
+{
+    if (!InActor) { return; }
+
+    InActor->userData = nullptr;
+
+    std::lock_guard<std::mutex> Lock(DeferredReleaseMutex);
+    DeferredReleaseQueue.Add(InActor);
+}
+
+void FPhysScene::FlushDeferredReleases()
+{
+    if (!PhysXScene) { return; }
+    
+    std::lock_guard<std::mutex> Lock(DeferredReleaseMutex);
+
+    for (PxActor* Actor : DeferredReleaseQueue)
+    {
+        if (Actor)
+        {
+            Actor->release();
+        }
+    }
+    DeferredReleaseQueue.Empty();
 }
 
 void FPhysScene::InitPhysScene()
@@ -184,6 +242,8 @@ void FPhysScene::ProcessPhysScene()
     SyncComponentsToBodies();
 
     DispatchPhysNotifications_AssumesLocked();
+
+    FlushDeferredReleases();
 }
 
 void FPhysScene::SyncComponentsToBodies()
