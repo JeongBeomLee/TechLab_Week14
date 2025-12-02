@@ -196,15 +196,15 @@ bool UEditorEngine::Startup(HINSTANCE hInstance)
     UI.Initialize(HWnd, RHIDevice.GetDevice(), RHIDevice.GetDeviceContext());
     INPUT.Initialize(HWnd);
 
-    FObjManager::Preload(); 
+    // PhysX 초기화 (StaticMesh Convex 생성에 필요하므로 Preload 전에 초기화)
+    InitGamePhys();
+
+    FObjManager::Preload();
     UFbxLoader::PreLoad();
 
     FAudioDevice::Preload();
 
     FPhysicalMaterialLoader::Preload();
-
-    //FPhysX 초기화
-    InitGamePhys();
 
     ///////////////////////////////////
     WorldContexts.Add(FWorldContext(NewObject<UWorld>(), EWorldType::Editor));

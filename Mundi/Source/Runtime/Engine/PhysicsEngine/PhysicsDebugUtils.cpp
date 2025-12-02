@@ -1,6 +1,7 @@
 ﻿#include "pch.h"
 #include "PhysicsDebugUtils.h"
 #include "PhysicsAsset.h"
+#include "ConvexElem.h"
 
 
 
@@ -12,8 +13,10 @@ void FPhysicsDebugUtils::GenerateSphereMesh(
 	TArray<uint32>& OutIndices,
 	TArray<FVector4>& OutColors)
 {
-	FVector Center = BoneTransform.Translation + BoneTransform.Rotation.RotateVector(Sphere.Center);
-	float Radius = Sphere.Radius;
+	FVector ScaledCenter = Sphere.Center * BoneTransform.Scale3D;
+	FVector Center = BoneTransform.Translation + BoneTransform.Rotation.RotateVector(ScaledCenter);
+	float MaxScale = FMath::Max(BoneTransform.Scale3D.X, FMath::Max(BoneTransform.Scale3D.Y, BoneTransform.Scale3D.Z));
+	float Radius = Sphere.Radius * MaxScale;
 
 	constexpr int32 NumLatitude = 12;   // 위도 분할 수
 	constexpr int32 NumLongitude = 16;  // 경도 분할 수
@@ -73,11 +76,15 @@ void FPhysicsDebugUtils::GenerateBoxMesh(
 	TArray<uint32>& OutIndices,
 	TArray<FVector4>& OutColors)
 {
-	FVector Center = BoneTransform.Translation + BoneTransform.Rotation.RotateVector(Box.Center);
+	FVector ScaledCenter = Box.Center * BoneTransform.Scale3D;
+	FVector Center = BoneTransform.Translation + BoneTransform.Rotation.RotateVector(ScaledCenter);
 	FQuat Rotation = BoneTransform.Rotation * Box.Rotation;
 
-	// Box.X, Box.Y, Box.Z는 지름이므로 반으로 나눔
-	FVector HalfExtent(Box.X * 0.5f, Box.Y * 0.5f, Box.Z * 0.5f);
+	// Box.X, Box.Y, Box.Z는 지름이므로 반으로 나눔, Scale3D 적용
+	FVector HalfExtent(
+		Box.X * 0.5f * BoneTransform.Scale3D.X,
+		Box.Y * 0.5f * BoneTransform.Scale3D.Y,
+		Box.Z * 0.5f * BoneTransform.Scale3D.Z);
 
 	// 8개 코너 생성 (dx/dy/dz 패턴)
 	constexpr int dx[] = {-1, 1, 1, -1, -1, 1, 1, -1};
@@ -128,11 +135,15 @@ void FPhysicsDebugUtils::GenerateCapsuleMesh(
 	TArray<uint32>& OutIndices,
 	TArray<FVector4>& OutColors)
 {
-	FVector Center = BoneTransform.Translation + BoneTransform.Rotation.RotateVector(Capsule.Center);
+	FVector ScaledCenter = Capsule.Center * BoneTransform.Scale3D;
+	FVector Center = BoneTransform.Translation + BoneTransform.Rotation.RotateVector(ScaledCenter);
 	FQuat Rotation = BoneTransform.Rotation * Capsule.Rotation;
 
-	float HalfLength = Capsule.Length * 0.5f;
-	float Radius = Capsule.Radius;
+	// 캡슐: 길이는 X축 스케일, 반지름은 Y/Z 중 큰 값
+	float LengthScale = BoneTransform.Scale3D.X;
+	float RadiusScale = FMath::Max(BoneTransform.Scale3D.Y, BoneTransform.Scale3D.Z);
+	float HalfLength = Capsule.Length * 0.5f * LengthScale;
+	float Radius = Capsule.Radius * RadiusScale;
 
 	constexpr int32 NumSegments = 16;  // 원주 분할 수
 	constexpr int32 NumRings = 6;      // 반구 링 수
@@ -246,6 +257,47 @@ void FPhysicsDebugUtils::GenerateCapsuleMesh(
 	}
 }
 
+void FPhysicsDebugUtils::GenerateConvexMesh(
+	const FKConvexElem& Convex,
+	const FTransform& BoneTransform,
+	const FVector4& Color,
+	TArray<FVector>& OutVertices,
+	TArray<uint32>& OutIndices,
+	TArray<FVector4>& OutColors)
+{
+	// VertexData/IndexData가 없으면 리턴
+	if (Convex.VertexData.Num() == 0 || Convex.IndexData.Num() == 0)
+	{
+		return;
+	}
+
+	uint32 BaseVertexIndex = static_cast<uint32>(OutVertices.size());
+
+	// Convex의 로컬 트랜스폼과 본 트랜스폼 결합 (Scale 포함)
+	FVector ScaledConvexTranslation = Convex.ElemTransform.Translation * BoneTransform.Scale3D;
+	FTransform ConvexWorldTransform;
+	ConvexWorldTransform.Translation = BoneTransform.Translation +
+		BoneTransform.Rotation.RotateVector(ScaledConvexTranslation);
+	ConvexWorldTransform.Rotation = BoneTransform.Rotation * Convex.ElemTransform.Rotation;
+	ConvexWorldTransform.Scale3D = BoneTransform.Scale3D * Convex.ElemTransform.Scale3D;
+
+	// 정점 변환 및 추가 (Scale 적용)
+	for (const FVector& LocalVertex : Convex.VertexData)
+	{
+		FVector ScaledVertex = LocalVertex * ConvexWorldTransform.Scale3D;
+		FVector WorldVertex = ConvexWorldTransform.Translation +
+			ConvexWorldTransform.Rotation.RotateVector(ScaledVertex);
+		OutVertices.push_back(WorldVertex);
+		OutColors.push_back(Color);
+	}
+
+	// 인덱스 추가 (베이스 인덱스 오프셋 적용)
+	for (int32 Index : Convex.IndexData)
+	{
+		OutIndices.push_back(BaseVertexIndex + static_cast<uint32>(Index));
+	}
+}
+
 void FPhysicsDebugUtils::GenerateBodyShapeMesh(
 	const UBodySetup* BodySetup,
 	const FTransform& BoneTransform,
@@ -272,6 +324,12 @@ void FPhysicsDebugUtils::GenerateBodyShapeMesh(
 	for (const FKSphylElem& Capsule : BodySetup->AggGeom.SphylElems)
 	{
 		GenerateCapsuleMesh(Capsule, BoneTransform, Color, OutVertices, OutIndices, OutColors);
+	}
+
+	// Convex shapes
+	for (const FKConvexElem& Convex : BodySetup->AggGeom.ConvexElems)
+	{
+		GenerateConvexMesh(Convex, BoneTransform, Color, OutVertices, OutIndices, OutColors);
 	}
 }
 

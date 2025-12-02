@@ -1,8 +1,9 @@
-#pragma once
+﻿#pragma once
 
 #include "SphereElem.h"
 #include "BoxElem.h"
 #include "SphylElem.h"
+#include "ConvexElem.h"
 #include "FKAggregateGeom.generated.h"
 
 USTRUCT()
@@ -22,6 +23,10 @@ struct FKAggregateGeom
     UPROPERTY()
     TArray<FKSphylElem> SphylElems;
 
+    /** 컨벡스 충돌체 배열 */
+    UPROPERTY()
+    TArray<FKConvexElem> ConvexElems;
+
     FKAggregateGeom()
     {
     }
@@ -40,7 +45,7 @@ struct FKAggregateGeom
     /** 전체 요소 개수 반환 */
     int32 GetElementCount() const
     {
-        return SphereElems.Num() + BoxElems.Num() + SphylElems.Num();
+        return SphereElems.Num() + BoxElems.Num() + SphylElems.Num() + ConvexElems.Num();
     }
 
     /** 특정 타입의 요소 개수 반환 */
@@ -54,6 +59,8 @@ struct FKAggregateGeom
             return BoxElems.Num();
         case EAggCollisionShape::Sphyl:
             return SphylElems.Num();
+        case EAggCollisionShape::Convex:
+            return ConvexElems.Num();
         default:
             return 0;
         }
@@ -65,6 +72,7 @@ struct FKAggregateGeom
         SphereElems.Empty();
         BoxElems.Empty();
         SphylElems.Empty();
+        ConvexElems.Empty();
     }
 
 private:
@@ -73,5 +81,6 @@ private:
         SphereElems = Other.SphereElems;
         BoxElems = Other.BoxElems;
         SphylElems = Other.SphylElems;
+        ConvexElems = Other.ConvexElems;
     }
 };

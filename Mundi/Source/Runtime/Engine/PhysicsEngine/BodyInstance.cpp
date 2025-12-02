@@ -113,6 +113,12 @@ void FBodyInstance::InitBody(UBodySetup* Setup, const FTransform& Transform, UPr
     {
         PxRigidDynamic* DynamicActor = RigidActor->is<PxRigidDynamic>();
 
+        // Kinematic 모드 설정
+        if (bKinematic)
+        {
+            DynamicActor->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC, true);
+        }
+
         if (bOverrideMass)
         {
             // 질량에 맞추어 관성 텐서 계산
@@ -126,6 +132,26 @@ void FBodyInstance::InitBody(UBodySetup* Setup, const FTransform& Transform, UPr
 
         DynamicActor->setLinearDamping(LinearDamping);
         DynamicActor->setAngularDamping(AngularDamping);
+    }
+
+    // Shape들에 충돌 필터 데이터 설정
+    {
+        SCOPED_SCENE_WRITE_LOCK(PhysScene->GetPxScene());
+
+        PxFilterData FilterData;
+        FilterData.word0 = ChannelToBit(ObjectType);
+        FilterData.word1 = CollisionMask;
+        FilterData.word2 = 0;  // 초기 겹침 무시 마스크 (나중에 설정됨)
+        FilterData.word3 = 0;  // 바디 인덱스 (나중에 설정됨)
+
+        PxU32 NumShapes = RigidActor->getNbShapes();
+        TArray<PxShape*> Shapes(NumShapes);
+        RigidActor->getShapes(Shapes.GetData(), NumShapes);
+
+        for (PxU32 i = 0; i < NumShapes; ++i)
+        {
+            Shapes[i]->setSimulationFilterData(FilterData);
+        }
     }
 
     // Aggregate가 있으면 Aggregate에 추가 (Scene에는 Aggregate가 추가될 때 함께 추가됨)
@@ -289,4 +315,109 @@ void FBodyInstance::AddTorque(const FVector& Torque, bool bAccelChange)
 bool FBodyInstance::IsDynamic() const
 {
     return RigidActor && RigidActor->is<PxRigidDynamic>();
+}
+
+void FBodyInstance::SetCollisionChannel(ECollisionChannel InChannel, uint32 InMask)
+{
+    ObjectType = InChannel;
+    CollisionMask = InMask;
+
+    // 이미 생성된 바디가 있으면 FilterData 업데이트
+    if (IsValidBodyInstance())
+    {
+        UpdateFilterData();
+    }
+}
+
+void FBodyInstance::UpdateFilterData()
+{
+    if (!IsValidBodyInstance() || !PhysScene)
+    {
+        return;
+    }
+
+    PxScene* PScene = PhysScene->GetPxScene();
+    if (!PScene)
+    {
+        return;
+    }
+
+    SCOPED_SCENE_WRITE_LOCK(PScene);
+
+    // FilterData 구조:
+    // word0: 충돌 채널 비트 (이 바디의 타입)
+    // word1: 충돌 마스크 (어떤 채널과 충돌할지)
+    // word2: 초기 겹침으로 인한 충돌 무시 마스크
+    // word3: 바디 인덱스
+    PxFilterData FilterData;
+    FilterData.word0 = ChannelToBit(ObjectType);
+    FilterData.word1 = CollisionMask;
+    // word2, word3는 기존 값 유지 (초기 겹침 필터용)
+
+    PxU32 NumShapes = RigidActor->getNbShapes();
+    TArray<PxShape*> Shapes(NumShapes);
+    RigidActor->getShapes(Shapes.GetData(), NumShapes);
+
+    for (PxU32 i = 0; i < NumShapes; ++i)
+    {
+        PxFilterData ExistingData = Shapes[i]->getSimulationFilterData();
+        FilterData.word2 = ExistingData.word2;  // 기존 겹침 무시 마스크 유지
+        FilterData.word3 = ExistingData.word3;  // 기존 바디 인덱스 유지
+        Shapes[i]->setSimulationFilterData(FilterData);
+    }
+
+    // 필터 변경 후 Scene에 알림
+    PScene->resetFiltering(*RigidActor);
+}
+
+void FBodyInstance::SetKinematicTarget(const FTransform& NewTransform)
+{
+    if (!IsValidBodyInstance() || !bKinematic || !PhysScene)
+    {
+        return;
+    }
+
+    PxRigidDynamic* DynamicActor = RigidActor->is<PxRigidDynamic>();
+    if (!DynamicActor)
+    {
+        return;
+    }
+
+    SCOPED_SCENE_WRITE_LOCK(PhysScene->GetPxScene());
+
+    PxTransform PxTarget = U2PTransform(NewTransform);
+    DynamicActor->setKinematicTarget(PxTarget);
+}
+
+void FBodyInstance::SetKinematic(bool bEnable)
+{
+    if (bKinematic == bEnable)
+    {
+        return;
+    }
+
+    bKinematic = bEnable;
+
+    if (!IsValidBodyInstance() || !PhysScene)
+    {
+        return;
+    }
+
+    PxRigidDynamic* DynamicActor = RigidActor->is<PxRigidDynamic>();
+    if (!DynamicActor)
+    {
+        return;
+    }
+
+    SCOPED_SCENE_WRITE_LOCK(PhysScene->GetPxScene());
+
+    DynamicActor->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC, bEnable);
+
+    if (!bEnable)
+    {
+        // Kinematic에서 Dynamic으로 전환 시 속도 초기화
+        DynamicActor->setLinearVelocity(PxVec3(0.0f));
+        DynamicActor->setAngularVelocity(PxVec3(0.0f));
+        DynamicActor->wakeUp();
+    }
 }

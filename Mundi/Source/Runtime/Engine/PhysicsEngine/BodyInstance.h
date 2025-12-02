@@ -1,5 +1,6 @@
 #pragma once
 #include "BodySetup.h"
+#include "ECollisionChannel.h"
 
 #include "FBodyInstance.generated.h"
 
@@ -107,4 +108,38 @@ public:
 
     /** True일 경우, 랙돌 바디 (SyncComponentsToBodies에서 제외됨) */
     bool bIsRagdollBody = false;
+
+    /** True일 경우, Kinematic 바디 (애니메이션이 위치를 제어) */
+    bool bKinematic = false;
+
+    /**
+     * Kinematic 바디의 목표 트랜스폼을 설정합니다.
+     * @param NewTransform 목표 트랜스폼
+     */
+    void SetKinematicTarget(const FTransform& NewTransform);
+
+    /**
+     * Kinematic 모드를 활성화/비활성화합니다.
+     * @param bEnable true면 Kinematic 활성화
+     */
+    void SetKinematic(bool bEnable);
+
+    /** 이 바디의 충돌 채널 */
+    ECollisionChannel ObjectType = ECollisionChannel::WorldDynamic;
+
+    /** 충돌할 채널들의 비트 마스크 */
+    uint32 CollisionMask = CollisionMasks::All;
+
+    /**
+     * 충돌 채널을 설정합니다.
+     * @param InChannel 이 바디의 오브젝트 타입
+     * @param InMask 충돌할 채널들의 비트 마스크
+     */
+    void SetCollisionChannel(ECollisionChannel InChannel, uint32 InMask = CollisionMasks::All);
+
+    /**
+     * Shape들의 FilterData를 업데이트합니다.
+     * InitBody 이후에 채널을 변경할 때 호출합니다.
+     */
+    void UpdateFilterData();
 };

@@ -7,6 +7,7 @@
 #include <ObjManager.h>
 #include "FAudioDevice.h"
 #include "GameUI/SGameHUD.h"
+#include "PhysXSupport.h"
 #include <sol/sol.hpp>
 
 float UGameEngine::ClientWidth = 1024.0f;
@@ -194,6 +195,9 @@ bool UGameEngine::Startup(HINSTANCE hInstance)
 
     // 매니저 초기화
     INPUT.Initialize(HWnd);
+
+    // PhysX 초기화 (StaticMesh Convex 생성에 필요하므로 Preload 전에 초기화)
+    InitGamePhys();
 
     FObjManager::Preload();
 

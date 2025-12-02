@@ -16,6 +16,9 @@ UGizmoArrowComponent::UGizmoArrowComponent()
 	// 기즈모는 기본적으로 게임(PIE)에서 숨김
 	bHiddenInGame = true;
 	bIsEditable = false;
+
+	// 기즈모는 물리 충돌에서 제외
+	CollisionEnabled = ECollisionEnabled::NoCollision;
 }
 
 UGizmoArrowComponent::~UGizmoArrowComponent()

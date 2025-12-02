@@ -10,6 +10,7 @@
 #include "World.h"
 #include "CollisionManager.h"
 #include "WorldPartitionManager.h"
+#include "ECollisionChannel.h"
 
 // ────────────────────────────────────────────────────────────────────────────
 // 생성자 / 소멸자
@@ -23,6 +24,11 @@ UCapsuleComponent::UCapsuleComponent()
 
 	CapsuleBodySetup = NewObject<UBodySetup>();
 	UpdateBodySetup();
+
+	// CapsuleComponent는 기본적으로 Pawn 채널 사용
+	// Pawn은 PhysicsBody(래그돌)와 충돌하지 않음
+	CollisionChannel = ECollisionChannel::Pawn;
+	CollisionMask = CollisionMasks::DefaultPawn;
 }
 
 UCapsuleComponent::~UCapsuleComponent()

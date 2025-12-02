@@ -32,7 +32,7 @@ void AHudExampleGameMode::BeginPlay()
 		return;
 
 	// 시작 버튼 (화면 중앙)
-	StartButton = MakeShared<SButton>();
+	/*StartButton = MakeShared<SButton>();
 	StartButton->SetText(L"게임 시작")
 		.SetBackgroundColor(FSlateColor(0.2f, 0.5f, 0.8f, 1.f))
 		.SetFontSize(24.f)
@@ -45,7 +45,7 @@ void AHudExampleGameMode::BeginPlay()
 		.SetAnchor(0.5f, 0.5f)
 		.SetPivot(0.5f, 0.5f)
 		.SetOffset(0.f, 0.f)
-		.SetSize(200.f, 60.f);
+		.SetSize(200.f, 60.f);*/
 
 	// 점수 텍스트 (좌상단)
 	ScoreText = MakeShared<STextBlock>();

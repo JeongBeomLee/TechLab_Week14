@@ -124,6 +124,32 @@ inline FString ConvertDataPathToCachePath(const FString& InAssetPath)
 }
 
 /**
+ * @brief Data 경로를 Metadata 경로로 변환합니다.
+ * @details 예: "Data/Model/Cube.obj" -> "Data/Metadata/Model/Cube.obj.metadata"
+ * @param InAssetPath 에셋 경로
+ * @return 메타데이터 경로
+ */
+inline FString ConvertDataPathToMetadataPath(const FString& InAssetPath)
+{
+	FString DataDirPrefix = GDataDir + "/";
+	FString MetadataDir = GDataDir + "/Metadata/";
+
+	// GDataDir("Data")로 시작하는지 확인
+	if (InAssetPath.length() >= DataDirPrefix.length() &&
+		_strnicmp(InAssetPath.c_str(), DataDirPrefix.c_str(), DataDirPrefix.length()) == 0)
+	{
+		// "Data/" 이후 부분을 "Data/Metadata/"에 붙이고 ".metadata" 확장자 추가
+		return MetadataDir + InAssetPath.substr(DataDirPrefix.length()) + ".metadata";
+	}
+
+	// Data/로 시작하지 않는 경로는 파일명만 사용
+	FWideString WPath = UTF8ToWide(InAssetPath);
+	fs::path FileName = fs::path(WPath).filename();
+
+	return MetadataDir + WideToUTF8(FileName.wstring()) + ".metadata";
+}
+
+/**
  * 에셋(예: mtl) 내부에서 참조된 경로를 해석하여
  * 엔진이 사용하는 (현재 작업 디렉토리 기준) 상대 경로로 변환합니다.
  */

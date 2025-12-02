@@ -35,13 +35,16 @@ UBillboardComponent::UBillboardComponent()
 		return;
 	}
 
-	// HSLS 설정 
+	// HSLS 설정
 	SetMaterialByName(0, "Shaders/UI/Billboard.hlsl");
 
 	// 일단 디폴트 텍스쳐로 설정하기 .
 	SetTexture(GDataDir + "/UI/Icons/Pawn_64x.png");
 	//빌보드는 기본적으로 게임에서 숨김
 	bHiddenInGame = true;
+
+	// 빌보드는 물리 충돌에서 제외
+	CollisionEnabled = ECollisionEnabled::NoCollision;
 }
 
 void UBillboardComponent::SetTexture(FString TexturePath)

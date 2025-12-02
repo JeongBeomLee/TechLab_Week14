@@ -21,13 +21,16 @@ void UPrimitiveComponent::OnPropertyChanged(const FProperty& Prop)
 {
     USceneComponent::OnPropertyChanged(Prop);
 
-    if (Prop.Name == "bSimulatePhysics" || Prop.Name == "PhysicalMaterial")
+    if (Prop.Name == "bSimulatePhysics" || Prop.Name == "PhysicalMaterial" || Prop.Name == "CollisionEnabled" || Prop.Name == "BodySetup")
     {
-        if (BodyInstance.IsValidBodyInstance())
-        {
-            OnDestroyPhysicsState();
-            OnCreatePhysicsState();
-        }
+        OnDestroyPhysicsState();
+        OnCreatePhysicsState();
+    }
+
+    // 충돌 채널 변경 시 BodyInstance에 동기화
+    if (Prop.Name == "CollisionChannel" || Prop.Name == "CollisionMask")
+    {
+        BodyInstance.SetCollisionChannel(CollisionChannel, CollisionMask);
     }
 }
 
@@ -84,6 +87,12 @@ void UPrimitiveComponent::SetMaterialByName(uint32 InElementIndex, const FString
 
 void UPrimitiveComponent::OnCreatePhysicsState()
 {
+    // NoCollision이면 물리 상태 생성하지 않음
+    if (CollisionEnabled == ECollisionEnabled::NoCollision)
+    {
+        return;
+    }
+
     if (BodyInstance.IsValidBodyInstance())
     {
         return;
@@ -110,6 +119,10 @@ void UPrimitiveComponent::OnCreatePhysicsState()
     BodyInstance.PhysicalMaterialOverride = PhysicalMaterial;
     BodyInstance.bSimulatePhysics = bSimulatePhysics;
     BodyInstance.Scale3D = GetRelativeScale();
+
+    // 충돌 채널 설정 (InitBody 전에 설정해야 FilterData가 적용됨)
+    BodyInstance.ObjectType = CollisionChannel;
+    BodyInstance.CollisionMask = CollisionMask;
 
     BodyInstance.InitBody(Setup, GetWorldTransform(), this, PhysScene);
 }
@@ -138,11 +151,19 @@ void UPrimitiveComponent::SetSimulatePhysics(bool bInSimulatePhysics)
     {
         bSimulatePhysics = bInSimulatePhysics;
 
-        if (BodyInstance.IsValidBodyInstance())
-        {
-            OnDestroyPhysicsState();
-            OnCreatePhysicsState();
-        }
+        OnDestroyPhysicsState();
+        OnCreatePhysicsState();
+    }
+}
+
+void UPrimitiveComponent::SetCollisionEnabled(ECollisionEnabled InCollisionEnabled)
+{
+    if (CollisionEnabled != InCollisionEnabled)
+    {
+        CollisionEnabled = InCollisionEnabled;
+
+        OnDestroyPhysicsState();
+        OnCreatePhysicsState();
     }
 }
 

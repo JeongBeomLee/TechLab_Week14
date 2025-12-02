@@ -17,17 +17,20 @@
 #include "World.h"
 #include "Renderer.h"
 #include "PhysicsDebugUtils.h"
+#include "ECollisionChannel.h"
 
 USkeletalMeshComponent::USkeletalMeshComponent()
 {
+    // 기본적으로 Kinematic 모드 (애니메이션 + 물리 충돌)
+    PhysicsMode = EPhysicsMode::Kinematic;
+    bSimulatePhysics = true;
+
     // Keep constructor lightweight for editor/viewer usage.
     // Load a simple default test mesh if available; viewer UI can override.
     SetSkeletalMesh(GDataDir + "/DancingRacer.fbx");
-    // TODO - 애니메이션 나중에 써먹으세요
-    /*
-	UAnimationAsset* AnimationAsset = UResourceManager::GetInstance().Get<UAnimSequence>("Data/DancingRacer_mixamo.com");
-    PlayAnimation(AnimationAsset, true, 1.f);
-    */
+
+    // 기본 PhysicsAsset 설정
+    PhysicsAsset = UResourceManager::GetInstance().Load<UPhysicsAsset>("Data/Physics/Dancing.physicsasset");
 }
 
 
@@ -37,44 +40,53 @@ void USkeletalMeshComponent::TickComponent(float DeltaTime)
 
     if (!SkeletalMesh) { return; }
 
-    // 랙돌 시뮬레이션 중일 때: 물리 결과를 본에 동기화
-    if (bSimulatePhysics && bRagdollInitialized)
+    switch (PhysicsMode)
     {
-        SyncBonesFromPhysics();
-
-        // 디버그: 조인트 각도 로그 출력 (1초마다)
-        static float LogTimer = 0.0f;
-        LogTimer += DeltaTime;
-        if (LogTimer >= 1.0f && PhysicsAsset)
+    case EPhysicsMode::Animation:
+        // 애니메이션만 재생 (물리 없음)
+        if (bUseAnimation && AnimInstance && SkeletalMesh->GetSkeleton())
         {
-            LogTimer = 0.0f;
-            UE_LOG("[Ragdoll] === Joint Angles ===");
-            for (int32 i = 0; i < Constraints.Num(); ++i)
-            {
-                if (Constraints[i] && Constraints[i]->IsValid() && i < PhysicsAsset->ConstraintSetups.Num())
-                {
-                    Constraints[i]->LogCurrentAngles(PhysicsAsset->ConstraintSetups[i].JointName);
-                }
-            }
+            AnimInstance->NativeUpdateAnimation(DeltaTime);
+
+            FPoseContext OutputPose;
+            OutputPose.Initialize(this, SkeletalMesh->GetSkeleton(), DeltaTime);
+            AnimInstance->EvaluateAnimation(OutputPose);
+
+            BaseAnimationPose = OutputPose.LocalSpacePose;
+            CurrentLocalSpacePose = OutputPose.LocalSpacePose;
+            ForceRecomputePose();
         }
-        return;
-    }
+        break;
 
-    // 애니메이션 모드: 기존 로직
-    if (bUseAnimation && AnimInstance && SkeletalMesh && SkeletalMesh->GetSkeleton())
-    {
-        AnimInstance->NativeUpdateAnimation(DeltaTime);
+    case EPhysicsMode::Kinematic:
+        // 애니메이션이 물리 바디를 제어
+        if (bUseAnimation && AnimInstance && SkeletalMesh->GetSkeleton())
+        {
+            AnimInstance->NativeUpdateAnimation(DeltaTime);
 
-        FPoseContext OutputPose;
-        OutputPose.Initialize(this, SkeletalMesh->GetSkeleton(), DeltaTime);
-        AnimInstance->EvaluateAnimation(OutputPose);
+            FPoseContext OutputPose;
+            OutputPose.Initialize(this, SkeletalMesh->GetSkeleton(), DeltaTime);
+            AnimInstance->EvaluateAnimation(OutputPose);
 
-        // Apply local-space pose to component and rebuild skinning
-        // 애니메이션 포즈를 BaseAnimationPose에 저장 (additive 적용 전 리셋용)
-        BaseAnimationPose = OutputPose.LocalSpacePose;
-        CurrentLocalSpacePose = OutputPose.LocalSpacePose;
-        ForceRecomputePose();
-        return;
+            BaseAnimationPose = OutputPose.LocalSpacePose;
+            CurrentLocalSpacePose = OutputPose.LocalSpacePose;
+            ForceRecomputePose();
+        }
+
+        // 애니메이션 결과를 물리 바디에 동기화
+        if (bRagdollInitialized)
+        {
+            SyncPhysicsFromAnimation();
+        }
+        break;
+
+    case EPhysicsMode::Ragdoll:
+        // 물리가 본을 제어
+        if (bRagdollInitialized)
+        {
+            SyncBonesFromPhysics();
+        }
+        break;
     }
 }
 
@@ -463,30 +475,18 @@ void USkeletalMeshComponent::SetPhysicsAsset(UPhysicsAsset* InPhysicsAsset)
 
 void USkeletalMeshComponent::SetSimulatePhysics(bool bEnable)
 {
-    if (bSimulatePhysics == bEnable)
+    // SetPhysicsMode로 위임
+    if (bEnable)
     {
-        return;
-    }
-
-    bSimulatePhysics = bEnable;
-
-    if (bSimulatePhysics)
-    {
-        // 물리 상태 생성 (랙돌 초기화)
-        OnCreatePhysicsState();
-
-        // 랙돌 활성화: 현재 포즈를 물리 바디에 동기화
-        if (bRagdollInitialized)
+        // 기존 모드가 Animation이면 Kinematic으로 전환
+        if (PhysicsMode == EPhysicsMode::Animation)
         {
-            SyncPhysicsFromBones();
+            SetPhysicsMode(EPhysicsMode::Kinematic);
         }
-        // 애니메이션 비활성화
-        bUseAnimation = false;
     }
     else
     {
-        // 랙돌 비활성화: 애니메이션 모드로 복귀
-        bUseAnimation = true;
+        SetPhysicsMode(EPhysicsMode::Animation);
     }
 }
 
@@ -556,6 +556,14 @@ void USkeletalMeshComponent::InitRagdoll(FPhysScene* InPhysScene)
         NewBody->LinearDamping = 0.1f;     // 기본 감쇠
         NewBody->AngularDamping = 0.05f;
         NewBody->bIsRagdollBody = true;    // 랙돌 바디 표시
+
+        // Kinematic 모드 설정 (애니메이션이 물리를 제어)
+        NewBody->bKinematic = (PhysicsMode == EPhysicsMode::Kinematic);
+
+        // 래그돌 바디는 PhysicsBody 채널 사용
+        // PhysicsBody는 Pawn(캡슐)과 충돌하지 않음
+        NewBody->ObjectType = ECollisionChannel::PhysicsBody;
+        NewBody->CollisionMask = CollisionMasks::DefaultPhysicsBody;
 
         // 바디 초기화 (Aggregate에 추가)
         NewBody->InitBody(BodySetup, BoneWorldTransform, this, PhysScene, Aggregate);
@@ -853,6 +861,88 @@ void USkeletalMeshComponent::SyncPhysicsFromBones()
     }
 }
 
+void USkeletalMeshComponent::SyncPhysicsFromAnimation()
+{
+    if (!bRagdollInitialized || PhysicsMode != EPhysicsMode::Kinematic)
+    {
+        return;
+    }
+
+    // 각 본의 현재 월드 트랜스폼을 Kinematic 타겟으로 설정
+    for (int32 BoneIndex = 0; BoneIndex < Bodies.Num(); ++BoneIndex)
+    {
+        FBodyInstance* Body = Bodies[BoneIndex];
+        if (!Body || !Body->IsValidBodyInstance())
+        {
+            continue;
+        }
+
+        FTransform BoneWorldTransform = GetBoneWorldTransform(BoneIndex);
+        Body->SetKinematicTarget(BoneWorldTransform);
+    }
+}
+
+void USkeletalMeshComponent::SetPhysicsMode(EPhysicsMode NewMode)
+{
+    if (PhysicsMode == NewMode)
+    {
+        return;
+    }
+
+    EPhysicsMode OldMode = PhysicsMode;
+    PhysicsMode = NewMode;
+
+    switch (NewMode)
+    {
+    case EPhysicsMode::Animation:
+        // 물리 상태 해제
+        if (bRagdollInitialized)
+        {
+            TermRagdoll();
+        }
+        bSimulatePhysics = false;
+        break;
+
+    case EPhysicsMode::Kinematic:
+        // 물리 상태 생성 (아직 안 되어있으면)
+        bSimulatePhysics = true;
+        if (!bRagdollInitialized)
+        {
+            OnCreatePhysicsState();
+        }
+        // 기존 바디들을 Kinematic으로 설정
+        for (FBodyInstance* Body : Bodies)
+        {
+            if (Body)
+            {
+                Body->SetKinematic(true);
+            }
+        }
+        // 현재 애니메이션 포즈로 물리 바디 동기화
+        SyncPhysicsFromAnimation();
+        break;
+
+    case EPhysicsMode::Ragdoll:
+        // 물리 상태 생성 (아직 안 되어있으면)
+        bSimulatePhysics = true;
+        if (!bRagdollInitialized)
+        {
+            OnCreatePhysicsState();
+        }
+        // 기존 바디들을 Dynamic으로 설정
+        for (FBodyInstance* Body : Bodies)
+        {
+            if (Body)
+            {
+                Body->SetKinematic(false);
+            }
+        }
+        // 현재 본 위치를 물리 바디에 동기화
+        SyncPhysicsFromBones();
+        break;
+    }
+}
+
 // ============================================================================
 // Test Ragdoll Implementation (Hardcoded - No PhysicsAsset)
 // ============================================================================
@@ -1083,6 +1173,12 @@ void USkeletalMeshComponent::RenderDebugVolume(URenderer* Renderer) const
 
 void USkeletalMeshComponent::OnCreatePhysicsState()
 {
+    // NoCollision이면 물리 상태 생성하지 않음
+    if (CollisionEnabled == ECollisionEnabled::NoCollision)
+    {
+        return;
+    }
+
     // PhysicsAsset이 없으면 물리 생성 안함
     if (!PhysicsAsset)
     {
@@ -1129,6 +1225,31 @@ void USkeletalMeshComponent::OnPropertyChanged(const FProperty& Prop)
         // 물리 상태 재생성
         OnDestroyPhysicsState();
         OnCreatePhysicsState();
+    }
+    else if (Prop.Name == "PhysicsMode")
+    {
+        // PhysicsMode 변경 시 바디 상태 업데이트
+        if (bRagdollInitialized)
+        {
+            bool bKinematic = (PhysicsMode == EPhysicsMode::Kinematic);
+            for (FBodyInstance* Body : Bodies)
+            {
+                if (Body)
+                {
+                    Body->SetKinematic(bKinematic);
+                }
+            }
+
+            // 모드에 따라 동기화
+            if (PhysicsMode == EPhysicsMode::Kinematic)
+            {
+                SyncPhysicsFromAnimation();
+            }
+            else if (PhysicsMode == EPhysicsMode::Ragdoll)
+            {
+                SyncPhysicsFromBones();
+            }
+        }
     }
 }
 

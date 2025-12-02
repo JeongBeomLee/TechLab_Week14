@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include "SkinnedMeshComponent.h"
 #include "PhysicsAsset.h"
+#include "EPhysicsMode.h"
 #include "USkeletalMeshComponent.generated.h"
 
 class UAnimInstance;
@@ -168,15 +169,25 @@ public:
     UPhysicsAsset* GetPhysicsAsset() const { return PhysicsAsset; }
 
     /**
-     * @brief 랙돌 시뮬레이션 활성화/비활성화
-     * @param bEnable true: 랙돌 활성화 (물리 시뮬레이션), false: 애니메이션 모드
+     * @brief 물리 모드 설정
+     * @param NewMode Animation: 물리 없음, Kinematic: 애니메이션+충돌, Ragdoll: 래그돌
+     */
+    void SetPhysicsMode(EPhysicsMode NewMode);
+
+    /**
+     * @brief 현재 물리 모드 반환
+     */
+    EPhysicsMode GetPhysicsMode() const { return PhysicsMode; }
+
+    /**
+     * @brief 물리 시뮬레이션 활성화/비활성화 (SetPhysicsMode로 위임)
      */
     virtual void SetSimulatePhysics(bool bEnable) override;
 
     /**
-     * @brief 랙돌 시뮬레이션 중인지 확인
+     * @brief 물리 시뮬레이션 중인지 확인
      */
-    bool IsSimulatingPhysics() const { return bSimulatePhysics; }
+    bool IsSimulatingPhysics() const { return PhysicsMode != EPhysicsMode::Animation; }
 
     /**
      * @brief 랙돌 초기화 (PhysicsAsset 기반으로 바디/제약조건 생성)
@@ -235,6 +246,11 @@ protected:
     void SyncPhysicsFromBones();
 
     /**
+     * @brief 애니메이션 결과를 물리 바디에 동기화 (Kinematic 모드)
+     */
+    void SyncPhysicsFromAnimation();
+
+    /**
      * @brief 초기 포즈에서 겹치는 바디 쌍을 검출하여 충돌 무시 설정
      */
     void SetupInitialOverlapFilters();
@@ -253,6 +269,10 @@ public:
 
     /** 랙돌이 초기화되었는지 여부 */
     bool bRagdollInitialized = false;
+
+    /** 물리 모드 */
+    UPROPERTY(EditAnywhere, Category="Physics")
+    EPhysicsMode PhysicsMode = EPhysicsMode::Kinematic;
 
     /** 물리 씬 참조 */
     FPhysScene* PhysScene = nullptr;

@@ -5,6 +5,7 @@
 
 class UStaticMeshComponent;
 class FMeshBVH;
+class UBodySetup;
 class UStaticMesh : public UResourceBase
 {
 public:
@@ -35,8 +36,45 @@ public:
     uint64 GetMeshGroupCount() const { return StaticMeshAsset->GroupInfos.size(); }
     
     FAABB GetLocalBound() const {return LocalBound; }
-    
+
     const FString& GetCacheFilePath() const { return CacheFilePath; }
+
+    // ====================================================================
+    // Physics Body Setup
+    // ====================================================================
+
+    /** Physics collision setup을 반환합니다 */
+    UBodySetup* GetBodySetup();
+
+    /** BodySetup이 없으면 생성합니다 */
+    void CreateBodySetupIfNeeded();
+
+    /** BodySetup을 설정합니다 */
+    void SetBodySetup(UBodySetup* InBodySetup) { BodySetup = InBodySetup; }
+
+    /** Convex CookedData 캐시 파일 경로 (DerivedDataCache/xxx.physics.bin) */
+    FString GetPhysicsCachePath() const;
+
+    /** Physics 메타데이터 파일 경로 (원본 옆에 xxx.physics.json) */
+    FString GetPhysicsMetadataPath() const;
+
+    /** Convex CookedData 캐시 로드 */
+    bool LoadPhysicsCache();
+
+    /** Convex CookedData 캐시 저장 */
+    bool SavePhysicsCache();
+
+    /** Physics 메타데이터 로드 (Sphere/Box/Capsule/Convex 정보) */
+    bool LoadPhysicsMetadata();
+
+    /** Physics 메타데이터 저장 (Sphere/Box/Capsule/Convex 정보) */
+    bool SavePhysicsMetadata();
+
+    /** BodySetup이 비어있으면 메시 정점으로부터 기본 Convex 생성 */
+    void CreateDefaultConvexIfNeeded();
+
+    /** Physics를 기본값(캐시의 Convex)으로 리셋 */
+    void ResetPhysicsToDefault();
 
 private:
     void CreateVertexBuffer(FMeshData* InMeshData, ID3D11Device* InDevice, EVertexLayoutType InVertexType);
@@ -66,5 +104,8 @@ private:
 
     // 로컬 AABB. (스태틱메시 액터 전체 경계 계산에 사용. StaticMeshAsset 로드할 때마다 갱신)
     FAABB LocalBound;
+
+    // Physics body setup (충돌 형상 정의)
+    UBodySetup* BodySetup = nullptr;
 };
 

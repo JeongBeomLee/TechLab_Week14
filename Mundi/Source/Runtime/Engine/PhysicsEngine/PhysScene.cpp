@@ -7,8 +7,8 @@
 
 // 커스텀 Simulation Filter Shader
 // FilterData 구조:
-// word0: 충돌 그룹 ID
-// word1: 충돌 마스크 (어떤 그룹과 충돌할지)
+// word0: 충돌 채널 비트 (이 바디의 타입)
+// word1: 충돌 마스크 (어떤 채널과 충돌할지)
 // word2: 초기 겹침으로 인한 충돌 무시 마스크 (비트 플래그)
 // word3: 바디 인덱스 (word2 비트 체크용)
 PxFilterFlags CustomFilterShader(
@@ -21,6 +21,21 @@ PxFilterFlags CustomFilterShader(
     {
         pairFlags = PxPairFlag::eTRIGGER_DEFAULT;
         return PxFilterFlag::eDEFAULT;
+    }
+
+    // 충돌 채널/마스크 기반 필터링
+    // word0: 자신의 채널 비트, word1: 충돌할 채널 마스크
+    // 양쪽 모두 상대방의 채널이 자신의 마스크에 포함되어야 충돌
+    PxU32 channel0 = filterData0.word0;
+    PxU32 mask0 = filterData0.word1;
+    PxU32 channel1 = filterData1.word0;
+    PxU32 mask1 = filterData1.word1;
+
+    // 양방향 체크: 0이 1과 충돌하려면 mask0에 channel1이 포함되어야 하고,
+    //              1이 0과 충돌하려면 mask1에 channel0이 포함되어야 함
+    if (!(mask0 & channel1) || !(mask1 & channel0))
+    {
+        return PxFilterFlag::eSUPPRESS;  // 충돌 채널이 맞지 않음
     }
 
     // 초기 겹침으로 인한 충돌 무시 체크
@@ -347,4 +362,291 @@ void FPhysScene::DispatchPhysNotifications_AssumesLocked()
             break;
         }
     }
+}
+
+// 레이캐스트 필터 콜백: 특정 액터 무시
+class FIgnoreActorFilterCallback : public PxQueryFilterCallback
+{
+public:
+    AActor* IgnoreActor;
+
+    FIgnoreActorFilterCallback(AActor* InIgnoreActor) : IgnoreActor(InIgnoreActor) {}
+
+    virtual PxQueryHitType::Enum preFilter(
+        const PxFilterData& filterData, const PxShape* shape, const PxRigidActor* actor, PxHitFlags& queryFlags) override
+    {
+        if (!actor || !IgnoreActor)
+        {
+            return PxQueryHitType::eBLOCK;
+        }
+
+        // userData에서 BodyInstance를 가져와서 OwnerComponent의 Owner 확인
+        void* UserData = actor->userData;
+        if (UserData)
+        {
+            FBodyInstance* BodyInstance = static_cast<FBodyInstance*>(UserData);
+            if (BodyInstance && BodyInstance->OwnerComponent)
+            {
+                AActor* HitActor = BodyInstance->OwnerComponent->GetOwner();
+                if (HitActor == IgnoreActor)
+                {
+                    return PxQueryHitType::eNONE;  // 무시
+                }
+            }
+        }
+
+        return PxQueryHitType::eBLOCK;
+    }
+
+    virtual PxQueryHitType::Enum postFilter(const PxFilterData& filterData, const PxQueryHit& hit) override
+    {
+        return PxQueryHitType::eBLOCK;
+    }
+};
+
+bool FPhysScene::Raycast(const FVector& Origin, const FVector& Direction, float MaxDistance,
+                         FVector& OutHitLocation, FVector& OutHitNormal, float& OutHitDistance,
+                         AActor* IgnoreActor) const
+{
+    if (!PhysXScene)
+    {
+        return false;
+    }
+
+    PxVec3 PxOrigin = U2PVector(Origin);
+    PxVec3 PxDirection = U2PVector(Direction.GetNormalized());
+
+    PxRaycastBuffer Hit;
+
+    bool bHit = false;
+
+    if (IgnoreActor)
+    {
+        // 필터 콜백을 사용하여 특정 액터 무시
+        FIgnoreActorFilterCallback FilterCallback(IgnoreActor);
+        PxQueryFilterData FilterData;
+        FilterData.flags = PxQueryFlag::eDYNAMIC | PxQueryFlag::eSTATIC | PxQueryFlag::ePREFILTER;
+
+        bHit = PhysXScene->raycast(PxOrigin, PxDirection, MaxDistance, Hit, PxHitFlag::eDEFAULT, FilterData, &FilterCallback);
+    }
+    else
+    {
+        bHit = PhysXScene->raycast(PxOrigin, PxDirection, MaxDistance, Hit);
+    }
+
+    if (bHit && Hit.hasBlock)
+    {
+        OutHitLocation = P2UVector(Hit.block.position);
+        OutHitNormal = P2UVector(Hit.block.normal);
+        OutHitDistance = Hit.block.distance;
+        return true;
+    }
+
+    return false;
+}
+
+// ==================================================================================
+// Sweep Interface Implementation
+// ==================================================================================
+
+bool FPhysScene::SweepSingleInternal(const PxGeometry& Geometry, const FVector& Start, const FVector& End,
+                                      const FQuat& Rotation, FHitResult& OutHit, AActor* IgnoreActor) const
+{
+    if (!PhysXScene)
+    {
+        return false;
+    }
+
+    OutHit.Init();
+
+    FVector Direction = End - Start;
+    float Distance = Direction.Size();
+
+    if (Distance < KINDA_SMALL_NUMBER)
+    {
+        return false;
+    }
+
+    Direction /= Distance;  // Normalize
+
+    PxVec3 PxStart = U2PVector(Start);
+    PxVec3 PxDirection = U2PVector(Direction);
+    PxQuat PxRotation = U2PQuat(Rotation);
+    PxTransform StartPose(PxStart, PxRotation);
+
+    PxSweepBuffer Hit;
+    bool bHit = false;
+
+    if (IgnoreActor)
+    {
+        FIgnoreActorFilterCallback FilterCallback(IgnoreActor);
+        PxQueryFilterData FilterData;
+        FilterData.flags = PxQueryFlag::eDYNAMIC | PxQueryFlag::eSTATIC | PxQueryFlag::ePREFILTER;
+
+        bHit = PhysXScene->sweep(Geometry, StartPose, PxDirection, Distance, Hit,
+                                  PxHitFlag::eDEFAULT | PxHitFlag::eNORMAL | PxHitFlag::ePOSITION,
+                                  FilterData, &FilterCallback);
+    }
+    else
+    {
+        bHit = PhysXScene->sweep(Geometry, StartPose, PxDirection, Distance, Hit,
+                                  PxHitFlag::eDEFAULT | PxHitFlag::eNORMAL | PxHitFlag::ePOSITION);
+    }
+
+    if (bHit && Hit.hasBlock)
+    {
+        OutHit.bBlockingHit = true;
+        OutHit.Distance = Hit.block.distance;
+        OutHit.ImpactPoint = P2UVector(Hit.block.position);
+        OutHit.ImpactNormal = P2UVector(Hit.block.normal);
+
+        // 히트한 액터/컴포넌트 정보 추출
+        if (Hit.block.actor && Hit.block.actor->userData)
+        {
+            FBodyInstance* BodyInstance = static_cast<FBodyInstance*>(Hit.block.actor->userData);
+            if (BodyInstance && BodyInstance->OwnerComponent)
+            {
+                OutHit.Component = BodyInstance->OwnerComponent;
+                OutHit.Actor = BodyInstance->OwnerComponent->GetOwner();
+            }
+        }
+
+        return true;
+    }
+
+    return false;
+}
+
+bool FPhysScene::SweepSingleCapsule(const FVector& Start, const FVector& End,
+                                     float Radius, float HalfHeight,
+                                     FHitResult& OutHit,
+                                     AActor* IgnoreActor) const
+{
+    // PhysX 캡슐은 X축 정렬, 언리얼/Mundi는 Z축 정렬
+    // 따라서 캡슐을 Z축 정렬로 회전시켜야 함
+    PxCapsuleGeometry CapsuleGeom(Radius, HalfHeight);
+
+    // Z축 정렬을 위해 Y축으로 90도 회전
+    FQuat CapsuleRotation = FQuat::FromAxisAngle(FVector(0, 1, 0), DegreesToRadians(90.0f));
+
+    return SweepSingleInternal(CapsuleGeom, Start, End, CapsuleRotation, OutHit, IgnoreActor);
+}
+
+bool FPhysScene::SweepSingleSphere(const FVector& Start, const FVector& End,
+                                    float Radius,
+                                    FHitResult& OutHit,
+                                    AActor* IgnoreActor) const
+{
+    PxSphereGeometry SphereGeom(Radius);
+
+    return SweepSingleInternal(SphereGeom, Start, End, FQuat::Identity(), OutHit, IgnoreActor);
+}
+
+bool FPhysScene::SweepSingleBox(const FVector& Start, const FVector& End,
+                                 const FVector& HalfExtent, const FQuat& Rotation,
+                                 FHitResult& OutHit,
+                                 AActor* IgnoreActor) const
+{
+    PxBoxGeometry BoxGeom(U2PVector(HalfExtent));
+
+    return SweepSingleInternal(BoxGeom, Start, End, Rotation, OutHit, IgnoreActor);
+}
+
+bool FPhysScene::ComputePenetrationCapsule(const FVector& Position,
+                                            float Radius, float HalfHeight,
+                                            FVector& OutMTD, float& OutPenetrationDepth,
+                                            AActor* IgnoreActor) const
+{
+    if (!PhysXScene)
+    {
+        return false;
+    }
+
+    OutMTD = FVector::Zero();
+    OutPenetrationDepth = 0.0f;
+
+    // PhysX 캡슐 생성 (Z축 정렬)
+    PxCapsuleGeometry CapsuleGeom(Radius, HalfHeight);
+    FQuat CapsuleRotation = FQuat::FromAxisAngle(FVector(0, 1, 0), DegreesToRadians(90.0f));
+    PxTransform CapsulePose(U2PVector(Position), U2PQuat(CapsuleRotation));
+
+    // Overlap 쿼리로 겹치는 물체들 찾기
+    const PxU32 MaxOverlaps = 16;
+    PxOverlapHit OverlapHits[MaxOverlaps];
+    PxOverlapBuffer OverlapBuffer(OverlapHits, MaxOverlaps);
+
+    PxQueryFilterData FilterData;
+    FilterData.flags = PxQueryFlag::eSTATIC | PxQueryFlag::eDYNAMIC;
+
+    bool bHasOverlap = PhysXScene->overlap(CapsuleGeom, CapsulePose, OverlapBuffer, FilterData);
+
+    if (!bHasOverlap || OverlapBuffer.getNbAnyHits() == 0)
+    {
+        return false;
+    }
+
+    // 모든 겹침에 대해 MTD 계산하고 가장 큰 침투 해결
+    FVector TotalMTD = FVector::Zero();
+    float MaxPenetration = 0.0f;
+
+    for (PxU32 i = 0; i < OverlapBuffer.getNbAnyHits(); ++i)
+    {
+        const PxOverlapHit& Hit = OverlapBuffer.getAnyHit(i);
+
+        if (!Hit.actor || !Hit.shape)
+        {
+            continue;
+        }
+
+        // IgnoreActor 체크
+        if (IgnoreActor)
+        {
+            FBodyInstance* BodyInstance = static_cast<FBodyInstance*>(Hit.actor->userData);
+            if (BodyInstance && BodyInstance->OwnerComponent)
+            {
+                if (BodyInstance->OwnerComponent->GetOwner() == IgnoreActor)
+                {
+                    continue;
+                }
+            }
+        }
+
+        // MTD 계산
+        PxVec3 MtdDirection;
+        PxF32 MtdDepth;
+
+        PxTransform ShapePose = PxShapeExt::getGlobalPose(*Hit.shape, *Hit.actor);
+        PxGeometryHolder GeomHolder = Hit.shape->getGeometry();
+
+        bool bSuccess = PxGeometryQuery::computePenetration(
+            MtdDirection, MtdDepth,
+            CapsuleGeom, CapsulePose,
+            GeomHolder.any(), ShapePose
+        );
+
+        if (bSuccess && MtdDepth > 0.0f)
+        {
+            FVector ThisMTD = P2UVector(MtdDirection) * MtdDepth;
+
+            // 가장 큰 침투 방향으로 누적
+            if (MtdDepth > MaxPenetration)
+            {
+                MaxPenetration = MtdDepth;
+                OutMTD = P2UVector(MtdDirection);
+                OutPenetrationDepth = MtdDepth;
+            }
+
+            TotalMTD += ThisMTD;
+        }
+    }
+
+    // 누적된 MTD가 있으면 정규화
+    if (TotalMTD.SizeSquared() > KINDA_SMALL_NUMBER)
+    {
+        OutMTD = TotalMTD.GetNormalized();
+        OutPenetrationDepth = TotalMTD.Size();
+        return true;
+    }
+
+    return MaxPenetration > 0.0f;
 }

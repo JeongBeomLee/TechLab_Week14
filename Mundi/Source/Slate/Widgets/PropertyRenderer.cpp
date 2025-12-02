@@ -27,6 +27,8 @@
 #include "ParticleSystem.h"
 #include "PhysicsAsset.h"
 #include "PhysicalMaterial.h"
+#include "BodySetup.h"
+#include "ConvexElem.h"
 
 // 정적 멤버 변수 초기화
 TArray<FString> UPropertyRenderer::CachedSkeletalMeshPaths;
@@ -2025,6 +2027,64 @@ bool UPropertyRenderer::RenderStaticMeshProperty(const FProperty& Prop, void* In
 		}
 
 		ImGui::EndTooltip();
+	}
+
+	// BodySetup 프로퍼티 렌더링
+	if (*MeshPtr)
+	{
+		UBodySetup* BodySetup = (*MeshPtr)->GetBodySetup();
+		if (BodySetup)
+		{
+			if (ImGui::TreeNode("Body Setup"))
+			{
+				// 기본 속성 (리플렉션)
+				RenderAllProperties(BodySetup);
+
+				ImGui::Separator();
+
+				// Shape UI (수동 렌더링)
+				// TODO: PropertyRenderer에 USTRUCT 리플렉션 렌더링 지원 후 제거
+				if (ImGui::CollapsingHeader("Collision Shapes", ImGuiTreeNodeFlags_DefaultOpen))
+				{
+					bool bShapeChanged = false;
+					UBodySetup::RenderShapesUI(BodySetup, bShapeChanged);
+					if (bShapeChanged)
+					{
+						// Shape 변경을 OnPropertyChanged로 알림 (물리 재생성은 컴포넌트에서 처리)
+						// 저장은 하지 않음 - Save Metadata 버튼으로 명시적 저장
+						UObject* Object = static_cast<UObject*>(Instance);
+						if (UPrimitiveComponent* PrimitiveComponent = Cast<UPrimitiveComponent>(Object))
+						{
+							FProperty Prop;
+							Prop.Name = "BodySetup";
+							PrimitiveComponent->OnPropertyChanged(Prop);
+						}
+					}
+				}
+
+				ImGui::TreePop();
+			}
+		}
+
+		// StaticMesh 메타데이터 저장/리셋 버튼 (Body Setup 트리 바깥)
+		ImGui::Separator();
+		if (ImGui::Button("Save Metadata"))
+		{
+			(*MeshPtr)->SavePhysicsMetadata();
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Reset to Default"))
+		{
+			(*MeshPtr)->ResetPhysicsToDefault();
+			// 물리 재생성을 위해 OnPropertyChanged 호출
+			UObject* Object = static_cast<UObject*>(Instance);
+			if (UPrimitiveComponent* PrimitiveComponent = Cast<UPrimitiveComponent>(Object))
+			{
+				FProperty Prop;
+				Prop.Name = "BodySetup";
+				PrimitiveComponent->OnPropertyChanged(Prop);
+			}
+		}
 	}
 
 	return false;

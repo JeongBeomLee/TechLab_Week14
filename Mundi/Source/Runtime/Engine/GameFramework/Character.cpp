@@ -31,6 +31,7 @@ ACharacter::ACharacter()
 	if (CapsuleComponent)
 	{
 		SetRootComponent(CapsuleComponent);
+		CapsuleComponent->SetCapsuleSize(0.25f, 1.0f);
 	}
 
 	// SkeletalMeshComponent 생성 (애니메이션)
@@ -38,6 +39,7 @@ ACharacter::ACharacter()
 	if (MeshComponent && CapsuleComponent)
 	{
 		MeshComponent->SetupAttachment(CapsuleComponent);
+		MeshComponent->SetRelativeLocation(FVector(0.0f, 0.0f, -1.0f));
 	}
 
 	// CharacterMovementComponent 생성
@@ -241,6 +243,7 @@ void ACharacter::LookUp(float Value)
 
 void ACharacter::Jump()
 {
+	UE_LOG("[Character::Jump] Called - CharacterMovement=%p", CharacterMovement);
 	if (CharacterMovement)
 	{
 		CharacterMovement->Jump();
@@ -257,7 +260,10 @@ void ACharacter::StopJumping()
 
 bool ACharacter::CanJump() const
 {
-	return CharacterMovement && CharacterMovement->bCanJump && IsGrounded();
+	bool bResult = CharacterMovement && CharacterMovement->bCanJump && IsGrounded();
+	UE_LOG("[Character::CanJump] CharacterMovement=%p, bCanJump=%d, IsGrounded=%d, Result=%d",
+		   CharacterMovement, CharacterMovement ? CharacterMovement->bCanJump : 0, IsGrounded(), bResult);
+	return bResult;
 }
 
 void ACharacter::Crouch()
