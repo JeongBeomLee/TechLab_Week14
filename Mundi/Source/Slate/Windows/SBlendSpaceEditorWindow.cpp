@@ -211,6 +211,30 @@ void SBlendSpaceEditorWindow::OnRender()
 
         // BlendSpace-specific controls
         ImGui::Dummy(ImVec2(0,6));
+        ImGui::TextUnformatted("File Operations");
+        ImGui::Separator();
+        if (ImGui::Button("Save", ImVec2(60, 0)))
+        {
+            SaveBlendSpace();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Save As", ImVec2(60, 0)))
+        {
+            SaveBlendSpaceAs();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Load", ImVec2(60, 0)))
+        {
+            LoadBlendSpace();
+        }
+        if (!CurrentFilePath.empty())
+        {
+            std::filesystem::path fsPath(UTF8ToWide(CurrentFilePath));
+            FString FileName = WideToUTF8(fsPath.filename().wstring());
+            ImGui::TextColored(ImVec4(0.6f, 0.8f, 0.6f, 1.0f), "File: %s", FileName.c_str());
+        }
+
+        ImGui::Dummy(ImVec2(0,6));
         ImGui::TextUnformatted("Preview Binding");
         ImGui::Separator();
         if (ImGui::Button("Attach to Preview"))
@@ -785,5 +809,160 @@ void SBlendSpaceEditorWindow::RebuildTriangles()
     for (const auto& key : triSet)
     {
         BlendInst->AddTriangle(key.i, key.j, key.k);
+    }
+}
+
+void SBlendSpaceEditorWindow::SaveBlendSpace()
+{
+    if (!BlendInst)
+    {
+        UE_LOG("[SBlendSpaceEditorWindow] SaveBlendSpace: BlendSpace 인스턴스가 없습니다");
+        return;
+    }
+
+    // If no file path, call SaveAs
+    if (CurrentFilePath.empty())
+    {
+        SaveBlendSpaceAs();
+        return;
+    }
+
+    // Get skeletal mesh path
+    FString SkeletalMeshPath;
+    if (ActiveState && !ActiveState->LoadedMeshPath.empty())
+    {
+        SkeletalMeshPath = ActiveState->LoadedMeshPath;
+    }
+
+    if (BlendSpaceEditorBootstrap::SaveBlendSpace(BlendInst, CurrentFilePath, SkeletalMeshPath))
+    {
+        if (ActiveState)
+        {
+            ActiveState->bIsDirty = false;
+        }
+        UE_LOG("[SBlendSpaceEditorWindow] BlendSpace 저장 완료: %s", CurrentFilePath.c_str());
+    }
+    else
+    {
+        UE_LOG("[SBlendSpaceEditorWindow] BlendSpace 저장 실패: %s", CurrentFilePath.c_str());
+    }
+}
+
+void SBlendSpaceEditorWindow::SaveBlendSpaceAs()
+{
+    if (!BlendInst)
+    {
+        UE_LOG("[SBlendSpaceEditorWindow] SaveBlendSpaceAs: BlendSpace 인스턴스가 없습니다");
+        return;
+    }
+
+    // Open save file dialog
+    std::filesystem::path SavePath = FPlatformProcess::OpenSaveFileDialog(
+        L"Data/BlendSpaces",       // 기본 디렉토리
+        L"blendspace",             // 기본 확장자
+        L"BlendSpace Files",       // 파일 타입 설명
+        L"NewBlendSpace"           // 기본 파일명
+    );
+
+    if (SavePath.empty())
+    {
+        UE_LOG("[SBlendSpaceEditorWindow] SaveBlendSpaceAs: 사용자가 취소했습니다");
+        return;
+    }
+
+    // Convert to FString
+    FString SavePathStr = ResolveAssetRelativePath(NormalizePath(WideToUTF8(SavePath.wstring())), "");
+
+    // Get skeletal mesh path
+    FString SkeletalMeshPath;
+    if (ActiveState && !ActiveState->LoadedMeshPath.empty())
+    {
+        SkeletalMeshPath = ActiveState->LoadedMeshPath;
+    }
+
+    if (BlendSpaceEditorBootstrap::SaveBlendSpace(BlendInst, SavePathStr, SkeletalMeshPath))
+    {
+        CurrentFilePath = SavePathStr;
+        if (ActiveState)
+        {
+            ActiveState->bIsDirty = false;
+        }
+        UE_LOG("[SBlendSpaceEditorWindow] BlendSpace 저장 완료: %s", SavePathStr.c_str());
+    }
+    else
+    {
+        UE_LOG("[SBlendSpaceEditorWindow] BlendSpace 저장 실패: %s", SavePathStr.c_str());
+    }
+}
+
+void SBlendSpaceEditorWindow::LoadBlendSpace()
+{
+    // Open load file dialog
+    std::filesystem::path LoadPath = FPlatformProcess::OpenLoadFileDialog(
+        L"Data/BlendSpaces",     // 기본 디렉토리
+        L"blendspace",           // 확장자 필터
+        L"BlendSpace Files"      // 파일 타입 설명
+    );
+
+    if (LoadPath.empty())
+    {
+        UE_LOG("[SBlendSpaceEditorWindow] LoadBlendSpace: 사용자가 취소했습니다");
+        return;
+    }
+
+    // Convert to FString
+    FString LoadPathStr = NormalizePath(WideToUTF8(LoadPath.wstring()));
+
+    // Auto-attach blend space instance if not attached yet
+    if (!BlendInst && ActiveState && ActiveState->PreviewActor && ActiveState->PreviewActor->GetSkeletalMeshComponent())
+    {
+        USkeletalMeshComponent* Comp = ActiveState->PreviewActor->GetSkeletalMeshComponent();
+        Comp->UseBlendSpace2D();
+        BlendInst = Comp->GetOrCreateBlendSpace2D();
+    }
+
+    if (!BlendInst)
+    {
+        UE_LOG("[SBlendSpaceEditorWindow] LoadBlendSpace: BlendSpace 인스턴스를 생성할 수 없습니다. 먼저 스켈레탈 메시를 로드하세요.");
+        return;
+    }
+
+    FString SkeletalMeshPath;
+    if (BlendSpaceEditorBootstrap::LoadBlendSpace(BlendInst, LoadPathStr, SkeletalMeshPath))
+    {
+        CurrentFilePath = LoadPathStr;
+
+        // Load skeletal mesh if specified and different from current
+        if (!SkeletalMeshPath.empty() && ActiveState)
+        {
+            if (ActiveState->LoadedMeshPath != SkeletalMeshPath)
+            {
+                LoadSkeletalMesh(ActiveState, SkeletalMeshPath);
+
+                // Re-attach blend space after mesh load
+                if (ActiveState->PreviewActor && ActiveState->PreviewActor->GetSkeletalMeshComponent())
+                {
+                    USkeletalMeshComponent* Comp = ActiveState->PreviewActor->GetSkeletalMeshComponent();
+                    Comp->UseBlendSpace2D();
+                    BlendInst = Comp->GetOrCreateBlendSpace2D();
+
+                    // Reload blend space data into new instance
+                    BlendSpaceEditorBootstrap::LoadBlendSpace(BlendInst, LoadPathStr, SkeletalMeshPath);
+                }
+            }
+        }
+
+        // Rebuild triangles
+        RebuildTriangles();
+
+        if (ActiveState)
+        {
+            ActiveState->bIsDirty = false;
+        }
+        UE_LOG("[SBlendSpaceEditorWindow] BlendSpace 로드 완료: %s", LoadPathStr.c_str());
+    }
+    else
+    {
+        UE_LOG("[SBlendSpaceEditorWindow] BlendSpace 로드 실패: %s", LoadPathStr.c_str());
     }
 }

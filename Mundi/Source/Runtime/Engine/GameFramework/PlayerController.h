@@ -57,6 +57,11 @@ public:
 	void ProcessPlayerInput();
 
 	/**
+	 * 마우스 입력을 처리하여 Controller 회전에 반영합니다.
+	 */
+	void ProcessMouseInput();
+
+	/**
 	 * 입력이 활성화되어 있는지 확인합니다.
 	 */
 	bool IsInputEnabled() const { return bInputEnabled; }

@@ -1,11 +1,12 @@
 ﻿#include "pch.h"
 #include "VehicleComponent.h"
 #include "PxPhysicsAPI.h"
-#include "VehicleDataStruct.h"
+#include "VehicleData.h"
 #include "PhysicalMaterial.h"
 #include "PhysXConversion.h"
 #include "PhysicsSystem.h"
 #include "PhysicsScene.h"
+#include "SnippetVehicleSceneQuery.h"
 
 namespace
 {
@@ -35,6 +36,18 @@ namespace
 		COLLISION_FLAG_CHASSIS_AGAINST = COLLISION_FLAG_GROUND | COLLISION_FLAG_WHEEL | COLLISION_FLAG_CHASSIS | COLLISION_FLAG_OBSTACLE | COLLISION_FLAG_DRIVABLE_OBSTACLE,
 		COLLISION_FLAG_OBSTACLE_AGAINST = COLLISION_FLAG_GROUND | COLLISION_FLAG_WHEEL | COLLISION_FLAG_CHASSIS | COLLISION_FLAG_OBSTACLE | COLLISION_FLAG_DRIVABLE_OBSTACLE,
 		COLLISION_FLAG_DRIVABLE_OBSTACLE_AGAINST = COLLISION_FLAG_GROUND | COLLISION_FLAG_CHASSIS | COLLISION_FLAG_OBSTACLE | COLLISION_FLAG_DRIVABLE_OBSTACLE
+	};
+
+	enum
+	{
+		SURFACE_TYPE_TARMAC,
+		MAX_NUM_SURFACE_TYPES
+	};
+
+	static PxF32 gTireFrictionMultipliers[MAX_NUM_SURFACE_TYPES][MAX_NUM_TIRE_TYPES] =
+	{
+		//NORMAL,	WORN
+		{1.00f,		0.1f}//TARMAC
 	};
 
 	PxConvexMesh* CreateConvexMesh(const PxVec3* Verts, const PxU32 NumVerts, PxPhysics& Physics, PxCooking& Cooking)
@@ -310,10 +323,48 @@ namespace
 			WheelRadii[i] = PxMax(WheelMax.y, WheelMax.z) * 0.975f;
 		}
 	}
+
+	PxQueryHitType::Enum WheelSceneQueryPreFilterBlocking
+	(PxFilterData filterData0, PxFilterData filterData1,
+		const void* constantBlock, PxU32 constantBlockSize,
+		PxHitFlags& queryFlags)
+	{
+		//filterData0 is the vehicle suspension query.
+		//filterData1 is the shape potentially hit by the query.
+		PX_UNUSED(filterData0);
+		PX_UNUSED(constantBlock);
+		PX_UNUSED(constantBlockSize);
+		PX_UNUSED(queryFlags);
+		return ((0 == (filterData1.word3 & DRIVABLE_SURFACE)) ? PxQueryHitType::eNONE : PxQueryHitType::eBLOCK);
+	}
+
+	PxVehicleDrivableSurfaceToTireFrictionPairs* CreateFrictionPairs(const PxMaterial* DefaultMaterial)
+	{
+		PxVehicleDrivableSurfaceType SurfaceTypes[1];
+		SurfaceTypes[0].mType = SURFACE_TYPE_TARMAC;
+
+		const PxMaterial* SurfaceMaterials[1];
+		SurfaceMaterials[0] = DefaultMaterial;
+
+		PxVehicleDrivableSurfaceToTireFrictionPairs* SurfaceTirePairs =
+			PxVehicleDrivableSurfaceToTireFrictionPairs::allocate(MAX_NUM_TIRE_TYPES, MAX_NUM_SURFACE_TYPES);
+
+		SurfaceTirePairs->setup(MAX_NUM_TIRE_TYPES, MAX_NUM_SURFACE_TYPES, SurfaceMaterials, SurfaceTypes);
+
+		for (PxU32 i = 0; i < MAX_NUM_SURFACE_TYPES; i++)
+		{
+			for (PxU32 j = 0; j < MAX_NUM_TIRE_TYPES; j++)
+			{
+				SurfaceTirePairs->setTypePairFriction(i, j, gTireFrictionMultipliers[i][j]);
+			}
+		}
+		return SurfaceTirePairs;
+	}
 }
 
 UVehicleComponent::UVehicleComponent()
 {
+	bCanEverTick = true;
 }
 
 UVehicleComponent::~UVehicleComponent()
@@ -328,10 +379,27 @@ UVehicleComponent::~UVehicleComponent()
 		delete WheelMaterial;
 		WheelMaterial = nullptr;
 	}
-}
 
-void UVehicleComponent::EndPlay()
-{
+	// 휠 접지 검사를 위한 씬 쿼리 데이터를 해제하고 포인터를 정리합니다.
+	if (VehicleQueryData)
+	{
+		VehicleQueryData->free(GEngine.GetPhysicsSystem()->GetAllocator());
+		VehicleQueryData = nullptr;
+	}
+	// 타이어 마찰력 데이터를 해제하고 포인터를 정리합니다.
+	if (FrictionPairs)
+	{
+		FrictionPairs->release();
+		FrictionPairs = nullptr;
+	}
+	// PxBatchQuery는 PxScene에 의해 생성되고 PxScene이 해제될 때 함께 해제될 수 있습니다.
+	// 따라서 여기서 명시적으로 release()를 호출할 필요는 없지만, 안전한 포인터 관리를 위해 nullptr로 설정합니다.
+	if (BatchQuery)
+	{
+		BatchQuery->release();
+		BatchQuery = nullptr;
+	}
+
 	// FBodyInstance가 Actor를 이중으로 해제하는 것을 막기 위해 포인터를 제거합니다.
 	BodyInstance.RigidActor = nullptr;
 
@@ -341,8 +409,17 @@ void UVehicleComponent::EndPlay()
 		PhysXVehicle->release();
 		PhysXVehicle = nullptr;
 	}
+}
 
+void UVehicleComponent::EndPlay()
+{
 	Super::EndPlay();
+}
+
+void UVehicleComponent::TickComponent(float DeltaTime)
+{
+	Super::TickComponent(DeltaTime);
+
 }
 
 void UVehicleComponent::DuplicateSubObjects()
@@ -352,13 +429,69 @@ void UVehicleComponent::DuplicateSubObjects()
 	PhysXVehicle = nullptr;
 	ChassisMaterial = nullptr;
 	WheelMaterial = nullptr;
+
+	FrictionPairs = nullptr;
+	VehicleQueryData = nullptr;
+	BatchQuery = nullptr;
+}
+
+void UVehicleComponent::PostPhysicsTick(float DeltaTime)
+{
+	Super::PostPhysicsTick(DeltaTime);
+
+	if (PhysXVehicle && BodyInstance.RigidActor && VehicleQueryData && BatchQuery && FrictionPairs)
+	{
+		// 1. 입력 상태 수집 (이 부분은 게임의 입력 시스템에 따라 달라집니다.)
+		// 예시: 가상의 입력 값
+		PxF32 Accel = 1.0f;    // 가속 (0.0 ~ 1.0)
+		PxF32 Brake = 0.0f;    // 브레이크 (0.0 ~ 1.0)
+		PxF32 Steer = 0.0f;    // 스티어링 (-1.0 ~ 1.0)
+		PxF32 HandBrake = 0.0f; // 핸드브레이크 (0.0 ~ 1.0)
+
+		// TODO: 실제 사용자 입력을 받아 Accel, Brake, Steer, HandBrake 변수에 할당합니다.
+		// 예를 들어, GetWorld()->GetInputManager()->GetAccelInput(); 와 같은 함수를 사용할 수 있습니다.
+
+		//// 기어 명령 (자동/수동에 따라 다름)
+		//PxVehicleGearsData::Enum Gear = PhysXVehicle->mDriveDynData.getCurrentGear();
+		// TODO: 필요하다면 기어 변경 로직을 추가합니다.
+		// 예를 들어, UpArrow 키를 누르면 Gear를 PxVehicleGearsData::eNEXT로 설정.
+
+		// 2. PxVehicleDriveDynData 업데이트
+		// 가속 및 브레이크 입력 설정
+		PhysXVehicle->mDriveDynData.setAnalogInput(PxVehicleDrive4WControl::eANALOG_INPUT_ACCEL, Accel);
+		PhysXVehicle->mDriveDynData.setAnalogInput(PxVehicleDrive4WControl::eANALOG_INPUT_BRAKE, Brake);
+		PhysXVehicle->mDriveDynData.setAnalogInput(PxVehicleDrive4WControl::eANALOG_INPUT_STEER_LEFT, Steer);
+		PhysXVehicle->mDriveDynData.setAnalogInput(PxVehicleDrive4WControl::eANALOG_INPUT_STEER_RIGHT, Steer);
+		PhysXVehicle->mDriveDynData.setAnalogInput(PxVehicleDrive4WControl::eANALOG_INPUT_HANDBRAKE, HandBrake);
+
+		//// 기어 명령 설정
+		//PhysXVehicle->mDriveDynData.setCurrentGear(Gear);
+		PhysXVehicle->mDriveDynData.forceGearChange(PxVehicleGearsData::eFIRST);
+
+		// 3. PhysX Scene 업데이트 (이 부분은 PhysicsScene 클래스에 따라 달라집니다.)
+		// 일반적으로 물리 업데이트는 PhysicsScene에서 이루어지며,
+		// 차량 업데이트는 시뮬레이션 단계에서 PxVehicleUpdater::updateAndFetchResults를 통해 처리됩니다.
+		// 이 프로젝트의 구조에서는 GEngine.GetWorld()->GetPhysicsScene()->Simulation(DeltaTime) 호출 시
+		// Vehicle 업데이트가 함께 이루어질 것으로 예상됩니다.
+		// 만약 TickComponent에서 직접 차량을 업데이트해야 한다면, 다음과 같은 방식이 될 수 있습니다.
+		PxScene* PxScene = GetWorld()->GetPhysicsScene()->GetPxScene();
+
+		//Raycasts.
+		PxVehicleWheels* Vehicles[1] = { PhysXVehicle };
+		PxRaycastQueryResult* RaycastResults = VehicleQueryData->getRaycastQueryResultBuffer(0);
+		const PxU32 RaycastResultsSize = VehicleQueryData->getQueryResultBufferSize();
+		PxVehicleSuspensionRaycasts(BatchQuery, 1, Vehicles, RaycastResultsSize, RaycastResults);
+
+		//Vehicle update.
+		const PxVec3 Grav = PxScene->getGravity();
+		PxWheelQueryResult WheelQueryResults[PX_MAX_NB_WHEELS];
+		PxVehicleWheelQueryResult VehicleQueryResults[1] = { {WheelQueryResults, PhysXVehicle->mWheelsSimData.getNbWheels()} };
+		PxVehicleUpdates(DeltaTime, Grav, *FrictionPairs, 1, Vehicles, VehicleQueryResults);
+	}
 }
 
 void UVehicleComponent::CreatePhysicsState()
 {
-	// 차량 데이터 준비
-	FVehicleData VehicleData;
-
 	// 현재 컴포넌트의 월드 Transform 가져오기
 	FTransform WorldTransform = GetWorldTransform();
 
@@ -368,40 +501,50 @@ void UVehicleComponent::CreatePhysicsState()
 		GEngine.GetPhysicsSystem()->GetCooking(),
 		WorldTransform);
 
-	//  BodyInstance와 PhysX Actor 연결
+	// BodyInstance와 PhysX Actor 연결
 	PxRigidDynamic* VehActor = PhysXVehicle->getRigidDynamicActor();
 	BodyInstance.RigidActor = VehActor; // BodyInstance가 이 Actor를 알게 함
 
-	// 씬에 추가
-	GetWorld()->GetPhysicsScene()->AddActor(&BodyInstance);
-
 	// BodyInstance의 설정을 역으로 Actor에 반영
 	BodyInstance.SetSimulatePhysics(true);
+
+	BodyInstance.OwnerComponent = this;
 
 	BodyInstance.FinalizeInternalActor(GetWorld()->GetPhysicsScene());
 }
 
 PxVehicleDrive4W* UVehicleComponent::CreateVehicle4W(FVehicleData VehicleData, physx::PxPhysics* Physics, PxCooking* Cooking, const FTransform& WorldTransform)
 {
-	PxU32 NumWheels = 4;
-
 	// 엔진 좌표계 -> PhysX 좌표계 변환
 	PxTransform StartPose = PhysXConvert::ToPx(WorldTransform);
-	//PxTransform StartPose = WorldTransform;
+	PxScene* PxScene = GetWorld()->GetPhysicsScene()->GetPxScene();
 
 	if (!ChassisMaterial)
 	{
-		ChassisMaterial = UPhysicalMaterial::CreateDefaultMaterial();;
+		ChassisMaterial = UPhysicalMaterial::CreateRubberMaterial();;
 	}
 	if (!WheelMaterial)
 	{
-		WheelMaterial = UPhysicalMaterial::CreateDefaultMaterial();;
+		WheelMaterial = UPhysicalMaterial::CreateRubberMaterial();;
+	}
+
+	if (!FrictionPairs)
+	{
+		FrictionPairs = CreateFrictionPairs(WheelMaterial->MatHandle);
+	}
+	if (!VehicleQueryData)
+	{
+		VehicleQueryData = snippetvehicle::VehicleSceneQueryData::allocate(1, PX_MAX_NB_WHEELS, 1, 1, WheelSceneQueryPreFilterBlocking, NULL, GEngine.GetPhysicsSystem()->GetAllocator());
+	}
+	if (!BatchQuery)
+	{
+		BatchQuery = snippetvehicle::VehicleSceneQueryData::setUpBatchedSceneQuery(0, *VehicleQueryData, PxScene);
 	}
 
 	PxRigidDynamic* Veh4WActor = NULL;
 	{
-		//Construct a convex mesh for a cylindrical Wheel.
-		PxConvexMesh* WheelMesh = CreateWheelMesh(VehicleData.Wheel.Width, VehicleData.Wheel.Radius, *Physics, *Cooking);
+		//Construct a convex mesh for a cylindrical Wheel
+		PxConvexMesh* WheelMesh = CreateWheelMesh(VehicleData.WheelWidth, VehicleData.WheelRadius, *Physics, *Cooking);
 		//Assume all Wheels are identical for simplicity.
 		PxConvexMesh* WheelConvexMeshes[PX_MAX_NB_WHEELS];
 		PxMaterial* WheelMaterials[PX_MAX_NB_WHEELS];
@@ -412,7 +555,7 @@ PxVehicleDrive4W* UVehicleComponent::CreateVehicle4W(FVehicleData VehicleData, p
 			WheelMaterials[i] = WheelMaterial->MatHandle;
 		}
 		//Set the meshes and materials for the non-driven Wheels
-		for (PxU32 i = PxVehicleDrive4WWheelOrder::eREAR_RIGHT + 1; i < NumWheels; i++)
+		for (PxU32 i = PxVehicleDrive4WWheelOrder::eREAR_RIGHT + 1; i < VehicleData.NumWheels; i++)
 		{
 			WheelConvexMeshes[i] = WheelMesh;
 			WheelMaterials[i] = WheelMaterial->MatHandle;
@@ -434,7 +577,7 @@ PxVehicleDrive4W* UVehicleComponent::CreateVehicle4W(FVehicleData VehicleData, p
 
 		Veh4WActor = CreateVehicleActor
 		(RigidBodyData,
-			WheelMaterials, WheelConvexMeshes, NumWheels, WheelSimFilterData,
+			WheelMaterials, WheelConvexMeshes, VehicleData.NumWheels, WheelSimFilterData,
 			ChassisMaterials, ChassisConvexMeshes, 1, ChassisSimFilterData, StartPose,
 			*Physics);
 
@@ -454,17 +597,17 @@ PxVehicleDrive4W* UVehicleComponent::CreateVehicle4W(FVehicleData VehicleData, p
 	}
 
 	//Set up the sim data for the Wheels.
-	PxVehicleWheelsSimData* WheelsSimData = PxVehicleWheelsSimData::allocate(NumWheels);
+	PxVehicleWheelsSimData* WheelsSimData = PxVehicleWheelsSimData::allocate(VehicleData.NumWheels);
 	{
 		//Compute the Wheel center offsets from the origin.
 		PxVec3 WheelCenterActorOffsets[PX_MAX_NB_WHEELS];
-		const PxF32 FrontZ = VehicleData.ChassisDims.z * 0.3f;
-		const PxF32 RearZ = -VehicleData.ChassisDims.z * 0.3f;
-		ComputeWheelCenterActorOffsets4W(FrontZ, RearZ, VehicleData.ChassisDims, VehicleData.Wheel.Width, VehicleData.Wheel.Radius, NumWheels, WheelCenterActorOffsets);
+		const PxF32 FrontZ = VehicleData.ChassisDims.Z * 0.3f;
+		const PxF32 RearZ = -VehicleData.ChassisDims.Z * 0.3f;
+		ComputeWheelCenterActorOffsets4W(FrontZ, RearZ, VehicleData.ChassisDims, VehicleData.WheelWidth, VehicleData.WheelRadius, VehicleData.NumWheels, WheelCenterActorOffsets);
 		//Set up the simulation data for all Wheels.
 		SetupWheelsSimulationData
-		(VehicleData.Wheel.Mass, VehicleData.Wheel.GetWheelMOI(), VehicleData.Wheel.Radius, VehicleData.Wheel.Width,
-			NumWheels, WheelCenterActorOffsets,
+		(VehicleData.WheelMass, VehicleData.GetWheelMOI(), VehicleData.WheelRadius, VehicleData.WheelWidth,
+			VehicleData.NumWheels, WheelCenterActorOffsets,
 			VehicleData.CenterOfMassOffset, VehicleData.ChassisMass,
 			WheelsSimData);
 	}
@@ -479,18 +622,18 @@ PxVehicleDrive4W* UVehicleComponent::CreateVehicle4W(FVehicleData VehicleData, p
 
 		//Engine
 		PxVehicleEngineData EngineData;
-		EngineData.mPeakTorque = VehicleData.Engine.PeakTorque;
-		EngineData.mMaxOmega = VehicleData.Engine.GetMaxOmega();//approx 6000 rpm
+		EngineData.mPeakTorque = VehicleData.EnginePeakTorque;
+		EngineData.mMaxOmega = VehicleData.GetEngineMaxOmega();//approx 6000 rpm
 		DriveSimData.setEngineData(EngineData);
 
 		//Gears
 		PxVehicleGearsData GearsData;
-		GearsData.mSwitchTime = VehicleData.Gearbox.SwitchTime;
+		GearsData.mSwitchTime = VehicleData.GearSwitchTime;
 		DriveSimData.setGearsData(GearsData);
 
 		//Clutch
 		PxVehicleClutchData ClutchData;
-		ClutchData.mStrength = VehicleData.Clutch.Strength;
+		ClutchData.mStrength = VehicleData.ClutchStrength;
 		DriveSimData.setClutchData(ClutchData);
 
 		//Ackermann steer accuracy
@@ -509,8 +652,8 @@ PxVehicleDrive4W* UVehicleComponent::CreateVehicle4W(FVehicleData VehicleData, p
 	}
 
 	//Create a vehicle from the Wheels and drive sim data.
-	PxVehicleDrive4W* VehDrive4W = PxVehicleDrive4W::allocate(NumWheels);
-	VehDrive4W->setup(Physics, Veh4WActor, *WheelsSimData, DriveSimData, NumWheels - 4);
+	PxVehicleDrive4W* VehDrive4W = PxVehicleDrive4W::allocate(VehicleData.NumWheels);
+	VehDrive4W->setup(Physics, Veh4WActor, *WheelsSimData, DriveSimData, VehicleData.NumWheels - 4);
 
 	//Free the sim data because we don't need that any more.
 	WheelsSimData->free();

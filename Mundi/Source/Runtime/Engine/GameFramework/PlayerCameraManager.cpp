@@ -9,6 +9,7 @@
 #include "SceneView.h"
 #include "CameraActor.h"
 #include "CameraComponent.h"
+#include "Character.h"
 #include "World.h"
 #include "FViewport.h"
 #include "RenderSettings.h"
@@ -71,6 +72,27 @@ void APlayerCameraManager::BeginPlay()
 {
 	Super::BeginPlay();
 
+	// 먼저 Character의 CameraComponent를 찾아서 설정
+	UWorld* World = GetWorld();
+	if (World)
+	{
+		TArray<ACharacter*> Characters = World->FindActors<ACharacter>();
+		for (ACharacter* Character : Characters)
+		{
+			if (Character)
+			{
+				UCameraComponent* CharacterCamera = Character->GetCamera();
+				if (CharacterCamera)
+				{
+					CurrentViewCamera = CharacterCamera;
+					UE_LOG("[PlayerCameraManager] Using Character's CameraComponent");
+					return;
+				}
+			}
+		}
+	}
+
+	// Character 카메라가 없으면 아무 카메라나 찾음
 	CurrentViewCamera = GetWorld()->FindComponent<UCameraComponent>();
 	if (!CurrentViewCamera)
 	{

@@ -117,8 +117,8 @@ public:
 
     FMatrix GetWorldMatrix() const;
 
-    FVector GetActorForward() const { return GetActorRotation().RotateVector(FVector(0, 1, 0)); }
-    FVector GetActorRight()   const { return GetActorRotation().RotateVector(FVector(1, 0, 0)); }
+    FVector GetActorForward() const { return GetActorRotation().RotateVector(FVector(1, 0, 0)); }
+    FVector GetActorRight()   const { return GetActorRotation().RotateVector(FVector(0, 1, 0)); }
     FVector GetActorUp()      const { return GetActorRotation().RotateVector(FVector(0, 0, 1)); }
 
     void AddActorWorldRotation(const FQuat& DeltaRotation);
@@ -208,6 +208,7 @@ protected:
     bool bHiddenInOutliner = false;  // 아웃라이너에서 숨김 (시스템 액터용)
 
     bool bPendingDestroy = false;
+    bool bHasBegunPlay = false;  // BeginPlay 중복 호출 방지
 
     bool bIsPicked = false;
     bool bCanEverTick = true;   // Tick을 허용하는 Actor 라는 뜻 (생성자 시점에만 변경해야 됨)

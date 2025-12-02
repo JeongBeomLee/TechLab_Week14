@@ -31,6 +31,8 @@ void FPhysicsSystem::Initialize()
         UE_LOG("[error][FPhysicsSystem]: PxInitVehicleSDK Error");
         return;
     }
+    PxVehicleSetBasisVectors(PxVec3(0, 1, 0), PxVec3(0, 0, 1));
+    PxVehicleSetUpdateMode(PxVehicleUpdateMode::eACCELERATION);
 
     // Extensions 초기화 (Joint, Serialization 등 확장 기능 사용을 위해 필수)
     if (!PxInitExtensions(*mPhysics, mPvd))

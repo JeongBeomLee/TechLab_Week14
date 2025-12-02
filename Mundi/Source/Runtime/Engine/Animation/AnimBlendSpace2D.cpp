@@ -2,6 +2,7 @@
 #include "AnimBlendSpace2D.h"
 #include "AnimSequenceBase.h"
 #include "AnimationRuntime.h"
+#include "ResourceManager.h"
 
 int32 FAnimNode_BlendSpace2D::AddSample(const FVector2D& Pos, UAnimSequenceBase* Seq, float RateScale, bool bLooping)
 {
@@ -232,4 +233,98 @@ bool FAnimNode_BlendSpace2D::RemoveSample(int32 Index)
     }
 
     return true;
+}
+
+void FAnimNode_BlendSpace2D::Serialize(bool bLoading, JSON& JsonData)
+{
+    if (bLoading)
+    {
+        // Load from JSON
+        Clear();
+
+        // Load runtime parameters
+        FJsonSerializer::ReadFloat(JsonData, "PlayRate", PlayRate, 1.f, false);
+        FJsonSerializer::ReadBool(JsonData, "bLooping", bLooping, true, false);
+        FJsonSerializer::ReadInt32(JsonData, "DriverSampleIndex", DriverSampleIndex, 0, false);
+
+        // Load samples
+        JSON SamplesArray;
+        if (FJsonSerializer::ReadArray(JsonData, "Samples", SamplesArray, nullptr, false))
+        {
+            for (int32 i = 0; i < static_cast<int32>(SamplesArray.size()); ++i)
+            {
+                JSON& SampleJson = SamplesArray[i];
+
+                FVector2D Position;
+                FJsonSerializer::ReadVector2D(SampleJson, "Position", Position, FVector2D(0, 0), false);
+
+                FString AnimPath;
+                FJsonSerializer::ReadString(SampleJson, "AnimationPath", AnimPath, "", false);
+
+                float RateScale = 1.f;
+                FJsonSerializer::ReadFloat(SampleJson, "RateScale", RateScale, 1.f, false);
+
+                bool bSampleLooping = true;
+                FJsonSerializer::ReadBool(SampleJson, "bLooping", bSampleLooping, true, false);
+
+                // Load animation from path
+                UAnimSequenceBase* Sequence = nullptr;
+                if (!AnimPath.empty())
+                {
+                    Sequence = UResourceManager::GetInstance().Get<UAnimSequence>(AnimPath);
+                }
+
+                AddSample(Position, Sequence, RateScale, bSampleLooping);
+            }
+        }
+
+        // Load triangles
+        JSON TrianglesArray;
+        if (FJsonSerializer::ReadArray(JsonData, "Triangles", TrianglesArray, nullptr, false))
+        {
+            for (int32 i = 0; i < static_cast<int32>(TrianglesArray.size()); ++i)
+            {
+                JSON& TriJson = TrianglesArray[i];
+
+                int32 I0 = 0, I1 = 0, I2 = 0;
+                FJsonSerializer::ReadInt32(TriJson, "I0", I0, 0, false);
+                FJsonSerializer::ReadInt32(TriJson, "I1", I1, 0, false);
+                FJsonSerializer::ReadInt32(TriJson, "I2", I2, 0, false);
+
+                AddTriangle(I0, I1, I2);
+            }
+        }
+    }
+    else
+    {
+        // Save to JSON
+        JsonData["PlayRate"] = PlayRate;
+        JsonData["bLooping"] = bLooping;
+        JsonData["DriverSampleIndex"] = DriverSampleIndex;
+
+        // Save samples
+        JSON SamplesArray = JSON::Make(JSON::Class::Array);
+        for (const FBlendSample2D& Sample : Samples)
+        {
+            JSON SampleJson = JSON::Make(JSON::Class::Object);
+            SampleJson["Position"] = FJsonSerializer::Vector2DToJson(Sample.Position);
+            SampleJson["AnimationPath"] = Sample.Sequence ? Sample.Sequence->GetFilePath() : "";
+            SampleJson["RateScale"] = Sample.RateScale;
+            SampleJson["bLooping"] = Sample.bLooping;
+            SamplesArray.append(SampleJson);
+        }
+        JsonData["Samples"] = SamplesArray;
+
+        // Save triangles
+        JSON TrianglesArray = JSON::Make(JSON::Class::Array);
+        for (const FBlendTriangle& Tri : Triangles)
+        {
+            JSON TriJson = JSON::Make(JSON::Class::Object);
+            TriJson["I0"] = Tri.I0;
+            TriJson["I1"] = Tri.I1;
+            TriJson["I2"] = Tri.I2;
+            TrianglesArray.append(TriJson);
+        }
+        JsonData["Triangles"] = TrianglesArray;
+    }
 }

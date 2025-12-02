@@ -22,7 +22,7 @@ public:
     void SelectComponent(UActorComponent* Component);
     void DeselectActor(AActor* Actor);
     void ClearSelection();
-    
+
     bool IsActorSelected(AActor* Actor) const;
     bool IsActorMode() const { return bIsActorMode; }
     

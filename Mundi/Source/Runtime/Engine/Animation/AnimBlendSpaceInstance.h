@@ -60,6 +60,9 @@ public:
     void EvaluateAnimation(FPoseContext& Output) override;
     bool IsPlaying() const override { return BlendSpace.GetSamples().Num() > 0; }
 
+    // Serialization
+    void SerializeBlendSpace(bool bLoading, JSON& JsonData) { BlendSpace.Serialize(bLoading, JsonData); }
+
 private:
     FAnimNode_BlendSpace2D BlendSpace;
 };

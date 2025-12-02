@@ -1,6 +1,6 @@
 {
   "Actors" : {
-    "1004" : {
+    "1058" : {
       "ObjectName" : "ADirectionalLightActor_2",
       "OwnedComponents" : [{
           "CascadedAreaColorDebugValue" : 0.000000,
@@ -8,7 +8,7 @@
           "CascadedCount" : 4,
           "CascadedLinearBlendingValue" : 0.500000,
           "CascadedOverlapValue" : 0.200000,
-          "Id" : 1006,
+          "Id" : 1060,
           "Intensity" : 1.000000,
           "LightColor" : [1.000000, 1.000000, 1.000000, 1.000000],
           "ObjectName" : "UDirectionalLightComponent_2",
@@ -30,16 +30,16 @@
           "bTickEnabled" : true,
           "bTickInEditor" : false
         }],
-      "RootComponentId" : 1006,
+      "RootComponentId" : 1060,
       "Tag" : "",
       "Type" : "ADirectionalLightActor",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "1007" : {
+    "1061" : {
       "ObjectName" : "AAmbientLightActor_2",
       "OwnedComponents" : [{
-          "Id" : 1009,
+          "Id" : 1063,
           "Intensity" : 0.100000,
           "LightColor" : [1.000000, 1.000000, 1.000000, 1.000000],
           "ObjectName" : "UAmbientLightComponent_2",
@@ -60,19 +60,19 @@
           "bTickEnabled" : true,
           "bTickInEditor" : false
         }],
-      "RootComponentId" : 1009,
+      "RootComponentId" : 1063,
       "Tag" : "",
       "Type" : "AAmbientLightActor",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "1010" : {
+    "1064" : {
       "ObjectName" : "APlayerCameraManager_3",
       "OwnedComponents" : [{
           "AspectRatio" : 1.000000,
           "FarClip" : 500.000000,
           "FieldOfView" : 60.000000,
-          "Id" : 1012,
+          "Id" : 1066,
           "NearClip" : 0.100000,
           "ObjectName" : "UCameraComponent_8",
           "ParentId" : 0,
@@ -88,16 +88,16 @@
           "bTickEnabled" : true,
           "bTickInEditor" : false
         }],
-      "RootComponentId" : 1012,
+      "RootComponentId" : 1066,
       "Tag" : "",
       "Type" : "APlayerCameraManager",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "1013" : {
+    "1067" : {
       "ObjectName" : "AParticleEventManager_19",
       "OwnedComponents" : [{
-          "Id" : 1014,
+          "Id" : 1068,
           "ObjectName" : "USceneComponent_21",
           "ParentId" : 0,
           "RelativeLocation" : [0.000000, 0.000000, 0.000000],
@@ -110,17 +110,36 @@
           "bTickEnabled" : true,
           "bTickInEditor" : false
         }],
-      "RootComponentId" : 1014,
+      "RootComponentId" : 1068,
       "Tag" : "",
       "Type" : "AParticleEventManager",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "1015" : {
+    "1069" : {
       "ObjectName" : "스태틱 메시_0",
       "OwnedComponents" : [{
-          "Id" : 1017,
-          "Mass" : 10.000000,
+          "BodyInstance" : {
+            "AngularDamping" : 0.050000,
+            "LinearDamping" : 0.010000,
+            "MassInKg" : 10.000000,
+            "SleepThresholdMultiplier" : 1.000000,
+            "bCollisionEnabled" : true,
+            "bEnableGravity" : false,
+            "bIsTrigger" : false,
+            "bLockXAngular" : false,
+            "bLockXLinear" : false,
+            "bLockYAngular" : false,
+            "bLockYLinear" : false,
+            "bLockZAngular" : false,
+            "bLockZLinear" : false,
+            "bNotifyRigidBodyCollision" : true,
+            "bOverrideMass" : false,
+            "bSimulatePhysics" : false,
+            "bStartAwake" : true,
+            "bUseCCD" : false
+          },
+          "Id" : 1071,
           "MaterialSlots" : [{
               "AssetPath" : "texture",
               "Type" : "UMaterial"
@@ -129,7 +148,8 @@
           "ParentId" : 0,
           "RelativeLocation" : [0.000000, 0.000000, 0.000000],
           "RelativeRotationEuler" : [0.000000, -0.000000, 0.000000],
-          "RelativeScale" : [1.000000, 1.000000, 1.000000],
+          "RelativeScale" : [1000.000000, 1000.000000, 1.000000],
+          "ShapeMode" : 0,
           "StaticMesh" : "Data/cube-tex.obj",
           "Type" : "UStaticMeshComponent",
           "bBlockComponent" : false,
@@ -138,20 +158,19 @@
           "bHiddenInGame" : false,
           "bIsActive" : true,
           "bIsVisible" : true,
-          "bSimulatePhysics" : true,
           "bTickEnabled" : true,
           "bTickInEditor" : false
         }],
-      "RootComponentId" : 1017,
+      "RootComponentId" : 1071,
       "Tag" : "",
       "Type" : "AStaticMeshActor",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "1018" : {
+    "1072" : {
       "ObjectName" : "AParticleEventManager_3",
       "OwnedComponents" : [{
-          "Id" : 1019,
+          "Id" : 1073,
           "ObjectName" : "USceneComponent_4",
           "ParentId" : 0,
           "RelativeLocation" : [0.000000, 0.000000, 0.000000],
@@ -164,16 +183,16 @@
           "bTickEnabled" : true,
           "bTickInEditor" : false
         }],
-      "RootComponentId" : 1019,
+      "RootComponentId" : 1073,
       "Tag" : "",
       "Type" : "AParticleEventManager",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "1026" : {
+    "1074" : {
       "ObjectName" : "AParticleEventManager_4",
       "OwnedComponents" : [{
-          "Id" : 1027,
+          "Id" : 1075,
           "ObjectName" : "USceneComponent_5",
           "ParentId" : 0,
           "RelativeLocation" : [0.000000, 0.000000, 0.000000],
@@ -186,14 +205,161 @@
           "bTickEnabled" : true,
           "bTickInEditor" : false
         }],
-      "RootComponentId" : 1027,
+      "RootComponentId" : 1075,
       "Tag" : "",
       "Type" : "AParticleEventManager",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
+    },
+    "1083" : {
+      "ObjectName" : "AParticleEventManager_5",
+      "OwnedComponents" : [{
+          "Id" : 1084,
+          "ObjectName" : "USceneComponent_6",
+          "ParentId" : 0,
+          "RelativeLocation" : [0.000000, 0.000000, 0.000000],
+          "RelativeRotationEuler" : [0.000000, 0.000000, 0.000000],
+          "RelativeScale" : [1.000000, 1.000000, 1.000000],
+          "Type" : "USceneComponent",
+          "bHiddenInGame" : false,
+          "bIsActive" : true,
+          "bIsVisible" : true,
+          "bTickEnabled" : true,
+          "bTickInEditor" : false
+        }],
+      "RootComponentId" : 1084,
+      "Tag" : "",
+      "Type" : "AParticleEventManager",
+      "bActorHiddenInGame" : false,
+      "bActorIsActive" : true
+    },
+    "1093" : {
+      "ObjectName" : "자동차_0",
+      "OwnedComponents" : [{
+          "BodyInstance" : {
+            "AngularDamping" : 0.050000,
+            "LinearDamping" : 0.010000,
+            "MassInKg" : 10.000000,
+            "SleepThresholdMultiplier" : 1.000000,
+            "bCollisionEnabled" : true,
+            "bEnableGravity" : true,
+            "bIsTrigger" : false,
+            "bLockXAngular" : false,
+            "bLockXLinear" : false,
+            "bLockYAngular" : false,
+            "bLockYLinear" : false,
+            "bLockZAngular" : false,
+            "bLockZLinear" : false,
+            "bNotifyRigidBodyCollision" : true,
+            "bOverrideMass" : false,
+            "bSimulatePhysics" : true,
+            "bStartAwake" : true,
+            "bUseCCD" : false
+          },
+          "Id" : 1094,
+          "ObjectName" : "UVehicleComponent_1",
+          "ParentId" : 0,
+          "RelativeLocation" : [-1.587656, -16.834488, 18.987967],
+          "RelativeRotationEuler" : [0.000000, -0.000000, 0.000000],
+          "RelativeScale" : [1.000000, 1.000000, 1.000000],
+          "Type" : "UVehicleComponent",
+          "VehicleData" : {
+            "ChassisMass" : 1500.000000,
+            "ClutchStrength" : 10.000000,
+            "EngineMaxRPM" : 6000.000000,
+            "EnginePeakTorque" : 500.000000,
+            "GearFinalRatio" : 4.000000,
+            "GearSwitchTime" : 0.500000,
+            "SuspensionMaxCompression" : 0.300000,
+            "SuspensionMaxDroop" : 0.100000,
+            "SuspensionSpringDamper" : 4500.000000,
+            "SuspensionSpringStrength" : 35000.000000,
+            "WheelDampingRate" : 0.250000,
+            "WheelMass" : 20.000000,
+            "WheelMaxBrakeTorque" : 1500.000000,
+            "WheelMaxHandBrakeTorque" : 4000.000000,
+            "WheelRadius" : 0.500000,
+            "WheelWidth" : 1.000000
+          },
+          "bBlockComponent" : false,
+          "bGenerateOverlapEvents" : true,
+          "bHiddenInGame" : false,
+          "bIsActive" : true,
+          "bIsVisible" : true,
+          "bTickEnabled" : true,
+          "bTickInEditor" : false
+        }, {
+          "BodyInstance" : {
+            "AngularDamping" : 0.050000,
+            "LinearDamping" : 0.010000,
+            "MassInKg" : 10.000000,
+            "SleepThresholdMultiplier" : 1.000000,
+            "bCollisionEnabled" : false,
+            "bEnableGravity" : false,
+            "bIsTrigger" : false,
+            "bLockXAngular" : false,
+            "bLockXLinear" : false,
+            "bLockYAngular" : false,
+            "bLockYLinear" : false,
+            "bLockZAngular" : false,
+            "bLockZLinear" : false,
+            "bNotifyRigidBodyCollision" : true,
+            "bOverrideMass" : false,
+            "bSimulatePhysics" : false,
+            "bStartAwake" : false,
+            "bUseCCD" : false
+          },
+          "Id" : 1095,
+          "MaterialSlots" : [{
+              "AssetPath" : "Body",
+              "Type" : "UMaterial"
+            }, {
+              "AssetPath" : "Black",
+              "Type" : "UMaterial"
+            }, {
+              "AssetPath" : "Window.001",
+              "Type" : "UMaterial"
+            }, {
+              "AssetPath" : "Bumpers",
+              "Type" : "UMaterial"
+            }, {
+              "AssetPath" : "Lights",
+              "Type" : "UMaterial"
+            }, {
+              "AssetPath" : "Bottom",
+              "Type" : "UMaterial"
+            }, {
+              "AssetPath" : "Tires",
+              "Type" : "UMaterial"
+            }, {
+              "AssetPath" : "Wheels",
+              "Type" : "UMaterial"
+            }],
+          "ObjectName" : "UStaticMeshComponent_5",
+          "ParentId" : 1094,
+          "RelativeLocation" : [0.000000, 0.000000, 0.000000],
+          "RelativeRotationEuler" : [0.000000, 0.000000, 0.000000],
+          "RelativeScale" : [1.000000, 1.000000, 1.000000],
+          "ShapeMode" : 0,
+          "StaticMesh" : "Data/Model/Car.obj",
+          "Type" : "UStaticMeshComponent",
+          "bBlockComponent" : false,
+          "bCastShadows" : true,
+          "bGenerateOverlapEvents" : true,
+          "bHiddenInGame" : false,
+          "bIsActive" : true,
+          "bIsVisible" : true,
+          "bTickEnabled" : true,
+          "bTickInEditor" : false
+        }],
+      "RootComponentId" : 1094,
+      "Tag" : "",
+      "Type" : "AVehicleActor",
+      "bActorHiddenInGame" : false,
+      "bActorIsActive" : true
     }
   },
-  "NextUUID" : 1169,
+  "NextUUID" : 1100,
   "PerspectiveCamera" : {
     "FOV" : [60.000000],
     "FarClip" : [2000.000000],

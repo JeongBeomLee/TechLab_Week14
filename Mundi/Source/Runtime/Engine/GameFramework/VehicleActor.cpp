@@ -14,6 +14,10 @@ AVehicleActor::AVehicleActor()
     UStaticMeshComponent* StaticMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>("StaticMeshComponent");
     StaticMeshComponent->SetStaticMesh(GDataDir + "/Model/car.obj");
     StaticMeshComponent->SetupAttachment(RootComponent);
+    StaticMeshComponent->BodyInstance.SetSimulatePhysics(false);
+    StaticMeshComponent->BodyInstance.SetEnableGravity(false);
+    StaticMeshComponent->BodyInstance.SetCollisionEnabled(false);
+    StaticMeshComponent->BodyInstance.SetStartAwake(false);
 }
 
 void AVehicleActor::Tick(float DeltaTime)

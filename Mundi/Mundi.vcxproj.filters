@@ -1,5 +1,5 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<?xml version='1.0' encoding='utf-8'?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
   <ItemGroup>
     <FxCompile Include="Shaders\Common\PostProcessCommon.hlsl">
       <Filter>Shaders\Common</Filter>
@@ -111,129 +111,6 @@
     </FxCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Generated\AActor.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\AAmbientLightActor.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\ACameraActor.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\ADecalActor.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\ADirectionalLightActor.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\AEmptyActor.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\AFakeSpotLightActor.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\AFireBallActor.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\AHeightFogActor.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\APlayerCameraManager.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\APointLightActor.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\ASpotLightActor.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\AStaticMeshActor.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\ASkeletalMeshActor.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UActorComponent.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UAmbientLightComponent.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UAudioComponent.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UBillboardComponent.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UBoxComponent.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UCameraComponent.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UCapsuleComponent.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UDecalComponent.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UDirectionalLightComponent.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UHeightFogComponent.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\ULightComponent.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\ULightComponentBase.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\ULocalLightComponent.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\ULuaScriptComponent.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UPerspectiveDecalComponent.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UPointLightComponent.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UPrimitiveComponent.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UProjectileMovementComponent.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\URotatingMovementComponent.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\USceneComponent.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UShapeComponent.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\USphereComponent.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\USpotLightComponent.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UStaticMeshComponent.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\USkinnedMeshComponent.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\USkeletalMeshComponent.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UTextRenderComponent.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
     <ClCompile Include="pch.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Source\Editor\FbxLoader.cpp">
@@ -1019,156 +896,6 @@
     <ClCompile Include="Source\Slate\Windows\UIWindow.cpp">
       <Filter>Source\Slate\Windows</Filter>
     </ClCompile>
-    <ClCompile Include="Generated\UMeshComponent.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UMovementComponent.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\AInfo.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UAnimDataModel.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UAnimationAsset.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UAnimSequence.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UAnimSequenceBase.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UAnimInstance.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UAnimSingleNodeInstance.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UAnimStateMachineInstance.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\AController.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\APlayerController.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UInputComponent.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\APawn.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UCharacterMovementComponent.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\ACharacter.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\USpringArmComponent.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\AGameModeBase.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\AGameStateBase.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UAnimBlendSpaceInstance.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\ADancingCharacter.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UPropertyTestComponent.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\EnumRegistry.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\FTestStruct.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UParticleSystemComponent.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UParticleEmitter.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UParticleLODLevel.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UParticleModule.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UParticleModuleAcceleration.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UParticleModuleColor.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UParticleModuleLifetime.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UParticleModuleLocation.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UParticleModuleRotation.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UParticleModuleRotationRate.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UParticleModuleRequired.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UParticleModuleSize.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UParticleModuleSpawn.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UParticleModuleTypeDataBase.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UParticleModuleTypeDataMesh.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UParticleModuleTypeDataSprite.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UParticleModuleVelocity.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UParticleSystem.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UParticleModuleSizeScaleBySpeed.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UParticleModuleMeshRotation.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UParticleModuleTypeDataBeam.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UParticleModuleTypeDataRibbon.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\AParticleEventManager.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UParticleModuleCollision.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UParticleModuleEventGenerator.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UParticleModuleEventReceiverBase.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
     <ClCompile Include="Source\Runtime\Engine\Particles\ParticleEventManager.cpp">
       <Filter>Source\Runtime\Engine\Particles</Filter>
     </ClCompile>
@@ -1181,43 +908,343 @@
     <ClCompile Include="Source\Runtime\Engine\Particles\Modules\ParticleModuleEventReceiver.cpp">
       <Filter>Source\Runtime\Engine\Particles\Modules</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Runtime\Core\Memory\WeakObjectPtr.cpp" />
+    <ClCompile Include="Source\Runtime\Physics\SnippetVehicleSceneQuery.cpp" />
+    <ClCompile Include="Source\Runtime\Physics\VehicleData.cpp" />
+    <ClCompile Include="Generated\USkeletalMesh.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\AActor.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\UActorComponent.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\AFireBallActor.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\UAnimationAsset.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\UAnimBlendSpaceInstance.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\UAnimDataModel.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\UAnimInstance.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\UAnimSequence.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\UAnimSequenceBase.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\UAnimSingleNodeInstance.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\UAnimStateMachineInstance.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\UAmbientLightComponent.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\UAudioComponent.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\UBillboardComponent.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\UBoxComponent.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\UCameraComponent.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\UCapsuleComponent.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\UCharacterMovementComponent.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\UDecalComponent.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\UDepthOfFieldComponent.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\UDirectionalLightComponent.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\UHeightFogComponent.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\UInputComponent.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\ULightComponent.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\ULightComponentBase.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\ULocalLightComponent.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\ULuaScriptComponent.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\UMeshComponent.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\UMovementComponent.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\UParticleSystemComponent.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\UPerspectiveDecalComponent.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\UPointLightComponent.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\UPrimitiveComponent.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\UProjectileMovementComponent.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\UPropertyTestComponent.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\URotatingMovementComponent.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\USceneComponent.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\UShapeComponent.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\USkeletalMeshComponent.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\USkinnedMeshComponent.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\USphereComponent.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\USpotLightComponent.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\USpringArmComponent.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\UStaticMeshComponent.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\UTextRenderComponent.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\UVehicleComponent.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\AAmbientLightActor.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\ACameraActor.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\ACharacter.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\AController.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\ADancingCharacter.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\ADecalActor.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\ADepthOfFieldActor.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\ADirectionalLightActor.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\AEmptyActor.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\AFakeSpotLightActor.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\AGameModeBase.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\AGameStateBase.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\AHeightFogActor.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\AHudExampleGameMode.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\AInfo.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\APawn.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\APlayerCameraManager.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\APlayerController.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\APointLightActor.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\ARibbonActor.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\ASkeletalMeshActor.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\ASpotLightActor.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\AStaticMeshActor.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\AVehicleActor.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\UParticleEmitter.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\AParticleEventManager.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\UParticleLODLevel.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\UParticleSystem.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\UParticleModule.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\UParticleModuleAcceleration.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\UParticleModuleCollision.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\UParticleModuleColor.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\UParticleModuleEventGenerator.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\UParticleModuleEventReceiverBase.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
     <ClCompile Include="Generated\UParticleModuleEventReceiverKill.generated.cpp">
       <Filter>Generated</Filter>
     </ClCompile>
     <ClCompile Include="Generated\UParticleModuleEventReceiverSpawn.generated.cpp">
       <Filter>Generated</Filter>
     </ClCompile>
-    <ClCompile Include="Generated\FParticleEventGeneratorInfo.generated.cpp">
+    <ClCompile Include="Generated\UParticleModuleLifetime.generated.cpp">
       <Filter>Generated</Filter>
     </ClCompile>
-    <ClCompile Include="Generated\FParticleBurst.generated.cpp">
+    <ClCompile Include="Generated\UParticleModuleLocation.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\UParticleModuleMeshRotation.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\UParticleModuleRequired.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\UParticleModuleRotation.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\UParticleModuleRotationRate.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\UParticleModuleSize.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\UParticleModuleSizeScaleBySpeed.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\UParticleModuleSpawn.generated.cpp">
       <Filter>Generated</Filter>
     </ClCompile>
     <ClCompile Include="Generated\UParticleModuleTrailSource.generated.cpp">
       <Filter>Generated</Filter>
     </ClCompile>
-    <ClCompile Include="Generated\ARibbonActor.generated.cpp">
+    <ClCompile Include="Generated\UParticleModuleTypeDataBase.generated.cpp">
       <Filter>Generated</Filter>
     </ClCompile>
-    <ClCompile Include="Generated\UDepthOfFieldComponent.generated.cpp">
+    <ClCompile Include="Generated\UParticleModuleTypeDataBeam.generated.cpp">
       <Filter>Generated</Filter>
     </ClCompile>
-    <ClCompile Include="Generated\ADepthOfFieldActor.generated.cpp">
+    <ClCompile Include="Generated\UParticleModuleTypeDataMesh.generated.cpp">
       <Filter>Generated</Filter>
     </ClCompile>
-    <ClCompile Include="Generated\AHudExampleGameMode.generated.cpp">
+    <ClCompile Include="Generated\UParticleModuleTypeDataRibbon.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\UParticleModuleTypeDataSprite.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\UParticleModuleVelocity.generated.cpp">
       <Filter>Generated</Filter>
     </ClCompile>
     <ClCompile Include="Generated\UBodySetup.generated.cpp">
       <Filter>Generated</Filter>
     </ClCompile>
+    <ClCompile Include="Generated\UBodySetupCore.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
     <ClCompile Include="Generated\UPhysicalMaterial.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\UPhysicsAsset.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\UPhysicsConstraintTemplate.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\USkeletalBodySetup.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\FTestStruct.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\FParticleBurst.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\FParticleEventGeneratorInfo.generated.cpp">
       <Filter>Generated</Filter>
     </ClCompile>
     <ClCompile Include="Generated\FKAggregateGeom.generated.cpp">
       <Filter>Generated</Filter>
     </ClCompile>
     <ClCompile Include="Generated\FKBoxElem.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\FConstraintInstance.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\FKConvexElem.generated.cpp">
       <Filter>Generated</Filter>
     </ClCompile>
     <ClCompile Include="Generated\FKShapeElem.generated.cpp">
@@ -1229,155 +1256,14 @@
     <ClCompile Include="Generated\FKSphylElem.generated.cpp">
       <Filter>Generated</Filter>
     </ClCompile>
-    <ClCompile Include="Generated\UPhysicsAsset.generated.cpp">
+    <ClCompile Include="Generated\FVehicleData.generated.cpp">
       <Filter>Generated</Filter>
     </ClCompile>
-    <ClCompile Include="Generated\USkeletalBodySetup.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UPhysicsConstraintTemplate.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\FConstraintInstance.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UBodySetupCore.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\FKConvexElem.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UVehicleComponent.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\AVehicleActor.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\USkeletalMesh.generated.cpp">
+    <ClCompile Include="Generated\EnumRegistry.generated.cpp">
       <Filter>Generated</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Generated\AActor.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\AAmbientLightActor.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\ACameraActor.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\ADecalActor.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\ADirectionalLightActor.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\AEmptyActor.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\AFakeSpotLightActor.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\AFireBallActor.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\AHeightFogActor.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\APlayerCameraManager.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\APointLightActor.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\ASpotLightActor.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\AStaticMeshActor.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UActorComponent.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UAmbientLightComponent.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UAudioComponent.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UBillboardComponent.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UBoxComponent.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UCameraComponent.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UCapsuleComponent.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UDecalComponent.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UDirectionalLightComponent.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UHeightFogComponent.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\ULightComponent.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\ULightComponentBase.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\ULocalLightComponent.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\ULuaScriptComponent.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UPerspectiveDecalComponent.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UPointLightComponent.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UPrimitiveComponent.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UProjectileMovementComponent.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\URotatingMovementComponent.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\USceneComponent.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UShapeComponent.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\USphereComponent.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\USpotLightComponent.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UStaticMeshComponent.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\USkinnedMeshComponent.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\USkeletalMeshComponent.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UTextRenderComponent.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
     <ClInclude Include="pch.h" />
     <ClInclude Include="Source\Editor\Clipboard\ClipboardManager.h">
       <Filter>Source\Editor\Clipboard</Filter>
@@ -1743,9 +1629,6 @@
       <Filter>Source\Runtime\Physics</Filter>
     </ClInclude>
     <ClInclude Include="Source\Runtime\Physics\SphylElem.h">
-      <Filter>Source\Runtime\Physics</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Physics\VehicleDataStruct.h">
       <Filter>Source\Runtime\Physics</Filter>
     </ClInclude>
     <ClInclude Include="Source\Runtime\Renderer\AnimationViewerViewportClient.h">
@@ -2390,162 +2273,6 @@
     <ClInclude Include="ThirdParty\include\Lua\lualib.h">
       <Filter>ThirdParty\include\Lua</Filter>
     </ClInclude>
-    <ClInclude Include="Generated\UMeshComponent.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\ASkinnedMeshActor.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\ASkeletalMeshActor.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UMovementComponent.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\AInfo.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UAnimDataModel.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UAnimationAsset.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UAnimSequence.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UAnimSequenceBase.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UAnimInstance.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UAnimSingleNodeInstance.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UAnimStateMachineInstance.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\AController.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\APlayerController.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UInputComponent.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\APawn.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UCharacterMovementComponent.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\ACharacter.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\USpringArmComponent.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\AGameModeBase.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\AGameStateBase.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UAnimBlendSpaceInstance.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\ADancingCharacter.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UPropertyTestComponent.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\EnumRegistry.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\FTestStruct.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UParticleSystemComponent.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UParticleEmitter.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UParticleLODLevel.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UParticleModule.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UParticleModuleAcceleration.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UParticleModuleColor.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UParticleModuleLifetime.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UParticleModuleLocation.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UParticleModuleRotation.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UParticleModuleRotationRate.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UParticleModuleRequired.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UParticleModuleSize.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UParticleModuleSpawn.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UParticleModuleTypeDataBase.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UParticleModuleTypeDataMesh.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UParticleModuleTypeDataSprite.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UParticleModuleVelocity.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UParticleSystem.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UParticleModuleSizeScaleBySpeed.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UParticleModuleMeshRotation.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UParticleModuleTypeDataBeam.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UParticleModuleTypeDataRibbon.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\AParticleEventManager.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UParticleModuleCollision.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UParticleModuleEventGenerator.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UParticleModuleEventReceiverBase.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
     <ClInclude Include="Source\Runtime\Engine\Particles\ParticleEventManager.h">
       <Filter>Source\Runtime\Engine\Particles</Filter>
     </ClInclude>
@@ -2558,43 +2285,343 @@
     <ClInclude Include="Source\Runtime\Engine\Particles\Modules\ParticleModuleEventReceiver.h">
       <Filter>Source\Runtime\Engine\Particles\Modules</Filter>
     </ClInclude>
+    <ClInclude Include="Source\Runtime\Core\Memory\WeakObjectPtr.h" />
+    <ClInclude Include="Source\Runtime\Physics\VehicleData.h" />
+    <ClInclude Include="Source\Runtime\Physics\SnippetVehicleSceneQuery.h" />
+    <ClInclude Include="Generated\USkeletalMesh.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\AActor.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UActorComponent.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\AFireBallActor.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UAnimationAsset.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UAnimBlendSpaceInstance.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UAnimDataModel.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UAnimInstance.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UAnimSequence.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UAnimSequenceBase.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UAnimSingleNodeInstance.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UAnimStateMachineInstance.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UAmbientLightComponent.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UAudioComponent.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UBillboardComponent.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UBoxComponent.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UCameraComponent.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UCapsuleComponent.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UCharacterMovementComponent.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UDecalComponent.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UDepthOfFieldComponent.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UDirectionalLightComponent.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UHeightFogComponent.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UInputComponent.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\ULightComponent.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\ULightComponentBase.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\ULocalLightComponent.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\ULuaScriptComponent.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UMeshComponent.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UMovementComponent.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UParticleSystemComponent.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UPerspectiveDecalComponent.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UPointLightComponent.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UPrimitiveComponent.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UProjectileMovementComponent.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UPropertyTestComponent.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\URotatingMovementComponent.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\USceneComponent.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UShapeComponent.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\USkeletalMeshComponent.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\USkinnedMeshComponent.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\USphereComponent.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\USpotLightComponent.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\USpringArmComponent.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UStaticMeshComponent.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UTextRenderComponent.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UVehicleComponent.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\AAmbientLightActor.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\ACameraActor.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\ACharacter.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\AController.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\ADancingCharacter.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\ADecalActor.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\ADepthOfFieldActor.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\ADirectionalLightActor.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\AEmptyActor.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\AFakeSpotLightActor.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\AGameModeBase.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\AGameStateBase.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\AHeightFogActor.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\AHudExampleGameMode.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\AInfo.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\APawn.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\APlayerCameraManager.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\APlayerController.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\APointLightActor.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\ARibbonActor.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\ASkeletalMeshActor.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\ASpotLightActor.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\AStaticMeshActor.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\AVehicleActor.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UParticleEmitter.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\AParticleEventManager.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UParticleLODLevel.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UParticleSystem.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UParticleModule.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UParticleModuleAcceleration.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UParticleModuleCollision.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UParticleModuleColor.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UParticleModuleEventGenerator.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UParticleModuleEventReceiverBase.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
     <ClInclude Include="Generated\UParticleModuleEventReceiverKill.generated.h">
       <Filter>Generated</Filter>
     </ClInclude>
     <ClInclude Include="Generated\UParticleModuleEventReceiverSpawn.generated.h">
       <Filter>Generated</Filter>
     </ClInclude>
-    <ClInclude Include="Generated\FParticleEventGeneratorInfo.generated.h">
+    <ClInclude Include="Generated\UParticleModuleLifetime.generated.h">
       <Filter>Generated</Filter>
     </ClInclude>
-    <ClInclude Include="Generated\FParticleBurst.generated.h">
+    <ClInclude Include="Generated\UParticleModuleLocation.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UParticleModuleMeshRotation.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UParticleModuleRequired.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UParticleModuleRotation.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UParticleModuleRotationRate.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UParticleModuleSize.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UParticleModuleSizeScaleBySpeed.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UParticleModuleSpawn.generated.h">
       <Filter>Generated</Filter>
     </ClInclude>
     <ClInclude Include="Generated\UParticleModuleTrailSource.generated.h">
       <Filter>Generated</Filter>
     </ClInclude>
-    <ClInclude Include="Generated\ARibbonActor.generated.h">
+    <ClInclude Include="Generated\UParticleModuleTypeDataBase.generated.h">
       <Filter>Generated</Filter>
     </ClInclude>
-    <ClInclude Include="Generated\UDepthOfFieldComponent.generated.h">
+    <ClInclude Include="Generated\UParticleModuleTypeDataBeam.generated.h">
       <Filter>Generated</Filter>
     </ClInclude>
-    <ClInclude Include="Generated\ADepthOfFieldActor.generated.h">
+    <ClInclude Include="Generated\UParticleModuleTypeDataMesh.generated.h">
       <Filter>Generated</Filter>
     </ClInclude>
-    <ClInclude Include="Generated\AHudExampleGameMode.generated.h">
+    <ClInclude Include="Generated\UParticleModuleTypeDataRibbon.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UParticleModuleTypeDataSprite.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UParticleModuleVelocity.generated.h">
       <Filter>Generated</Filter>
     </ClInclude>
     <ClInclude Include="Generated\UBodySetup.generated.h">
       <Filter>Generated</Filter>
     </ClInclude>
+    <ClInclude Include="Generated\UBodySetupCore.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
     <ClInclude Include="Generated\UPhysicalMaterial.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UPhysicsAsset.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UPhysicsConstraintTemplate.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\USkeletalBodySetup.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\FTestStruct.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\FParticleBurst.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\FParticleEventGeneratorInfo.generated.h">
       <Filter>Generated</Filter>
     </ClInclude>
     <ClInclude Include="Generated\FKAggregateGeom.generated.h">
       <Filter>Generated</Filter>
     </ClInclude>
     <ClInclude Include="Generated\FKBoxElem.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\FConstraintInstance.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\FKConvexElem.generated.h">
       <Filter>Generated</Filter>
     </ClInclude>
     <ClInclude Include="Generated\FKShapeElem.generated.h">
@@ -2606,31 +2633,10 @@
     <ClInclude Include="Generated\FKSphylElem.generated.h">
       <Filter>Generated</Filter>
     </ClInclude>
-    <ClInclude Include="Generated\UPhysicsAsset.generated.h">
+    <ClInclude Include="Generated\FVehicleData.generated.h">
       <Filter>Generated</Filter>
     </ClInclude>
-    <ClInclude Include="Generated\USkeletalBodySetup.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UPhysicsConstraintTemplate.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\FConstraintInstance.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UBodySetupCore.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\FKConvexElem.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\USkeletalMesh.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UVehicleComponent.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\AVehicleActor.generated.h">
+    <ClInclude Include="Generated\EnumRegistry.generated.h">
       <Filter>Generated</Filter>
     </ClInclude>
   </ItemGroup>
@@ -2675,9 +2681,6 @@
     </Filter>
     <Filter Include="Shaders\Utility">
       <UniqueIdentifier>{69e015d0-5c82-44e7-b315-1b103a991783}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Generated">
-      <UniqueIdentifier>{36177b55-fd84-48cf-bbfb-7323a340357c}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source">
       <UniqueIdentifier>{c83184a0-dac3-4fc2-a023-5f48fda0edd9}</UniqueIdentifier>
@@ -2807,6 +2810,9 @@
     </Filter>
     <Filter Include="BuildTools\CodeGenerator">
       <UniqueIdentifier>{8c78d171-7bb4-4a89-9ea9-196818d5a97a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Generated">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

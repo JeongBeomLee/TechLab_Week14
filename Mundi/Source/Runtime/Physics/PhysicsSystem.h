@@ -19,6 +19,7 @@ public:
     PxDefaultCpuDispatcher* GetCpuDispatcher() const { return mDispatcher; }
     PxMaterial* GetDefaultMaterial() const { return mMaterial; }
     PxCooking* GetCooking() const { return mCooking; }
+    PxDefaultAllocator& GetAllocator() { return mAllocator; }
 
 private:
     // 복사 방지는 여전히 해두는 게 안전함

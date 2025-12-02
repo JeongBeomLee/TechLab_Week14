@@ -86,6 +86,10 @@ ID3D11ShaderResourceView* FThumbnailManager::GetThumbnail(const std::string& Fil
 	{
 		ThumbnailData = CreateParticleThumbnail(FilePath);
 	}
+	else if (Extension == ".blendspace")
+	{
+		ThumbnailData = CreateBlendSpaceThumbnail(FilePath);
+	}
 	else
 	{
 		// 기본 아이콘 사용
@@ -167,6 +171,43 @@ FThumbnailData* FThumbnailManager::CreateParticleThumbnail(const std::string& Fi
 	return &DefaultIconCache[".particle"];
 }
 
+FThumbnailData* FThumbnailManager::CreateBlendSpaceThumbnail(const std::string& FilePath)
+{
+	// 블렌드 스페이스 아이콘 로드
+	const std::string IconPath = "Data/Icon/BlendSpaceIcon.png";
+
+	// 이미 캐시에 있으면 반환
+	auto It = DefaultIconCache.find(".blendspace");
+	if (It != DefaultIconCache.end())
+	{
+		return &It->second;
+	}
+
+	if (!Device)
+	{
+		return nullptr;
+	}
+
+	// 아이콘 이미지 로드
+	UTexture* IconTexture = UResourceManager::GetInstance().Load<UTexture>(FString(IconPath.c_str()), true);
+	if (!IconTexture || !IconTexture->GetShaderResourceView())
+	{
+		UE_LOG("ThumbnailManager: Failed to load blendspace icon: %s", IconPath.c_str());
+		return CreateDefaultThumbnail(".blendspace");
+	}
+
+	// 캐시에 추가 (ResourceManager가 관리하므로 Release하지 않음)
+	FThumbnailData Data;
+	Data.SRV = IconTexture->GetShaderResourceView();
+	Data.Texture = IconTexture->GetTexture2D();
+	Data.Width = IconTexture->GetWidth();
+	Data.Height = IconTexture->GetHeight();
+	Data.bOwnedByManager = false;
+
+	DefaultIconCache[".blendspace"] = Data;
+	return &DefaultIconCache[".blendspace"];
+}
+
 FThumbnailData* FThumbnailManager::CreateImageThumbnail(const std::string& FilePath)
 {
 	if (!Device)
@@ -226,6 +267,10 @@ FThumbnailData* FThumbnailManager::CreateDefaultThumbnail(const std::string& Ext
 	else if (Extension == ".mat")
 	{
 		Color = 0xFFFF8040; // 주황색 (머티리얼)
+	}
+	else if (Extension == ".blendspace")
+	{
+		Color = 0xFFFF40FF; // 마젠타 (블렌드 스페이스)
 	}
 
 	// 텍스처 데이터 생성 (단색)

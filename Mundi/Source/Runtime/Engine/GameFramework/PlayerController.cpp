@@ -1,10 +1,11 @@
-// ────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────
 // PlayerController.cpp
 // 플레이어 입력 처리 Controller 구현
 // ────────────────────────────────────────────────────────────────────────────
 #include "pch.h"
 #include "PlayerController.h"
 #include "Pawn.h"
+#include "Character.h"
 #include "InputComponent.h"
 #include "InputManager.h"
 #include "PlayerCameraManager.h"
@@ -16,7 +17,7 @@ APlayerController::APlayerController()
 	, bInputEnabled(true)
 	, bShowMouseCursor(true)
 	, bIsMouseLocked(false)
-	, MouseSensitivity(1.0f)
+	, MouseSensitivity(0.1f)
 	, PlayerCameraManager(nullptr)
 {
 }
@@ -51,6 +52,7 @@ void APlayerController::Tick(float DeltaSeconds)
 	if (bInputEnabled)
 	{
 		ProcessPlayerInput();
+		ProcessMouseInput();
 	}
 
 	// 카메라 업데이트는 PlayerCameraManager의 Tick에서 자동으로 처리됨
@@ -79,15 +81,21 @@ void APlayerController::OnPossess(APawn* InPawn)
 			InPawn->SetupPlayerInputComponent(InputComp);
 		}
 
-		// PlayerCameraManager 생성 (OnPossess가 BeginPlay보다 먼저 호출될 수 있음)
+		// PlayerCameraManager 생성 (World에 없을 때만)
 		if (!PlayerCameraManager && World && World->bPie)
 		{
-			PlayerCameraManager = World->SpawnActor<APlayerCameraManager>();
+			// World에 이미 PlayerCameraManager가 있으면 그것을 사용
+			APlayerCameraManager* ExistingPCM = World->GetPlayerCameraManager();
+			if (ExistingPCM)
+			{
+				PlayerCameraManager = ExistingPCM;
+			}
+			else
+			{
+				PlayerCameraManager = World->SpawnActor<APlayerCameraManager>();
+				World->SetPlayerCameraManager(PlayerCameraManager);
+			}
 		}
-
-		// TODO: Pawn의 CameraComponent를 찾아서 PlayerCameraManager에 설정
-		// Week11에서는 SetViewCamera(UCameraComponent*)를 사용
-		// 2단계에서 Pawn 구현 후 활성화
 	}
 }
 
@@ -112,6 +120,32 @@ void APlayerController::ProcessPlayerInput()
 	if (InputComp)
 	{
 		InputComp->ProcessInput();
+	}
+}
+
+void APlayerController::ProcessMouseInput()
+{
+	if (!InputManager)
+	{
+		return;
+	}
+
+	// 마우스 우클릭 중일 때만 카메라 회전
+	if (InputManager->IsMouseButtonDown(EMouseButton::RightButton))
+	{
+		FVector2D MouseDelta = InputManager->GetMouseDelta();
+
+		// Yaw (좌우 회전) - X축 마우스 이동
+		if (MouseDelta.X != 0.0f)
+		{
+			AddYawInput(MouseDelta.X * MouseSensitivity);
+		}
+
+		// Pitch (상하 회전) - Y축 마우스 이동
+		if (MouseDelta.Y != 0.0f)
+		{
+			AddPitchInput(MouseDelta.Y * MouseSensitivity);
+		}
 	}
 }
 
