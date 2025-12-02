@@ -1339,10 +1339,10 @@
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "1155" : {
+    "1141" : {
       "ObjectName" : "AParticleEventManager_9",
       "OwnedComponents" : [{
-          "Id" : 1156,
+          "Id" : 1142,
           "ObjectName" : "USceneComponent_13",
           "ParentId" : 0,
           "RelativeLocation" : [0.000000, 0.000000, 0.000000],
@@ -1355,13 +1355,13 @@
           "bTickEnabled" : true,
           "bTickInEditor" : false
         }],
-      "RootComponentId" : 1156,
+      "RootComponentId" : 1142,
       "Tag" : "",
       "Type" : "AParticleEventManager",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "1235" : {
+    "1143" : {
       "ObjectName" : "스켈레탈 메시_0",
       "OwnedComponents" : [{
           "BodyInstance" : {
@@ -1384,7 +1384,7 @@
             "bStartAwake" : true,
             "bUseCCD" : false
           },
-          "Id" : 1236,
+          "Id" : 1146,
           "MaterialSlots" : [{
               "Type" : "None"
             }, {
@@ -1393,6 +1393,7 @@
             }],
           "ObjectName" : "USkeletalMeshComponent_1",
           "ParentId" : 0,
+          "PhysicsAsset" : "Data/PhysicsAssets/TestPhysicsAsset.physicsasset",
           "RelativeLocation" : [12.827367, -2.099340, 2.435673],
           "RelativeRotationEuler" : [0.000000, -0.000000, 0.000000],
           "RelativeScale" : [1.000000, 1.000000, 1.000000],
@@ -1407,14 +1408,58 @@
           "bTickEnabled" : true,
           "bTickInEditor" : false
         }],
-      "RootComponentId" : 1236,
+      "RootComponentId" : 1146,
       "Tag" : "",
       "Type" : "ASkeletalMeshActor",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
+    },
+    "1148" : {
+      "ObjectName" : "AParticleEventManager_10",
+      "OwnedComponents" : [{
+          "Id" : 1149,
+          "ObjectName" : "USceneComponent_14",
+          "ParentId" : 0,
+          "RelativeLocation" : [0.000000, 0.000000, 0.000000],
+          "RelativeRotationEuler" : [0.000000, 0.000000, 0.000000],
+          "RelativeScale" : [1.000000, 1.000000, 1.000000],
+          "Type" : "USceneComponent",
+          "bHiddenInGame" : false,
+          "bIsActive" : true,
+          "bIsVisible" : true,
+          "bTickEnabled" : true,
+          "bTickInEditor" : false
+        }],
+      "RootComponentId" : 1149,
+      "Tag" : "",
+      "Type" : "AParticleEventManager",
+      "bActorHiddenInGame" : false,
+      "bActorIsActive" : true
+    },
+    "1166" : {
+      "ObjectName" : "AParticleEventManager_11",
+      "OwnedComponents" : [{
+          "Id" : 1167,
+          "ObjectName" : "USceneComponent_15",
+          "ParentId" : 0,
+          "RelativeLocation" : [0.000000, 0.000000, 0.000000],
+          "RelativeRotationEuler" : [0.000000, 0.000000, 0.000000],
+          "RelativeScale" : [1.000000, 1.000000, 1.000000],
+          "Type" : "USceneComponent",
+          "bHiddenInGame" : false,
+          "bIsActive" : true,
+          "bIsVisible" : true,
+          "bTickEnabled" : true,
+          "bTickInEditor" : false
+        }],
+      "RootComponentId" : 1167,
+      "Tag" : "",
+      "Type" : "AParticleEventManager",
+      "bActorHiddenInGame" : false,
+      "bActorIsActive" : true
     }
   },
-  "NextUUID" : 1238,
+  "NextUUID" : 1370,
   "PerspectiveCamera" : {
     "FOV" : [60.000000],
     "FarClip" : [2000.000000],

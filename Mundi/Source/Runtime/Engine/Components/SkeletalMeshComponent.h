@@ -19,7 +19,7 @@ class FPhysicsScene;
  * Ragdoll 시뮬레이션 상태
  */
 UENUM()
-enum class ERagdollState : uint8
+enum class EPhysicsBlendState : uint8
 {
     Disabled,       // 애니메이션만 사용
     BlendingIn,     // 애니메이션 → Ragdoll 전환 중
@@ -145,142 +145,78 @@ protected:
      */
     TArray<FMatrix> TempFinalSkinningMatrices;
 
-// FOR TEST!!!
 private:
-    float TestTime = 0;
-    bool bIsInitialized = false;
-    FTransform TestBoneBasePose;
-
     // Animation state
     UAnimInstance* AnimInstance = nullptr;
     bool bUseAnimation = true;
 
 // ===========================
-// Physics Asset Section
+// Physics Asset & Simulation Section
 // ===========================
 public:
-    // 메시의 PhysicsAsset을 편집하기 위한 프로퍼티
-    // 변경 시 메시의 PhysicsAsset도 함께 변경됨
+    /** 물리 엔진용 바디와 제약조건을 생성하고 초기화 */
+    void InitPhysics();
+    /** 물리 리소스를 해제 */
+    void TermPhysics();
+    
+    // PhysicsAsset을 편집하기 위한 프로퍼티
     UPROPERTY(EditAnywhere, Category="Physics")
     UPhysicsAsset* PhysicsAsset = nullptr;
 
-    // PhysicsAsset 동기화 (메시 변경 시 호출)
-    void SyncPhysicsAssetFromMesh();
-
     // 프로퍼티 변경 시 메시에 반영
-    virtual void OnPropertyChanged(const FProperty& Property) override;
-
-// ===========================
-// Ragdoll Physics Section
-// ===========================
-public:
-    // --- Ragdoll 생명주기 ---
-
-    /**
-     * Ragdoll Bodies 및 Constraints 초기화
-     * PhysicsAsset이 설정되어 있어야 함
-     */
-    void InitRagdoll();
-
-    /**
-     * Ragdoll Bodies 및 Constraints 해제
-     */
-    void TermRagdoll();
-
-    // --- Ragdoll 제어 ---
+    void OnPropertyChanged(const FProperty& Property) override;
 
     /**
      * Ragdoll 시뮬레이션 시작
+     * @param bSimulate - true면 PhysicsAsset Bodies Simulate, false면 KINEMATIC
      * @param bBlend - true면 블렌딩 전환, false면 즉시 전환
      */
-    void StartRagdoll(bool bBlend = true);
+    void SetSimulatePhysics(bool bSimulate, bool bBlend = true);
 
-    /**
-     * Ragdoll 시뮬레이션 정지 (Body는 Kinematic으로 유지, 재사용)
-     * @param bBlend - true면 블렌딩 전환, false면 즉시 전환
-     */
-    void StopRagdoll(bool bBlend = true);
+    // --- 상태 조회 ---
+    EPhysicsBlendState GetRagdollState() const { return PhysicsBlendState; }
+    bool IsPhysicsLogicActive() const { return PhysicsBlendState != EPhysicsBlendState::Disabled; }
 
-    // --- Ragdoll 상태 조회 ---
-
-    ERagdollState GetRagdollState() const { return RagdollState; }
-    bool IsRagdollActive() const { return RagdollState == ERagdollState::Active; }
-    bool IsRagdollSimulating() const
-    {
-        return RagdollState == ERagdollState::Active ||
-               RagdollState == ERagdollState::BlendingIn;
-    }
-
-    // --- Ragdoll 힘/임펄스 적용 ---
-
-    /**
-     * 특정 본의 물리 바디에 임펄스 적용
-     */
-    void AddImpulseToBody(const FName& BoneName, const FVector& Impulse);
-
-    /**
-     * 특정 본의 물리 바디에 힘 적용
-     */
-    void AddForceToBody(const FName& BoneName, const FVector& Force);
-
-    // --- Ragdoll 테스트/디버그 ---
-
-    /**
-     * PhysicsAsset이 없으면 자동으로 생성
-     * 모든 본에 대해 캡슐 Shape와 부모-자식 Constraint를 생성
-     */
-    void CreateTestPhysicsAsset();
-
-    /**
-     * Ragdoll 테스트 모드 활성화
-     * 특정 키(기본: R) 입력 시 Ragdoll 토글
-     */
-    void EnableRagdollTestMode(bool bEnable) { bRagdollTestMode = bEnable; }
-    bool IsRagdollTestModeEnabled() const { return bRagdollTestMode; }
-
-private:
-    bool bRagdollTestMode = true;
+    // --- 힘/임펄스 적용 ---
+    /** 특정 본의 물리 바디에 임펄스 적용 */
+    void AddImpulse(const FVector& Impulse, FName BoneName = FName(), bool bVelChange = false);
+    /** 특정 본의 물리 바디에 힘 적용 */
+    void AddForce(const FVector& Force, FName BoneName = FName(), bool bAccelChange = false);
 
 protected:
-    // --- Ragdoll 내부 메서드 ---
+    /** Ragdoll 상태 업데이트 (TickComponent에서 호출) */
+    void UpdatePhysicsBlend(float DeltaTime);
+
+    /** [Anim -> Physics] 애니메이션 포즈를 Kinematic Body로 전송 */
+    void UpdateKinematicBonesToAnim();
 
     /**
-     * Ragdoll 상태 업데이트 (TickComponent에서 호출)
+     * [Physics -> Anim] 물리 시뮬레이션 결과를 뼈 트랜스폼에 반영
      */
-    void UpdateRagdollState(float DeltaTime);
-
-    /**
-     * 애니메이션 포즈를 물리 Body에 텔레포트
-     */
-    void SyncRagdollToAnimation();
-
-    /**
-     * 물리 Body 위치를 본 트랜스폼으로 동기화
-     */
-    void SyncAnimationToRagdoll();
+    void BlendPhysicsBones();
 
     /**
      * 애니메이션/Ragdoll 포즈 블렌딩
      */
-    void BlendPoses(float Alpha);
+    void BlendPhysicsPoses(float Alpha);
 
     /**
      * PhysicsAsset의 Constraint들을 생성
      */
-    void CreateRagdollConstraints();
+    void CreatePhysicsConstraints();
 
 private:
-    // --- Ragdoll 상태 ---
-    ERagdollState RagdollState = ERagdollState::Disabled;
-    float RagdollBlendAlpha = 0.0f;
-    float RagdollBlendDuration = 0.3f;
+    // --- Physics 상태 ---
+    EPhysicsBlendState PhysicsBlendState = EPhysicsBlendState::Disabled;
+    float PhysicsBlendWeight = 0.0f;
+    float PhysicsBlendDuration = 0.3f;
 
     // --- Ragdoll Bodies/Constraints ---
-    TArray<FBodyInstance*> RagdollBodies;
-    TArray<FConstraintInstance*> RagdollConstraints;
-    TMap<FName, int32> BoneNameToBodyIndex;
+    TArray<FBodyInstance*> Bodies;
+    TArray<FConstraintInstance*> Constraints;
+    TMap<FName, int32> BodyIndexMap;
 
     // --- 블렌딩용 포즈 저장 ---
-    TArray<FTransform> PreRagdollPose;  // Ragdoll 전환 전 애니메이션 포즈
-    TArray<FTransform> RagdollPose;     // 피직스에서 가져온 포즈
+    TArray<FTransform> PhysicsBlendPoseSaved;  // Ragdoll 전환 전 애니메이션 포즈
+    TArray<FTransform> PhysicsResultPose;      // 피직스에서 가져온 포즈
 };

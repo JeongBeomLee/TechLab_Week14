@@ -505,14 +505,68 @@ struct FQuat
 		return A.X * B.X + A.Y * B.Y + A.Z * B.Z + A.W * B.W;
 	}
 
+	static FQuat FindQuatBetween(const FVector& Start, const FVector& End)
+	{
+		// 1. 내적 (각도 코사인 값)
+		float Dot = FVector::Dot(Start, End);
+
+		// Case A: 두 벡터가 거의 같음 (회전 불필요)
+		if (Dot > 0.9999f)
+		{
+			return FQuat::Identity();
+		}
+
+		// Case B: 두 벡터가 정반대 (180도 회전)
+		// 180도일 때는 회전축이 무수히 많으므로, 임의의 수직인 축을 하나 잡아야 함.
+		if (Dot < -0.9999f)
+		{
+			// Start 벡터와 수직인 축 찾기
+			FVector Axis = FVector::Cross(FVector(0, 0, 1), Start);
+        
+			// 만약 Start가 Z축이라서 결과가 0이면, Y축이랑 외적
+			if (Axis.SizeSquared() < 0.001f)
+			{
+				Axis = FVector::Cross(FVector(0, 1, 0), Start);
+			}
+			Axis.Normalize();
+        
+			// 180도(PI) 회전 쿼터니언 반환
+			// 언리얼 FQuat 생성자: (Axis, AngleRad)
+			return FQuat(Axis.X, Axis.Y, Axis.Z, 3.14159265f); 
+		}
+
+		// Case C: 일반적인 경우 (최단 회전)
+		// 회전축 = 두 벡터의 외적 (Cross Product)
+		FVector RotationAxis = FVector::Cross(Start, End);
+    
+		// 쿼터니언의 W 성분 = 1 + Dot (Half-way vector trick)
+		// Q = (Axis.x, Axis.y, Axis.z, 1 + Dot) 하고 정규화하면 됨
+		FQuat Result(RotationAxis.X, RotationAxis.Y, RotationAxis.Z, 1.0f + Dot);
+		Result.Normalize();
+    
+		return Result;
+	}
+
 	float SizeSquared() const { return X * X + Y * Y + Z * Z + W * W; }
 	float Size()        const { return std::sqrt(SizeSquared()); }
 
 	void Normalize()
 	{
-		float S = Size();
-		if (S > KINDA_SMALL_NUMBER) { X /= S; Y /= S; Z /= S; W /= S; }
-		else { *this = Identity(); }
+		float SquareSum = X*X + Y*Y + Z*Z + W*W;
+		if (SquareSum < 1.e-8f) 
+		{
+			*this = Identity();
+			return;
+		}
+
+		float Scale = 1.0f / sqrtf(SquareSum);
+		X *= Scale;
+		Y *= Scale;
+		Z *= Scale;
+		W *= Scale;
+
+		if (W > 1.0f) W = 1.0f;
+		else if (W < -1.0f) W = -1.0f;
 	}
 
 	FQuat GetNormalized() const
