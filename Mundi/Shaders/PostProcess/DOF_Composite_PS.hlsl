@@ -18,14 +18,27 @@ float4 mainPS(PS_INPUT input) : SV_Target
     g_SceneColorTex.GetDimensions(TexWidth, TexHeight);
     float2 uv = float2(input.position.x / TexWidth, input.position.y / TexHeight);
     
-    float2 COC = g_COCTex.Sample(g_PointClampSample, uv).rg;
+    float2 COC = g_COCTex.Sample(g_LinearClampSample, uv).rg;
+    
+    float w0 = max(1 - COC.r - COC.g, 0);
+    float w1 = COC.r;
+    float w2 = COC.g;
+    
+    //float w1 = COC.r;
+    //float w2 = COC.g * (1 - w1);
+    //float w0 = 1 - w1 - w2;
 
-    float Origin = 1 - COC.r - COC.g;
+    //float sum = w0 + w1 + w2;
+    //w0 /= sum;
+    //w1 /= sum;
+    //w2 /= sum;
+    
     float3 SceneColor = g_SceneColorTex.Sample(g_LinearClampSample, uv);
     float3 NearColor = g_NearBlurTex.Sample(g_LinearClampSample, uv);
     float3 FarColor = g_FarBlurTex.Sample(g_LinearClampSample, uv);
-    
-    float3 FinalColor = SceneColor * Origin + NearColor * COC.r + FarColor * COC.g;
+
+    float3 FinalColor = SceneColor * w0 + NearColor * w1 + FarColor * w2;
+
     //return float4(SceneColor, 1);
     //return float4(FarColor, 1);
     //return float4(NearColor, 1);

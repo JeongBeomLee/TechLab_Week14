@@ -12,11 +12,11 @@ struct FKSphereElem : public FKShapeElem
     static inline EAggCollisionShape StaticShapeType = EAggCollisionShape::Sphere;
 
     /** 구의 중심 */
-    UPROPERTY()
+    UPROPERTY(EditAnywhere, Category="Transform")
     FVector Center;
 
     /** 구의 반지름 */
-    UPROPERTY()
+    UPROPERTY(EditAnywhere, Category="Shape")
     float Radius;
 
     FKSphereElem()

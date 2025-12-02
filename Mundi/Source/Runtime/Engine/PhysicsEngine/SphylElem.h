@@ -14,19 +14,19 @@ struct FKSphylElem : public FKShapeElem
     static inline EAggCollisionShape StaticShapeType = EAggCollisionShape::Sphyl;
 
     /** 캡슐의 중심 */
-    UPROPERTY()
+    UPROPERTY(EditAnywhere, Category="Transform")
     FVector Center;
 
     /** 캡슐의 회전 (쿼터니언) */
-    UPROPERTY()
+    UPROPERTY(EditAnywhere, Category="Transform")
     FQuat Rotation;
 
     /** 캡슐의 반지름 */
-    UPROPERTY()
+    UPROPERTY(EditAnywhere, Category="Shape")
     float Radius;
 
     /** 캡슐의 길이 (반구 제외, 원기둥 부분만) */
-    UPROPERTY()
+    UPROPERTY(EditAnywhere, Category="Shape")
     float Length;
 
     FKSphylElem()

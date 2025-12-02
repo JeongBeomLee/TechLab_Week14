@@ -46,12 +46,6 @@ public:
     TArray<FVector>& GetDirectEndPoints() { return DirectEndPoints; }
     TArray<FVector4>& GetDirectColors() { return DirectColors; }
 
-    // ───── Triangle Batch Mode (삼각형 면 렌더링) ─────
-    void SetTriangleBatch(const TArray<FVector>& Vertices, const TArray<uint32>& Indices, const TArray<FVector4>& Colors);
-    void SetTriangleBatch(const FTrianglesBatch& Batch);
-    void ClearTriangleBatch();
-    void CollectTriangleBatches(URenderer* Renderer);
-    bool HasVisibleTriangles() const { return bLinesVisible && !TriangleVertices.empty(); }
 
     // ───── 복사 관련 ────────────────────────────
     void DuplicateSubObjects() override;
@@ -66,9 +60,4 @@ private:
     TArray<FVector> DirectStartPoints;
     TArray<FVector> DirectEndPoints;
     TArray<FVector4> DirectColors;
-
-    // Triangle batch data (DOD mode) - Triangles
-    TArray<FVector> TriangleVertices;
-    TArray<uint32> TriangleIndices;
-    TArray<FVector4> TriangleColors;
  };

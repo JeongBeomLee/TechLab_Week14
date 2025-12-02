@@ -4,6 +4,7 @@
 #include "Source/Runtime/Engine/Viewer/PhysicsAssetEditorState.h"
 #include "Source/Runtime/Engine/PhysicsEngine/PhysicsAsset.h"
 #include "Source/Runtime/Engine/PhysicsEngine/BodySetup.h"
+#include "Source/Slate/Widgets/PropertyRenderer.h"
 
 IMPLEMENT_CLASS(UBodyPropertiesWidget);
 
@@ -35,10 +36,16 @@ void UBodyPropertiesWidget::RenderWidget()
 
 	bWasModified = false;
 
-	ImGui::Text("Body: %s", Body->BoneName.ToString().c_str());
-	ImGui::Separator();
+	// Body 기본 속성을 PropertyRenderer로 자동 렌더링 (Bone, Physics 카테고리)
+	if (UPropertyRenderer::RenderAllPropertiesWithInheritance(Body))
+	{
+		EditorState->bIsDirty = true;
+		bWasModified = true;
+	}
 
-	// Shape 속성
+	ImGui::Spacing();
+
+	// Shape 속성 (수동 렌더링 - 타입별 추가/삭제 UI 필요)
 	if (ImGui::CollapsingHeader("Shapes", ImGuiTreeNodeFlags_DefaultOpen))
 	{
 		bWasModified |= RenderShapeProperties(Body);

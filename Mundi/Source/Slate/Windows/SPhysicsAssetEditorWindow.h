@@ -97,11 +97,11 @@ public:
 	// 바디/제약 조건 작업
 	// ────────────────────────────────────────────────
 	void AutoGenerateBodies(EAggCollisionShape PrimitiveType, float MinBoneSize);
-	void AddBodyToBone(int32 BoneIndex);
+	void AddBodyToBone(int32 BoneIndex, EAggCollisionShape PrimitiveType);
 	void RemoveSelectedBody();
 	void AddConstraintBetweenBodies(int32 ParentBodyIndex, int32 ChildBodyIndex);
 	void RemoveSelectedConstraint();
-	void RegenerateSelectedBody();
+	void RegenerateSelectedBody(EAggCollisionShape PrimitiveType);
 	void AddPrimitiveToBody(int32 BodyIndex, int32 PrimitiveType);  // 0=Box, 1=Sphere, 2=Capsule
 
 	// ────────────────────────────────────────────────

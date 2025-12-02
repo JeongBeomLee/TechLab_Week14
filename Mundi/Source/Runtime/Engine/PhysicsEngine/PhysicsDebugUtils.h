@@ -82,19 +82,6 @@ public:
 		const FVector4& Color,
 		FTrianglesBatch& OutBatch);
 
-	/**
-	 * ULineComponent에 PhysicsAsset 디버그 메쉬 설정
-	 * @param LineComponent 대상 라인 컴포넌트
-	 * @param PhysicsAsset 물리 에셋
-	 * @param BoneTransforms 각 본의 월드 트랜스폼 배열
-	 * @param Color 메쉬 색상 (기본: 반투명 녹색)
-	 */
-	static void SetPhysicsDebugMesh(
-		ULineComponent* LineComponent,
-		class UPhysicsAsset* PhysicsAsset,
-		const TArray<FTransform>& BoneTransforms,
-		const FVector4& Color = FVector4(0.0f, 1.0f, 0.0f, 0.3f));
-
 	// ========== Constraint 시각화 함수들 ==========
 
 	/**

@@ -305,19 +305,6 @@ void FPhysicsDebugUtils::GeneratePhysicsAssetDebugMesh(
 	}
 }
 
-void FPhysicsDebugUtils::SetPhysicsDebugMesh(
-	ULineComponent* LineComponent,
-	UPhysicsAsset* PhysicsAsset,
-	const TArray<FTransform>& BoneTransforms,
-	const FVector4& Color)
-{
-	if (!LineComponent || !PhysicsAsset) return;
-
-	FTrianglesBatch TriangleBatch;
-	GeneratePhysicsAssetDebugMesh(PhysicsAsset, BoneTransforms, Color, TriangleBatch);
-	LineComponent->SetTriangleBatch(TriangleBatch);
-}
-
 // ========== Constraint 시각화 구현 ==========
 
 void FPhysicsDebugUtils::GenerateSwingConeMesh(

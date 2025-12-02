@@ -30,6 +30,7 @@ class UGizmoArrowComponent;
 class FSceneView;
 class FTileLightCuller;
 class ULineComponent;
+class UTriangleMeshComponent;
 class UParticleSystemComponent;
 
 struct FCandidateDrawable;
@@ -45,7 +46,8 @@ struct FVisibleRenderProxySet
 	TArray<UParticleSystemComponent*> ParticleSystems;
 
 	// --- Type 2: In-Scene Editor (PP X, Depth-Test O) ---
-	TArray<ULineComponent*> EditorLines;	// 그리드
+	TArray<ULineComponent*> EditorLines;	// 그리드, 디버그 선
+	TArray<UTriangleMeshComponent*> EditorMeshes;	// 디버그 메시
 	TArray<UPrimitiveComponent*> EditorPrimitives; // 빛 기즈모, *에디터 아이콘 빌보드*
 
 	// --- Type 3: Overlay (PP X, Depth-Test X) ---

@@ -24,12 +24,18 @@ cbuffer ViewProjBuffer : register(b1)
     row_major float4x4 InverseProjectionMatrix;
 }
 
-cbuffer GaussianCB : register(b2)
+cbuffer DepthOfFieldCB : register(b2)
 {
-    float Weight;
-    uint Range;
-    uint bHorizontal;
-    uint bNear;
+    float FocusDistance;
+    float FocusRange;
+    float COCSize;
+    float padding;
+}
+cbuffer DOFBokehCB : register(b5)
+{
+    uint BokehRange;
+    uint BokehbNear;
+    float2 Bokehpadding;
 }
 
 cbuffer ViewportConstants : register(b10)
@@ -43,45 +49,65 @@ cbuffer ViewportConstants : register(b10)
     // z: 1.0f / Screen W,  w: 1.0f / Screen H
     float4 ScreenSize;
 }
-#define PI 3.141592f
-#define PI_OVER_2 1.5707963f
-#define PI_OVER_4 0.785398f
-#define EPSILON 0.000001f
-
-// Maps a unit square in [-1, 1] to a unit disk in [-1, 1]. Shirley 97 "A Low Distortion Map Between Disk and Square"
-// Inputs: cartesian coordinates
-// Return: new circle-mapped polar coordinates (radius, angle)
-float2 UnitSquareToUnitDiskPolar(float a, float b)
+static const int kernelSampleCount = 22;
+static const float2 kernel[kernelSampleCount] =
 {
-    float radius, angle;
-    if (abs(a) > abs(b))
-    { // First region (left and right quadrants of the disk)
-        radius = a;
-        angle = b / (a + EPSILON) * PI_OVER_4;
-    }
-    else
-    { // Second region (top and botom quadrants of the disk)
-        radius = b;
-        angle = PI_OVER_2 - (a / (b + EPSILON) * PI_OVER_4);
-    }
-    if (radius < 0)
-    { // Always keep radius positive
-        radius *= -1.0f;
-        angle += PI;
-    }
-    return float2(radius, angle);
-}
-
-// Maps a unit square in [-1, 1] to a unit disk in [-1, 1]
-// Inputs: cartesian coordinates
-// Return: new circle-mapped cartesian coordinates
-float2 SquareToDiskMapping(float a, float b)
-{
-    float2 PolarCoord = UnitSquareToUnitDiskPolar(a, b);
-    return float2(PolarCoord.x * cos(PolarCoord.y), PolarCoord.x * sin(PolarCoord.y));
-}
-
+    float2(0, 0),
+						float2(0.53333336, 0),
+						float2(0.3325279, 0.4169768),
+						float2(-0.11867785, 0.5199616),
+						float2(-0.48051673, 0.2314047),
+						float2(-0.48051673, -0.23140468),
+						float2(-0.11867763, -0.51996166),
+						float2(0.33252785, -0.4169769),
+						float2(1, 0),
+						float2(0.90096885, 0.43388376),
+						float2(0.6234898, 0.7818315),
+						float2(0.22252098, 0.9749279),
+						float2(-0.22252095, 0.9749279),
+						float2(-0.62349, 0.7818314),
+						float2(-0.90096885, 0.43388382),
+						float2(-1, 0),
+						float2(-0.90096885, -0.43388376),
+						float2(-0.6234896, -0.7818316),
+						float2(-0.22252055, -0.974928),
+						float2(0.2225215, -0.9749278),
+						float2(0.6234897, -0.7818316),
+						float2(0.90096885, -0.43388376),
+};
 float4 mainPS(PS_INPUT input) : SV_Target
 {
+    uint TexWidth, TexHeight;
+    g_SceneColorTex.GetDimensions(TexWidth, TexHeight);
+    float2 uv = float2(input.position.x / TexWidth, input.position.y / TexHeight);
+    float2 InvTexSize = float2(1.0f / TexWidth, 1.0f / TexHeight);
+    float2 COC = g_COCTex.Sample(g_PointClampSample, uv).rg;
+
+    float3 FinalColor = float3(0, 0, 0);
+    float TotalWeight = 0;
     
+    for (int i = 0; i < kernelSampleCount; i++)
+    {
+        float2 CurUV = uv + kernel[i] * InvTexSize * COCSize * BokehRange;
+        float2 CurCOC = g_COCTex.Sample(g_LinearClampSample, CurUV).rg;
+        if (BokehbNear)
+        {
+            if (true)
+            {
+                TotalWeight++;
+                FinalColor += g_SceneColorTex.Sample(g_LinearClampSample, CurUV).rgb;
+            }
+        }
+        else
+        {
+            if (true)
+            {
+                TotalWeight++;
+                FinalColor += g_SceneColorTex.Sample(g_LinearClampSample, CurUV).rgb;
+            }
+        }
+    }
+    
+    FinalColor = FinalColor / TotalWeight;
+    return float4(FinalColor, 1);
 }

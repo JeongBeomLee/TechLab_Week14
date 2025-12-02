@@ -638,13 +638,14 @@ void URenderer::EndTriangleBatch(const FMatrix& ModelMatrix)
 
 		// Enable blending for semi-transparent triangles
 		RHIDevice->OMSetBlendState(true);
-		// 깊이 테스트만 사용 (스텐실 제외)
-		RHIDevice->OMSetDepthStencilState(EComparisonFunc::LessEqual);
+		// 깊이 테스트는 하지만 쓰지 않음 (반투명 메시 중첩 방지)
+		RHIDevice->OMSetDepthStencilState(EComparisonFunc::LessEqualReadOnly);
 		RHIDevice->GetDeviceContext()->DrawIndexed(DynamicTriangleMesh->GetCurrentIndexCount(), 0, 0);
 
 		// Restore state
 		RHIDevice->OMSetBlendState(false);
 		RHIDevice->RSSetState(ERasterizerMode::Solid);  // Restore culling
+		RHIDevice->OMSetDepthStencilState(EComparisonFunc::LessEqual);  // Restore depth write
 	}
 	else
 	{

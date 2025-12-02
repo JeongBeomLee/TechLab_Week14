@@ -255,6 +255,27 @@ static void SerializeProperty(void* Instance, const FProperty& Prop, bool bIsLoa
         }
         break;
     }
+    case EPropertyType::PhysicalMaterial:
+    {
+        UPhysicalMaterial** Value = Prop.GetValuePtr<UPhysicalMaterial*>(Instance);
+        if (bIsLoading)
+        {
+            FString PhysMatPath;
+            FJsonSerializer::ReadString(InOutJson, Prop.Name, PhysMatPath);
+            if (!PhysMatPath.empty())
+                *Value = UResourceManager::GetInstance().Load<UPhysicalMaterial>(PhysMatPath);
+            else
+                *Value = nullptr;
+        }
+        else
+        {
+            if (*Value)
+                InOutJson[Prop.Name] = (*Value)->GetFilePath().c_str();
+            else
+                InOutJson[Prop.Name] = "";
+        }
+        break;
+    }
     case EPropertyType::ParticleSystem:
     {
         UParticleSystem** Value = Prop.GetValuePtr<UParticleSystem*>(Instance);

@@ -43,6 +43,7 @@ void UConstraintPropertiesWidget::RenderWidget()
 	{
 		Constraint.ConstraintType = static_cast<EConstraintType>(CurrentType);
 		EditorState->bIsDirty = true;
+		EditorState->RequestLinesRebuild();  // 실시간 시각화 업데이트
 		bWasModified = true;
 	}
 
@@ -75,6 +76,7 @@ bool UConstraintPropertiesWidget::RenderLimitProperties(FConstraintSetup& Constr
 	if (ImGui::DragFloat("Swing1 Limit", &Constraint.Swing1Limit, 1.0f, 0.0f, 180.0f))
 	{
 		EditorState->bIsDirty = true;
+		EditorState->RequestLinesRebuild();  // 실시간 시각화 업데이트
 		bChanged = true;
 	}
 
@@ -84,18 +86,21 @@ bool UConstraintPropertiesWidget::RenderLimitProperties(FConstraintSetup& Constr
 		if (ImGui::DragFloat("Swing2 Limit", &Constraint.Swing2Limit, 1.0f, 0.0f, 180.0f))
 		{
 			EditorState->bIsDirty = true;
+			EditorState->RequestLinesRebuild();  // 실시간 시각화 업데이트
 			bChanged = true;
 		}
 
 		if (ImGui::DragFloat("Twist Min", &Constraint.TwistLimitMin, 1.0f, -180.0f, 0.0f))
 		{
 			EditorState->bIsDirty = true;
+			EditorState->RequestLinesRebuild();  // 실시간 시각화 업데이트
 			bChanged = true;
 		}
 
 		if (ImGui::DragFloat("Twist Max", &Constraint.TwistLimitMax, 1.0f, 0.0f, 180.0f))
 		{
 			EditorState->bIsDirty = true;
+			EditorState->RequestLinesRebuild();  // 실시간 시각화 업데이트
 			bChanged = true;
 		}
 	}

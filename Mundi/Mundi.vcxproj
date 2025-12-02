@@ -299,6 +299,7 @@ xcopy /y /d "$(ProjectDir)ThirdParty\lib\physx\$(Configuration)\*.dll" "$(OutDir
     <ClCompile Include="Source\Runtime\Engine\Components\SkeletalMeshComponent.cpp" />
     <ClCompile Include="Source\Runtime\Engine\Components\SkinnedMeshComponent.cpp" />
     <ClCompile Include="Source\Runtime\Engine\Components\SpringArmComponent.cpp" />
+    <ClCompile Include="Source\Runtime\Engine\Components\TriangleMeshComponent.cpp" />
     <ClCompile Include="Source\Runtime\Engine\GameFramework\BoxActor.cpp" />
     <ClCompile Include="Source\Runtime\Engine\GameFramework\Camera\CamMod_Gamma.cpp" />
     <ClCompile Include="Source\Runtime\Engine\GameFramework\CapsuleActor.cpp" />
@@ -452,6 +453,7 @@ xcopy /y /d "$(ProjectDir)ThirdParty\lib\physx\$(Configuration)\*.dll" "$(OutDir
     <ClCompile Include="Source\Runtime\Engine\PhysicsEngine\AggregateGeom.cpp" />
     <ClCompile Include="Source\Runtime\Engine\PhysicsEngine\BodyInstance.cpp" />
     <ClCompile Include="Source\Runtime\Engine\PhysicsEngine\BodySetup.cpp" />
+    <ClCompile Include="Source\Runtime\Engine\PhysicsEngine\BodyShapeCalculator.cpp" />
     <ClCompile Include="Source\Runtime\Engine\PhysicsEngine\BoxElem.cpp" />
     <ClCompile Include="Source\Runtime\Engine\PhysicsEngine\ConstraintInstance.cpp" />
     <ClCompile Include="Source\Runtime\Engine\PhysicsEngine\PhysicalMaterial.cpp" />
@@ -757,9 +759,6 @@ xcopy /y /d "$(ProjectDir)ThirdParty\lib\physx\$(Configuration)\*.dll" "$(OutDir
     <ClCompile Include="Generated\FKShapeElem.generated.cpp" />
     <ClCompile Include="Generated\FKSphereElem.generated.cpp" />
     <ClCompile Include="Generated\FKSphylElem.generated.cpp" />
-    <ClCompile Include="Generated\ABoxActor.generated.cpp" />
-    <ClCompile Include="Generated\ACapsuleActor.generated.cpp" />
-    <ClCompile Include="Generated\ASphereActor.generated.cpp" />
     <ClCompile Include="Generated\UPhysicalMaterial.generated.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -962,6 +961,7 @@ xcopy /y /d "$(ProjectDir)ThirdParty\lib\physx\$(Configuration)\*.dll" "$(OutDir
     <ClInclude Include="Source\Runtime\Engine\Components\SkinnedMeshComponent.h" />
     <ClInclude Include="Source\Runtime\Engine\Components\SphereComponent.h" />
     <ClInclude Include="Source\Runtime\Engine\Components\SpringArmComponent.h" />
+    <ClInclude Include="Source\Runtime\Engine\Components\TriangleMeshComponent.h" />
     <ClInclude Include="Source\Runtime\Engine\GameFramework\AmbientLightActor.h" />
     <ClInclude Include="Source\Runtime\Engine\GameFramework\BoxActor.h" />
     <ClInclude Include="Source\Runtime\Engine\GameFramework\Camera\CamMod_Gamma.h" />
@@ -1008,6 +1008,7 @@ xcopy /y /d "$(ProjectDir)ThirdParty\lib\physx\$(Configuration)\*.dll" "$(OutDir
     <ClInclude Include="Source\Runtime\Engine\PhysicsEngine\AggregateGeom.h" />
     <ClInclude Include="Source\Runtime\Engine\PhysicsEngine\BodyInstance.h" />
     <ClInclude Include="Source\Runtime\Engine\PhysicsEngine\BodySetup.h" />
+    <ClInclude Include="Source\Runtime\Engine\PhysicsEngine\BodyShapeCalculator.h" />
     <ClInclude Include="Source\Runtime\Engine\PhysicsEngine\BoxElem.h" />
     <ClInclude Include="Source\Runtime\Engine\PhysicsEngine\ConstraintInstance.h" />
     <ClInclude Include="Source\Runtime\Engine\PhysicsEngine\EAggCollisionShape.h" />

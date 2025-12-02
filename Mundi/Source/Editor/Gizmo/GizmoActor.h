@@ -93,7 +93,7 @@ protected:
     bool bIsHovering = false;
     bool bIsDragging = false;
     EGizmoMode CurrentMode;
-    EGizmoSpace CurrentSpace = EGizmoSpace::World;
+    EGizmoSpace CurrentSpace = EGizmoSpace::Local;  // 기즈모 초기 모드: 로컬
     
     // Interaction state
     /*AActor* TargetActor = nullptr;

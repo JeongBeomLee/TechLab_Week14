@@ -5,6 +5,7 @@
 
 class UPhysicsAsset;
 class ULineComponent;
+class UTriangleMeshComponent;
 class ASkeletalMeshActor;
 class USkeletalMeshComponent;
 
@@ -73,11 +74,17 @@ struct PhysicsAssetEditorState : public ViewerState
 	// Shape 프리뷰 컴포넌트 (에디터용 시각화)
 	// ────────────────────────────────────────────────
 
-	/** 바디별 Shape 프리뷰 라인 컴포넌트 */
+	/** 바디별 Shape 프리뷰 라인 컴포넌트 (wireframe) */
 	ULineComponent* BodyPreviewLineComponent = nullptr;
 
-	/** 제약 조건 시각화 라인 컴포넌트 */
+	/** 바디별 Shape 메시 컴포넌트 배열 (solid mesh) */
+	TArray<UTriangleMeshComponent*> BodyMeshComponents;
+
+	/** 제약 조건 시각화 라인 컴포넌트 (wireframe) */
 	ULineComponent* ConstraintPreviewLineComponent = nullptr;
+
+	/** 제약 조건 메시 컴포넌트 (solid mesh) */
+	UTriangleMeshComponent* ConstraintMeshComponent = nullptr;
 
 	/** Shape 라인 재구성 필요 (바디 추가/제거 시) */
 	bool bShapeLinesNeedRebuild = true;
@@ -103,17 +110,11 @@ struct PhysicsAssetEditorState : public ViewerState
 	};
 	TArray<FBodyLineRange> BodyLineRanges;
 
-	/** 바디 라인 배치 (DOD 기반) */
+	/** 바디 라인 배치 (DOD 기반 - wireframe) */
 	FLinesBatch BodyLinesBatch;
 
-	/** 제약 조건 라인 배치 (DOD 기반) */
+	/** 제약 조건 라인 배치 (DOD 기반 - wireframe) */
 	FLinesBatch ConstraintLinesBatch;
-
-	/** 제약 조건 삼각형 배치 (면 기반 시각화) */
-	FTrianglesBatch ConstraintTrianglesBatch;
-
-	/** 바디 삼각형 배치 (면 기반 시각화 - 충돌 형상) */
-	FTrianglesBatch BodyTrianglesBatch;
 
 	// ────────────────────────────────────────────────
 	// 헬퍼 메서드

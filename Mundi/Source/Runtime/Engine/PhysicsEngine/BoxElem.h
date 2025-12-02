@@ -12,23 +12,23 @@ struct FKBoxElem : public FKShapeElem
     static inline EAggCollisionShape StaticShapeType = EAggCollisionShape::Box;
 
     /** 박스의 원점 */
-    UPROPERTY()
+    UPROPERTY(EditAnywhere, Category="Transform")
     FVector Center;
 
     /** 박스의 회전 (쿼터니언) */
-    UPROPERTY()
+    UPROPERTY(EditAnywhere, Category="Transform")
     FQuat Rotation;
 
     /** x축 방향 박스의 너비 (반지름이 아닌 지름) */
-    UPROPERTY()
+    UPROPERTY(EditAnywhere, Category="Shape")
     float X;
 
     /** Y축 방향 박스의 너비 (반지름이 아닌 지름) */
-    UPROPERTY()
+    UPROPERTY(EditAnywhere, Category="Shape")
     float Y;
 
     /** Z축 방향 박스의 너비 (반지름이 아닌 지름) */
-    UPROPERTY()
+    UPROPERTY(EditAnywhere, Category="Shape")
     float Z;
 
     FKBoxElem()

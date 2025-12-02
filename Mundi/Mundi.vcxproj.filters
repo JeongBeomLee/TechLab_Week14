@@ -1184,15 +1184,6 @@
     <ClCompile Include="Source\Slate\Widgets\PhysicsAssetEditor\SkeletonTreeWidget.cpp" />
     <ClCompile Include="Source\Slate\Windows\SPhysicsAssetEditorWindow.cpp" />
     <ClCompile Include="Source\Slate\Widgets\ModalDialog.cpp" />
-    <ClCompile Include="Generated\ABoxActor.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\ACapsuleActor.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\ASphereActor.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
     <ClCompile Include="Generated\UPhysicalMaterial.generated.cpp">
       <Filter>Generated</Filter>
     </ClCompile>

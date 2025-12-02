@@ -115,44 +115,6 @@ void ULineComponent::ClearDirectBatch()
     DirectColors.clear();
 }
 
-void ULineComponent::SetTriangleBatch(const TArray<FVector>& Vertices, const TArray<uint32>& Indices, const TArray<FVector4>& Colors)
-{
-    TriangleVertices = Vertices;
-    TriangleIndices = Indices;
-    TriangleColors = Colors;
-}
-
-void ULineComponent::SetTriangleBatch(const FTrianglesBatch& Batch)
-{
-    TriangleVertices = Batch.Vertices;
-    TriangleIndices = Batch.Indices;
-    TriangleColors = Batch.Colors;
-}
-
-void ULineComponent::ClearTriangleBatch()
-{
-    TriangleVertices.clear();
-    TriangleIndices.clear();
-    TriangleColors.clear();
-}
-
-void ULineComponent::CollectTriangleBatches(URenderer* Renderer)
-{
-    if (!HasVisibleTriangles() || !Renderer)
-        return;
-
-    Renderer->BeginTriangleBatch();
-    Renderer->AddTriangles(TriangleVertices, TriangleIndices, TriangleColors);
-    if (bAlwaysOnTop)
-    {
-        Renderer->EndTriangleBatchAlwaysOnTop(FMatrix::Identity());
-    }
-    else
-    {
-        Renderer->EndTriangleBatch(FMatrix::Identity());
-    }
-}
-
 void ULineComponent::CollectLineBatches(URenderer* Renderer)
 {
     if (!HasVisibleLines() || !Renderer)
