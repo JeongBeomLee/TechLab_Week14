@@ -11,6 +11,8 @@
 class UCharacterMovementComponent;
 class UCapsuleComponent;
 class USkeletalMeshComponent;
+class USpringArmComponent;
+class UCameraComponent;
 
 /**
  * ACharacter
@@ -47,6 +49,12 @@ public:
 
 	UFUNCTION(LuaBind, DisplayName="GetMesh")
 	USkeletalMeshComponent* GetMesh() const { return MeshComponent; }
+
+	UFUNCTION(LuaBind, DisplayName="GetSpringArm")
+	USpringArmComponent* GetSpringArm() const { return SpringArmComponent; }
+
+	UFUNCTION(LuaBind, DisplayName="GetCamera")
+	UCameraComponent* GetCamera() const { return CameraComponent; }
 
 	// ────────────────────────────────────────────────
 	// 이동 입력 처리 (APawn 오버라이드)
@@ -180,6 +188,12 @@ protected:
 
 	/** 스켈레탈 메시 컴포넌트 (애니메이션) */
 	USkeletalMeshComponent* MeshComponent;
+
+	/** 스프링암 컴포넌트 (3인칭 카메라용) */
+	USpringArmComponent* SpringArmComponent;
+
+	/** 카메라 컴포넌트 */
+	UCameraComponent* CameraComponent;
 
 	/** 웅크리기 상태 */
 	bool bIsCrouched;

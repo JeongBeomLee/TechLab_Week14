@@ -17,7 +17,7 @@ APlayerController::APlayerController()
 	, bInputEnabled(true)
 	, bShowMouseCursor(true)
 	, bIsMouseLocked(false)
-	, MouseSensitivity(1.0f)
+	, MouseSensitivity(0.1f)
 	, PlayerCameraManager(nullptr)
 {
 }
@@ -52,6 +52,7 @@ void APlayerController::Tick(float DeltaSeconds)
 	if (bInputEnabled)
 	{
 		ProcessPlayerInput();
+		ProcessMouseInput();
 	}
 
 	// 카메라 업데이트는 PlayerCameraManager의 Tick에서 자동으로 처리됨
@@ -119,6 +120,32 @@ void APlayerController::ProcessPlayerInput()
 	if (InputComp)
 	{
 		InputComp->ProcessInput();
+	}
+}
+
+void APlayerController::ProcessMouseInput()
+{
+	if (!InputManager)
+	{
+		return;
+	}
+
+	// 마우스 우클릭 중일 때만 카메라 회전
+	if (InputManager->IsMouseButtonDown(EMouseButton::RightButton))
+	{
+		FVector2D MouseDelta = InputManager->GetMouseDelta();
+
+		// Yaw (좌우 회전) - X축 마우스 이동
+		if (MouseDelta.X != 0.0f)
+		{
+			AddYawInput(MouseDelta.X * MouseSensitivity);
+		}
+
+		// Pitch (상하 회전) - Y축 마우스 이동
+		if (MouseDelta.Y != 0.0f)
+		{
+			AddPitchInput(MouseDelta.Y * MouseSensitivity);
+		}
 	}
 }
 

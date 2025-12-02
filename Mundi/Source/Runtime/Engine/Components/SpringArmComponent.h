@@ -113,6 +113,16 @@ public:
 	float GetProbeSize() const { return ProbeSize; }
 
 	// ────────────────────────────────────────────────
+	// Controller Rotation 연동
+	// ────────────────────────────────────────────────
+
+	UPROPERTY(EditAnywhere, Category="Controller", Tooltip="Pawn Controller의 회전을 사용할지 여부입니다.")
+	bool bUsePawnControlRotation;
+
+	void SetUsePawnControlRotation(bool bUse) { bUsePawnControlRotation = bUse; }
+	bool GetUsePawnControlRotation() const { return bUsePawnControlRotation; }
+
+	// ────────────────────────────────────────────────
 	// Socket Transform 조회
 	// ────────────────────────────────────────────────
 
