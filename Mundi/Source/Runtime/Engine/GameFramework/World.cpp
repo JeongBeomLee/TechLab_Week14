@@ -33,6 +33,7 @@
 #include "PlayerCameraManager.h"
 #include "Hash.h"
 #include "ParticleEventManager.h"
+#include "GameModeBase.h"
 
 IMPLEMENT_CLASS(UWorld)
 

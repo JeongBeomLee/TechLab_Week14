@@ -16,6 +16,9 @@
 #include <string>
 #include <EditorEngine.h>
 #include "DirectionalLightComponent.h"
+#include "GameModeBase.h"
+#include "Pawn.h"
+#include "PlayerController.h"
 //// UE_LOG 대체 매크로
 //#define UE_LOG(fmt, ...)
 
@@ -129,6 +132,114 @@ void USceneManagerWidget::Update()
 void USceneManagerWidget::RenderWidget()
 {
 	ImGui::Text("Scene Manager");
+
+	// World Settings 버튼
+	ImGui::SameLine();
+	float buttonWidth = 100.0f;
+	float availX = ImGui::GetContentRegionAvail().x;
+	ImGui::SetCursorPosX(ImGui::GetCursorPosX() + availX - buttonWidth);
+	if (ImGui::Button("World Settings", ImVec2(buttonWidth, 0)))
+	{
+		ImGui::OpenPopup("WorldSettingsPopup");
+	}
+
+	// World Settings 팝업
+	if (ImGui::BeginPopup("WorldSettingsPopup"))
+	{
+		ImGui::Text("World Settings");
+		ImGui::Separator();
+
+		UWorld* World = GWorld;
+		if (World)
+		{
+			// GameMode 클래스 선택
+			ImGui::Text("GameMode Class");
+			if (ImGui::BeginCombo("##GameModeClass", World->GameModeClass ? World->GameModeClass->Name : "None"))
+			{
+				// None 옵션
+				if (ImGui::Selectable("None", World->GameModeClass == nullptr))
+				{
+					World->GameModeClass = nullptr;
+				}
+				// AGameModeBase를 상속하는 모든 클래스 표시
+				for (UClass* Class : UClass::GetAllClasses())
+				{
+					if (Class && Class->IsChildOf(AGameModeBase::StaticClass()))
+					{
+						bool bSelected = (World->GameModeClass == Class);
+						if (ImGui::Selectable(Class->Name, bSelected))
+						{
+							World->GameModeClass = Class;
+						}
+					}
+				}
+				ImGui::EndCombo();
+			}
+
+			// DefaultPawn 클래스 선택
+			ImGui::Text("Default Pawn Class");
+			if (ImGui::BeginCombo("##DefaultPawnClass", World->DefaultPawnClass ? World->DefaultPawnClass->Name : "None"))
+			{
+				if (ImGui::Selectable("None", World->DefaultPawnClass == nullptr))
+				{
+					World->DefaultPawnClass = nullptr;
+				}
+				// APawn을 상속하는 모든 클래스 표시
+				for (UClass* Class : UClass::GetAllClasses())
+				{
+					if (Class && Class->IsChildOf(APawn::StaticClass()))
+					{
+						bool bSelected = (World->DefaultPawnClass == Class);
+						if (ImGui::Selectable(Class->Name, bSelected))
+						{
+							World->DefaultPawnClass = Class;
+						}
+					}
+				}
+				ImGui::EndCombo();
+			}
+
+			// PlayerController 클래스 선택
+			ImGui::Text("Player Controller Class");
+			if (ImGui::BeginCombo("##PlayerControllerClass", World->PlayerControllerClass ? World->PlayerControllerClass->Name : "None"))
+			{
+				if (ImGui::Selectable("None", World->PlayerControllerClass == nullptr))
+				{
+					World->PlayerControllerClass = nullptr;
+				}
+				// APlayerController를 상속하는 모든 클래스 표시
+				for (UClass* Class : UClass::GetAllClasses())
+				{
+					if (Class && Class->IsChildOf(APlayerController::StaticClass()))
+					{
+						bool bSelected = (World->PlayerControllerClass == Class);
+						if (ImGui::Selectable(Class->Name, bSelected))
+						{
+							World->PlayerControllerClass = Class;
+						}
+					}
+				}
+				ImGui::EndCombo();
+			}
+
+			ImGui::Separator();
+
+			// 플레이어 스폰 위치
+			ImGui::Text("Player Spawn Location");
+			float SpawnLoc[3] = { World->PlayerSpawnLocation.X, World->PlayerSpawnLocation.Y, World->PlayerSpawnLocation.Z };
+			if (ImGui::DragFloat3("##PlayerSpawnLocation", SpawnLoc, 0.1f))
+			{
+				World->PlayerSpawnLocation = FVector(SpawnLoc[0], SpawnLoc[1], SpawnLoc[2]);
+			}
+		}
+		else
+		{
+			ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "No World Available");
+		}
+
+		ImGui::EndPopup();
+	}
+
 	// World status
 	UWorld* World = GWorld;
 	if (!World)
