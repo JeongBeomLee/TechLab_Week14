@@ -10,11 +10,15 @@
 #include "FViewport.h"
 #include "FViewportClient.h"
 #include "Source/Runtime/Engine/Components/LineComponent.h"
+#include "Source/Runtime/Engine/Components/SkeletalMeshComponent.h"
 #include "Source/Runtime/Engine/GameFramework/SkeletalMeshActor.h"
 #include "SkeletalMesh.h"
 #include "ResourceManager.h"
 #include "Texture.h"
 #include "Widgets/PropertyRenderer.h"
+#include <functional>
+#include <algorithm>
+#include <cctype>
 
 // 파일 경로에서 파일명 추출 헬퍼 함수
 static FString ExtractFileNameFromPath(const FString& FilePath)
@@ -66,6 +70,14 @@ void SPhysicsAssetEditorWindow::LoadToolbarIcons()
 	IconPlay = UResourceManager::GetInstance().Load<UTexture>(GDataDir + "/Icon/Toolbar_Play.png");
 	IconStop = UResourceManager::GetInstance().Load<UTexture>(GDataDir + "/Icon/Toolbar_Stop.png");
 	IconReset = UResourceManager::GetInstance().Load<UTexture>(GDataDir + "/Icon/Toolbar_RePlay.png");
+}
+
+void SPhysicsAssetEditorWindow::LoadHierarchyIcons()
+{
+	if (!Device) return;
+
+	IconBone = UResourceManager::GetInstance().Load<UTexture>(GDataDir + "/Icon/Bone_Hierarchy.png");
+	IconBody = UResourceManager::GetInstance().Load<UTexture>(GDataDir + "/Icon/Body_Hierarchy.png");
 }
 
 ViewerState* SPhysicsAssetEditorWindow::CreateViewerState(const char* Name, UEditorAssetPreviewContext* Context)
@@ -172,6 +184,7 @@ void SPhysicsAssetEditorWindow::OnRender()
 	if (!IconSave && Device)
 	{
 		LoadToolbarIcons();
+		LoadHierarchyIcons();
 	}
 
 	if (ImGui::Begin(UniqueTitle, &bIsOpen, flags))
@@ -607,8 +620,240 @@ void SPhysicsAssetEditorWindow::RenderHierarchyPanel()
 	PhysicsAssetEditorState* State = GetActivePhysicsState();
 	if (!State) return;
 
-	// TODO: Phase 6에서 구현
-	ImGui::TextDisabled("(Bone hierarchy will be shown here)");
+	// 프리뷰 액터에서 스켈레탈 메시 가져오기
+	USkeletalMesh* Mesh = nullptr;
+	if (State->PreviewActor)
+	{
+		if (USkeletalMeshComponent* MeshComp = State->PreviewActor->GetSkeletalMeshComponent())
+		{
+			Mesh = MeshComp->GetSkeletalMesh();
+		}
+	}
+
+	if (!Mesh)
+	{
+		ImGui::TextDisabled("No skeletal mesh loaded");
+		return;
+	}
+
+	const FSkeleton* Skeleton = Mesh->GetSkeleton();
+	if (!Skeleton || Skeleton->Bones.IsEmpty())
+	{
+		ImGui::TextDisabled("No skeleton data");
+		return;
+	}
+
+	UPhysicsAsset* PhysAsset = State->EditingPhysicsAsset;
+
+	// === 검색 바 ===
+	ImGui::SetNextItemWidth(-1);
+	ImGui::InputTextWithHint("##BoneSearch", "Search bones...", BoneSearchBuffer, sizeof(BoneSearchBuffer));
+	FString SearchFilter = BoneSearchBuffer;
+	bool bHasFilter = !SearchFilter.empty();
+
+	ImGui::Separator();
+
+	// === 본 트리뷰 ===
+	ImGui::BeginChild("BoneTreeView", ImVec2(0, 0), false);
+	ImGui::PushStyleVar(ImGuiStyleVar_IndentSpacing, 16.0f);
+
+	const TArray<FBone>& Bones = Skeleton->Bones;
+	const ImVec2 IconSize(16, 16);
+
+	// 자식 인덱스 맵 구성
+	TArray<TArray<int32>> Children;
+	Children.resize(Bones.size());
+	for (int32 i = 0; i < Bones.size(); ++i)
+	{
+		int32 Parent = Bones[i].ParentIndex;
+		if (Parent >= 0 && Parent < Bones.size())
+		{
+			Children[Parent].Add(i);
+		}
+	}
+
+	// 검색 필터 매칭 확인 함수
+	auto MatchesFilter = [&](int32 BoneIndex) -> bool
+	{
+		if (!bHasFilter) return true;
+		FString BoneNameStr = Bones[BoneIndex].Name;
+		FString FilterLower = SearchFilter;
+		// 대소문자 무시 검색
+		std::transform(BoneNameStr.begin(), BoneNameStr.end(), BoneNameStr.begin(), ::tolower);
+		std::transform(FilterLower.begin(), FilterLower.end(), FilterLower.begin(), ::tolower);
+		return BoneNameStr.find(FilterLower) != FString::npos;
+	};
+
+	// 자식 중 필터에 매칭되는 항목이 있는지 재귀 확인
+	std::function<bool(int32)> HasMatchingDescendant = [&](int32 Index) -> bool
+	{
+		if (MatchesFilter(Index)) return true;
+		for (int32 Child : Children[Index])
+		{
+			if (HasMatchingDescendant(Child)) return true;
+		}
+		return false;
+	};
+
+	// ImDrawList를 사용하여 아이콘을 오버레이로 그리는 헬퍼
+	ImDrawList* drawList = ImGui::GetWindowDrawList();
+	const float iconSpacing = 2.0f;  // 아이콘과 화살표 사이 간격
+
+	// 재귀적 노드 그리기
+	std::function<void(int32)> DrawNode = [&](int32 Index)
+	{
+		// 필터가 있을 때, 이 노드나 자손이 매칭되지 않으면 스킵
+		if (bHasFilter && !HasMatchingDescendant(Index)) return;
+
+		const FName& BoneName = Bones[Index].Name;
+
+		// PhysicsAsset에서 해당 본의 BodySetup 찾기
+		int32 BodyIndex = PhysAsset ? PhysAsset->FindBodySetupIndex(BoneName) : -1;
+		bool bHasBody = (BodyIndex != -1);
+
+		// 바디가 있으면 자식으로 취급 (트리 구조상)
+		bool bHasChildren = !Children[Index].IsEmpty();
+		bool bLeaf = !bHasChildren && !bHasBody;
+
+		// 본 선택 상태
+		bool bBoneSelected = (State->SelectedBoneIndex == Index);
+
+		ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanFullWidth | ImGuiTreeNodeFlags_AllowItemOverlap;
+		if (bLeaf)
+		{
+			flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
+		}
+		if (bBoneSelected)
+		{
+			flags |= ImGuiTreeNodeFlags_Selected;
+		}
+
+		// 필터가 있으면 자동 펼침
+		if (bHasFilter)
+		{
+			ImGui::SetNextItemOpen(true);
+		}
+
+		ImGui::PushID(Index);
+
+		// 선택된 본 스타일
+		if (bBoneSelected)
+		{
+			ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.35f, 0.55f, 0.85f, 0.8f));
+			ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.40f, 0.60f, 0.90f, 1.0f));
+			ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImVec4(0.30f, 0.50f, 0.80f, 1.0f));
+		}
+
+		// 레이아웃: [Icon][▼][Name]
+		// 1. 현재 위치 저장 (아이콘 그릴 위치)
+		ImVec2 cursorScreenPos = ImGui::GetCursorScreenPos();
+		float currentIndent = ImGui::GetCursorPosX();
+
+		// 2. 아이콘 공간만큼 들여쓰기 후 TreeNode 그리기
+		ImGui::SetCursorPosX(currentIndent + IconSize.x + iconSpacing);
+		bool open = ImGui::TreeNodeEx((void*)(intptr_t)Index, flags, "%s", BoneName.ToString().c_str());
+
+		// 3. 아이콘을 오버레이로 그리기 (TreeNode 앞에)
+		if (IconBone && IconBone->GetShaderResourceView())
+		{
+			ImVec2 iconPos;
+			iconPos.x = cursorScreenPos.x;
+			iconPos.y = cursorScreenPos.y + (ImGui::GetTextLineHeight() - IconSize.y) * 0.5f;
+			drawList->AddImage(
+				(ImTextureID)IconBone->GetShaderResourceView(),
+				iconPos,
+				ImVec2(iconPos.x + IconSize.x, iconPos.y + IconSize.y)
+			);
+		}
+
+		if (bBoneSelected)
+		{
+			ImGui::PopStyleColor(3);
+		}
+
+		// 본 클릭 처리
+		if (ImGui::IsItemClicked())
+		{
+			State->SelectedBoneIndex = Index;
+			State->SelectedBodyIndex = -1;
+			State->SelectedConstraintIndex = -1;
+		}
+
+		if (!bLeaf && open)
+		{
+			// 바디가 있으면 본의 자식으로 표시
+			if (bHasBody)
+			{
+				ImGui::PushID("Body");
+
+				bool bBodySelected = (State->SelectedBodyIndex == BodyIndex);
+				ImGuiTreeNodeFlags bodyFlags = ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen | ImGuiTreeNodeFlags_SpanFullWidth | ImGuiTreeNodeFlags_AllowItemOverlap;
+				if (bBodySelected)
+				{
+					bodyFlags |= ImGuiTreeNodeFlags_Selected;
+					ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.35f, 0.55f, 0.85f, 0.8f));
+					ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.40f, 0.60f, 0.90f, 1.0f));
+					ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImVec4(0.30f, 0.50f, 0.80f, 1.0f));
+				}
+
+				// 레이아웃: [Icon][▼][Name]
+				ImVec2 bodyScreenPos = ImGui::GetCursorScreenPos();
+				float bodyIndent = ImGui::GetCursorPosX();
+
+				// 아이콘 공간만큼 들여쓰기 후 TreeNode 그리기
+				ImGui::SetCursorPosX(bodyIndent + IconSize.x + iconSpacing);
+				ImGui::TreeNodeEx("BodyNode", bodyFlags, "%s", BoneName.ToString().c_str());
+
+				// 바디 아이콘을 오버레이로 그리기
+				if (IconBody && IconBody->GetShaderResourceView())
+				{
+					ImVec2 iconPos;
+					iconPos.x = bodyScreenPos.x;
+					iconPos.y = bodyScreenPos.y + (ImGui::GetTextLineHeight() - IconSize.y) * 0.5f;
+					drawList->AddImage(
+						(ImTextureID)IconBody->GetShaderResourceView(),
+						iconPos,
+						ImVec2(iconPos.x + IconSize.x, iconPos.y + IconSize.y)
+					);
+				}
+
+				if (bBodySelected)
+				{
+					ImGui::PopStyleColor(3);
+				}
+
+				// 바디 클릭 처리
+				if (ImGui::IsItemClicked())
+				{
+					State->SelectedBodyIndex = BodyIndex;
+					State->SelectedBoneIndex = -1;
+					State->SelectedConstraintIndex = -1;
+				}
+
+				ImGui::PopID();
+			}
+
+			// 자식 본 그리기
+			for (int32 Child : Children[Index])
+			{
+				DrawNode(Child);
+			}
+			ImGui::TreePop();
+		}
+		ImGui::PopID();
+	};
+
+	// 루트 본부터 시작
+	for (int32 i = 0; i < Bones.size(); ++i)
+	{
+		if (Bones[i].ParentIndex < 0)
+		{
+			DrawNode(i);
+		}
+	}
+
+	ImGui::PopStyleVar();
+	ImGui::EndChild();
 }
 
 void SPhysicsAssetEditorWindow::RenderGraphPanel()

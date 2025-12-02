@@ -83,8 +83,16 @@ private:
 	UTexture* IconStop = nullptr;
 	UTexture* IconReset = nullptr;
 
+	// Hierarchy 패널 아이콘
+	UTexture* IconBone = nullptr;
+	UTexture* IconBody = nullptr;
+
+	// Hierarchy 검색
+	char BoneSearchBuffer[256] = {0};
+
 	// 툴바 상태
 	void LoadToolbarIcons();
+	void LoadHierarchyIcons();
 
 	// Shape 타입 선택 (Tool 패널용)
 	int32 SelectedShapeType = 0;  // 0: Sphere, 1: Box, 2: Capsule
