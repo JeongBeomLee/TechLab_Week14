@@ -427,12 +427,14 @@ void FBodyInstance::SetSleepThresholdMultiplier(float InSleepThresholdMultiplier
 {
     if (InSleepThresholdMultiplier == SleepThresholdMultiplier) { return; }
     SleepThresholdMultiplier = InSleepThresholdMultiplier;
-    
-    if (PxRigidDynamic* DynamicActor = GetDynamicActor())
+    CurrentScene->EnqueueCommand([this]()
     {
-        constexpr float SleepThreshold = 0.005f;
-        DynamicActor->setSleepThreshold(SleepThreshold * SleepThresholdMultiplier);
-    }
+        if (PxRigidDynamic* DynamicActor = GetDynamicActor())
+        {
+            constexpr float SleepThreshold = 0.005f;
+            DynamicActor->setSleepThreshold(SleepThreshold * SleepThresholdMultiplier);
+        }
+    });
 }
 
 bool FBodyInstance::IsAwake() const
@@ -446,18 +448,24 @@ bool FBodyInstance::IsAwake() const
 
 void FBodyInstance::WakeUp()
 {
-    if (PxRigidDynamic* DynamicActor = GetDynamicActor())
+    CurrentScene->EnqueueCommand([this]()
     {
-        DynamicActor->wakeUp();
-    }
+        if (PxRigidDynamic* DynamicActor = GetDynamicActor())
+        {
+            DynamicActor->wakeUp();
+        }
+    });
 }
 
 void FBodyInstance::PutToSleep()
 {
-    if (PxRigidDynamic* DynamicActor = GetDynamicActor())
+    CurrentScene->EnqueueCommand([this]()
     {
-        DynamicActor->putToSleep();
-    }
+        if (PxRigidDynamic* DynamicActor = GetDynamicActor())
+        {
+            DynamicActor->putToSleep();
+        }
+    });
 }
 
 void FBodyInstance::AddForce(const FVector& Force, bool bAccelChange)

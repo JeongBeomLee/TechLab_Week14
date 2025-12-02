@@ -310,6 +310,26 @@ void UWorld::Tick(float DeltaSeconds)
 		PhysicsScene->FetchAndSync();
 		PhysicsScene->ProcessCommandQueue();
 	}
+	
+	if (Level)
+	{
+		// Tick 중에 새로운 actor가 추가될 수도 있어서 복사 후 호출
+		TArray<AActor*> LevelActors = Level->GetActors();
+
+		for (AActor* Actor : LevelActors)
+		{
+			if (Actor && Actor->IsActorActive())
+			{
+				if (Actor->CanEverTick())
+				{
+					if (Actor->CanTickInEditor() || bPie || IsPreviewWorld())
+					{
+						Actor->PostPhysicsTick(GetDeltaTime(EDeltaTime::Game) * Actor->GetCustomTimeDillation());
+					}
+				}
+			}
+		}
+	}
 }
 
 UWorld* UWorld::DuplicateWorldForPIE(UWorld* InEditorWorld)

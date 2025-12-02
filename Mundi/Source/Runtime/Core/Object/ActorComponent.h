@@ -34,6 +34,7 @@ public:
     virtual void InitializeComponent();                // BeginPlay 전에 1회
     virtual void BeginPlay();                          // PIE 중에 월드에 등록 시 호출됨
     virtual void TickComponent(float DeltaTime);       // 매 프레임
+    virtual void PostPhysicsTick(float DeltaTime);     // 물리 처리가 끝나고 (물
     virtual void EndPlay();                            // PIE 중에 파괴/월드 제거 시
 
     // ─────────────── Registration (월드/씬 등록 수명)

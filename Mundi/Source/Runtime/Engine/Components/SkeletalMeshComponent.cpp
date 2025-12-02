@@ -36,6 +36,12 @@ void USkeletalMeshComponent::BeginPlay()
     Super::BeginPlay();
 }
 
+void USkeletalMeshComponent::EndPlay()
+{
+    TermRagdoll();
+    Super::EndPlay();
+}
+
 void USkeletalMeshComponent::TickComponent(float DeltaTime)
 {
     Super::TickComponent(DeltaTime);
@@ -77,7 +83,6 @@ void USkeletalMeshComponent::TickComponent(float DeltaTime)
     // Ragdoll이 활성화된 경우 물리 시뮬레이션 처리
     if (RagdollState != ERagdollState::Disabled)
     {
-        UpdateRagdollState(DeltaTime);
         return; // Ragdoll 중에는 애니메이션 처리 건너뛰기
     }
 
@@ -95,7 +100,16 @@ void USkeletalMeshComponent::TickComponent(float DeltaTime)
         BaseAnimationPose = OutputPose.LocalSpacePose;
         CurrentLocalSpacePose = OutputPose.LocalSpacePose;
         ForceRecomputePose();
-        return; // skip test code when animation is active
+    }
+}
+
+void USkeletalMeshComponent::PostPhysicsTick(float DeltaTime)
+{
+    Super::PostPhysicsTick(DeltaTime);
+    if (RagdollState != ERagdollState::Disabled)
+    {
+        // PhysX 결과 읽기 + 블렌딩 + 스키닝 업데이트
+        UpdateRagdollState(DeltaTime);
     }
 }
 
@@ -355,7 +369,6 @@ void USkeletalMeshComponent::ForceRecomputePose()
     // ComponentSpace -> Final Skinning Matrices 계산
     // UpdateFinalSkinningMatrices()에서 UpdateSkinningMatrices()를 호출하여 본 행렬 계산 시간과 함께 전달
     UpdateFinalSkinningMatrices();
-    // PerformSkinning은 CollectMeshBatches에서 전역 모드에 따라 수행됨
 }
 
 void USkeletalMeshComponent::UpdateComponentSpaceTransforms()
@@ -539,7 +552,7 @@ void USkeletalMeshComponent::InitRagdoll()
 
         // 본의 현재 월드 트랜스폼으로 초기화
         FTransform BoneWorldTM = GetBoneWorldTransform(BoneIndex);
-        Body->InitBody(BodySetup, BoneWorldTM, this, PhysScene);
+        Body->InitBody(BodySetup, BoneWorldTM, nullptr, PhysScene);
 
         // 컴포넌트의 BodyInstance에서 전역 설정 적용
         Body->SetEnableGravity(BodyInstance.IsEnabledGravity());

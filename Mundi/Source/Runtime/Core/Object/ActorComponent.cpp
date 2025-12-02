@@ -106,6 +106,11 @@ void UActorComponent::TickComponent(float DeltaTime)
     // 매 프레임 처리
 }
 
+void UActorComponent::PostPhysicsTick(float DeltaTime)
+{
+    // 매 프레임 물리 동기화 후 처리
+}
+
 // Override시 Super::EndPlay() 권장
 void UActorComponent::EndPlay()
 {
