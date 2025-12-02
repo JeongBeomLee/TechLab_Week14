@@ -229,7 +229,7 @@ public:
      * PhysicsAsset이 없으면 자동으로 생성
      * 모든 본에 대해 캡슐 Shape와 부모-자식 Constraint를 생성
      */
-    void CreateDefaultPhysicsAsset();
+    void CreateTestPhysicsAsset();
 
     /**
      * Ragdoll 테스트 모드 활성화

@@ -25,8 +25,8 @@ USkeletalMeshComponent::USkeletalMeshComponent()
     SetSkeletalMesh(GDataDir + "/DancingRacer.fbx");
     // TODO - 애니메이션 나중에 써먹으세요
     
-	//UAnimationAsset* AnimationAsset = UResourceManager::GetInstance().Get<UAnimSequence>("Data/DancingRacer_mixamo.com");
-    //PlayAnimation(AnimationAsset, true, 1.f);
+	UAnimationAsset* AnimationAsset = UResourceManager::GetInstance().Get<UAnimSequence>("Data/DancingRacer_mixamo.com");
+    PlayAnimation(AnimationAsset, true, 1.f);
     
 }
 
@@ -695,7 +695,7 @@ void USkeletalMeshComponent::StartRagdoll(bool bBlend)
         if (!SkeletalMesh || !SkeletalMesh->GetPhysicsAsset() || !SkeletalMesh->GetPhysicsAsset()->IsValid())
         {
             UE_LOG("[Ragdoll] No PhysicsAsset found, creating default...");
-            CreateDefaultPhysicsAsset();
+            CreateTestPhysicsAsset();
         }
 
         InitRagdoll();
@@ -1041,7 +1041,7 @@ static bool ShouldExcludeFromRagdoll(const FString& BoneName)
     return false;
 }
 
-void USkeletalMeshComponent::CreateDefaultPhysicsAsset()
+void USkeletalMeshComponent::CreateTestPhysicsAsset()
 {
     if (!SkeletalMesh)
     {
@@ -1224,7 +1224,15 @@ void USkeletalMeshComponent::CreateDefaultPhysicsAsset()
     // SkeletalMesh에 PhysicsAsset 설정
     SkeletalMesh->SetPhysicsAsset(PhysAsset);
 
-    UE_LOG("[Ragdoll] Default PhysicsAsset created: %d bodies, %d constraints (excluded %d bones)",
-        PhysAsset->GetBodySetupCount(), PhysAsset->GetConstraintCount(),
-        Skeleton->Bones.Num() - BodyBoneIndices.Num());
+    // PhysicsAsset에 메시 경로 저장 (나중에 로드 시 프리뷰용)
+    //PhysAsset->SkeletalMeshPath = SkeletalMesh->GetFilePath();
+
+    //// 자동 생성된 PhysicsAsset 파일로 저장
+    //FString SavePath = "Data/PhysicsAssets/TestPhysicsAsset.physicsasset";
+    //PhysAsset->Save(SavePath);
+    //UE_LOG("[Ragdoll] PhysicsAsset saved to: %s", SavePath.c_str());
+
+    //UE_LOG("[Ragdoll] Default PhysicsAsset created: %d bodies, %d constraints (excluded %d bones)",
+    //    PhysAsset->GetBodySetupCount(), PhysAsset->GetConstraintCount(),
+    //    Skeleton->Bones.Num() - BodyBoneIndices.Num());
 }

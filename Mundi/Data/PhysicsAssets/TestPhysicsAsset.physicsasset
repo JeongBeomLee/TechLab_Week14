@@ -1,0 +1,1019 @@
+{
+  "BodySetups" : [{
+      "AggGeom" : {
+        "BoxElems" : [],
+        "ConvexElems" : [],
+        "SphereElems" : [],
+        "SphylElems" : [{
+            "Center" : [0.000000, 0.000000, 0.000000],
+            "Length" : 8.627852,
+            "Radius" : 6.000000
+          }]
+      },
+      "BoneName" : "mixamorig6:Hips",
+      "CollisionResponse" : 0,
+      "DefaultCollisionEnabled" : 3,
+      "PhysMaterial" : "",
+      "PhysicsType" : 2
+    }, {
+      "AggGeom" : {
+        "BoxElems" : [],
+        "ConvexElems" : [],
+        "SphereElems" : [],
+        "SphylElems" : [{
+            "Center" : [0.000000, 0.000000, 0.000000],
+            "Length" : 9.598358,
+            "Radius" : 6.000000
+          }]
+      },
+      "BoneName" : "mixamorig6:Spine",
+      "CollisionResponse" : 0,
+      "DefaultCollisionEnabled" : 3,
+      "PhysMaterial" : "",
+      "PhysicsType" : 2
+    }, {
+      "AggGeom" : {
+        "BoxElems" : [],
+        "ConvexElems" : [],
+        "SphereElems" : [],
+        "SphylElems" : [{
+            "Center" : [0.000000, 0.000000, 0.000000],
+            "Length" : 10.969556,
+            "Radius" : 6.000000
+          }]
+      },
+      "BoneName" : "mixamorig6:Spine1",
+      "CollisionResponse" : 0,
+      "DefaultCollisionEnabled" : 3,
+      "PhysMaterial" : "",
+      "PhysicsType" : 2
+    }, {
+      "AggGeom" : {
+        "BoxElems" : [],
+        "ConvexElems" : [],
+        "SphereElems" : [],
+        "SphylElems" : [{
+            "Center" : [0.000000, 0.000000, 0.000000],
+            "Length" : 12.340747,
+            "Radius" : 6.000000
+          }]
+      },
+      "BoneName" : "mixamorig6:Spine2",
+      "CollisionResponse" : 0,
+      "DefaultCollisionEnabled" : 3,
+      "PhysMaterial" : "",
+      "PhysicsType" : 2
+    }, {
+      "AggGeom" : {
+        "BoxElems" : [],
+        "ConvexElems" : [],
+        "SphereElems" : [],
+        "SphylElems" : [{
+            "Center" : [0.000000, 0.000000, 0.000000],
+            "Length" : 6.000000,
+            "Radius" : 3.000000
+          }]
+      },
+      "BoneName" : "mixamorig6:Neck",
+      "CollisionResponse" : 0,
+      "DefaultCollisionEnabled" : 3,
+      "PhysMaterial" : "",
+      "PhysicsType" : 2
+    }, {
+      "AggGeom" : {
+        "BoxElems" : [],
+        "ConvexElems" : [],
+        "SphereElems" : [{
+            "Center" : [0.000000, 0.000000, 0.000000],
+            "Radius" : 8.000000
+          }],
+        "SphylElems" : []
+      },
+      "BoneName" : "mixamorig6:Head",
+      "CollisionResponse" : 0,
+      "DefaultCollisionEnabled" : 3,
+      "PhysMaterial" : "",
+      "PhysicsType" : 2
+    }, {
+      "AggGeom" : {
+        "BoxElems" : [],
+        "ConvexElems" : [],
+        "SphereElems" : [{
+            "Center" : [0.000000, 0.000000, 0.000000],
+            "Radius" : 8.000000
+          }],
+        "SphylElems" : []
+      },
+      "BoneName" : "mixamorig6:HeadTop_End",
+      "CollisionResponse" : 0,
+      "DefaultCollisionEnabled" : 3,
+      "PhysMaterial" : "",
+      "PhysicsType" : 2
+    }, {
+      "AggGeom" : {
+        "BoxElems" : [],
+        "ConvexElems" : [],
+        "SphereElems" : [],
+        "SphylElems" : [{
+            "Center" : [0.000000, 0.000000, 0.000000],
+            "Length" : 10.486144,
+            "Radius" : 4.000000
+          }]
+      },
+      "BoneName" : "mixamorig6:LeftShoulder",
+      "CollisionResponse" : 0,
+      "DefaultCollisionEnabled" : 3,
+      "PhysMaterial" : "",
+      "PhysicsType" : 2
+    }, {
+      "AggGeom" : {
+        "BoxElems" : [],
+        "ConvexElems" : [],
+        "SphereElems" : [],
+        "SphylElems" : [{
+            "Center" : [0.000000, 0.000000, 0.000000],
+            "Length" : 21.657339,
+            "Radius" : 4.000000
+          }]
+      },
+      "BoneName" : "mixamorig6:LeftArm",
+      "CollisionResponse" : 0,
+      "DefaultCollisionEnabled" : 3,
+      "PhysMaterial" : "",
+      "PhysicsType" : 2
+    }, {
+      "AggGeom" : {
+        "BoxElems" : [],
+        "ConvexElems" : [],
+        "SphereElems" : [],
+        "SphylElems" : [{
+            "Center" : [0.000000, 0.000000, 0.000000],
+            "Length" : 20.454176,
+            "Radius" : 4.000000
+          }]
+      },
+      "BoneName" : "mixamorig6:LeftForeArm",
+      "CollisionResponse" : 0,
+      "DefaultCollisionEnabled" : 3,
+      "PhysMaterial" : "",
+      "PhysicsType" : 2
+    }, {
+      "AggGeom" : {
+        "BoxElems" : [],
+        "ConvexElems" : [],
+        "SphereElems" : [{
+            "Center" : [0.000000, 0.000000, 0.000000],
+            "Radius" : 3.000000
+          }],
+        "SphylElems" : []
+      },
+      "BoneName" : "mixamorig6:LeftHand",
+      "CollisionResponse" : 0,
+      "DefaultCollisionEnabled" : 3,
+      "PhysMaterial" : "",
+      "PhysicsType" : 2
+    }, {
+      "AggGeom" : {
+        "BoxElems" : [],
+        "ConvexElems" : [],
+        "SphereElems" : [],
+        "SphylElems" : [{
+            "Center" : [0.000000, 0.000000, 0.000000],
+            "Length" : 10.486163,
+            "Radius" : 4.000000
+          }]
+      },
+      "BoneName" : "mixamorig6:RightShoulder",
+      "CollisionResponse" : 0,
+      "DefaultCollisionEnabled" : 3,
+      "PhysMaterial" : "",
+      "PhysicsType" : 2
+    }, {
+      "AggGeom" : {
+        "BoxElems" : [],
+        "ConvexElems" : [],
+        "SphereElems" : [],
+        "SphylElems" : [{
+            "Center" : [0.000000, 0.000000, 0.000000],
+            "Length" : 21.655704,
+            "Radius" : 4.000000
+          }]
+      },
+      "BoneName" : "mixamorig6:RightArm",
+      "CollisionResponse" : 0,
+      "DefaultCollisionEnabled" : 3,
+      "PhysMaterial" : "",
+      "PhysicsType" : 2
+    }, {
+      "AggGeom" : {
+        "BoxElems" : [],
+        "ConvexElems" : [],
+        "SphereElems" : [],
+        "SphylElems" : [{
+            "Center" : [0.000000, 0.000000, 0.000000],
+            "Length" : 20.452356,
+            "Radius" : 4.000000
+          }]
+      },
+      "BoneName" : "mixamorig6:RightForeArm",
+      "CollisionResponse" : 0,
+      "DefaultCollisionEnabled" : 3,
+      "PhysMaterial" : "",
+      "PhysicsType" : 2
+    }, {
+      "AggGeom" : {
+        "BoxElems" : [],
+        "ConvexElems" : [],
+        "SphereElems" : [{
+            "Center" : [0.000000, 0.000000, 0.000000],
+            "Radius" : 3.000000
+          }],
+        "SphylElems" : []
+      },
+      "BoneName" : "mixamorig6:RightHand",
+      "CollisionResponse" : 0,
+      "DefaultCollisionEnabled" : 3,
+      "PhysMaterial" : "",
+      "PhysicsType" : 2
+    }, {
+      "AggGeom" : {
+        "BoxElems" : [],
+        "ConvexElems" : [],
+        "SphereElems" : [],
+        "SphylElems" : [{
+            "Center" : [0.000000, 0.000000, 0.000000],
+            "Length" : 32.719707,
+            "Radius" : 4.000000
+          }]
+      },
+      "BoneName" : "mixamorig6:LeftUpLeg",
+      "CollisionResponse" : 0,
+      "DefaultCollisionEnabled" : 3,
+      "PhysMaterial" : "",
+      "PhysicsType" : 2
+    }, {
+      "AggGeom" : {
+        "BoxElems" : [],
+        "ConvexElems" : [],
+        "SphereElems" : [],
+        "SphylElems" : [{
+            "Center" : [0.000000, 0.000000, 0.000000],
+            "Length" : 31.178131,
+            "Radius" : 4.000000
+          }]
+      },
+      "BoneName" : "mixamorig6:LeftLeg",
+      "CollisionResponse" : 0,
+      "DefaultCollisionEnabled" : 3,
+      "PhysMaterial" : "",
+      "PhysicsType" : 2
+    }, {
+      "AggGeom" : {
+        "BoxElems" : [],
+        "ConvexElems" : [],
+        "SphereElems" : [{
+            "Center" : [0.000000, 0.000000, 0.000000],
+            "Radius" : 3.000000
+          }],
+        "SphylElems" : []
+      },
+      "BoneName" : "mixamorig6:LeftFoot",
+      "CollisionResponse" : 0,
+      "DefaultCollisionEnabled" : 3,
+      "PhysMaterial" : "",
+      "PhysicsType" : 2
+    }, {
+      "AggGeom" : {
+        "BoxElems" : [],
+        "ConvexElems" : [],
+        "SphereElems" : [],
+        "SphylElems" : [{
+            "Center" : [0.000000, 0.000000, 0.000000],
+            "Length" : 32.706703,
+            "Radius" : 4.000000
+          }]
+      },
+      "BoneName" : "mixamorig6:RightUpLeg",
+      "CollisionResponse" : 0,
+      "DefaultCollisionEnabled" : 3,
+      "PhysMaterial" : "",
+      "PhysicsType" : 2
+    }, {
+      "AggGeom" : {
+        "BoxElems" : [],
+        "ConvexElems" : [],
+        "SphereElems" : [],
+        "SphylElems" : [{
+            "Center" : [0.000000, 0.000000, 0.000000],
+            "Length" : 31.196394,
+            "Radius" : 4.000000
+          }]
+      },
+      "BoneName" : "mixamorig6:RightLeg",
+      "CollisionResponse" : 0,
+      "DefaultCollisionEnabled" : 3,
+      "PhysMaterial" : "",
+      "PhysicsType" : 2
+    }, {
+      "AggGeom" : {
+        "BoxElems" : [],
+        "ConvexElems" : [],
+        "SphereElems" : [{
+            "Center" : [0.000000, 0.000000, 0.000000],
+            "Radius" : 3.000000
+          }],
+        "SphylElems" : []
+      },
+      "BoneName" : "mixamorig6:RightFoot",
+      "CollisionResponse" : 0,
+      "DefaultCollisionEnabled" : 3,
+      "PhysMaterial" : "",
+      "PhysicsType" : 2
+    }],
+  "CollisionDisableTable" : [{
+      "Index1" : 0,
+      "Index2" : 18
+    }, {
+      "Index1" : 0,
+      "Index2" : 15
+    }, {
+      "Index1" : 0,
+      "Index2" : 1
+    }, {
+      "Index1" : 1,
+      "Index2" : 2
+    }, {
+      "Index1" : 2,
+      "Index2" : 3
+    }, {
+      "Index1" : 3,
+      "Index2" : 11
+    }, {
+      "Index1" : 3,
+      "Index2" : 4
+    }, {
+      "Index1" : 3,
+      "Index2" : 7
+    }, {
+      "Index1" : 4,
+      "Index2" : 5
+    }, {
+      "Index1" : 5,
+      "Index2" : 6
+    }, {
+      "Index1" : 7,
+      "Index2" : 8
+    }, {
+      "Index1" : 8,
+      "Index2" : 9
+    }, {
+      "Index1" : 9,
+      "Index2" : 10
+    }, {
+      "Index1" : 11,
+      "Index2" : 12
+    }, {
+      "Index1" : 12,
+      "Index2" : 13
+    }, {
+      "Index1" : 13,
+      "Index2" : 14
+    }, {
+      "Index1" : 15,
+      "Index2" : 16
+    }, {
+      "Index1" : 16,
+      "Index2" : 17
+    }, {
+      "Index1" : 18,
+      "Index2" : 19
+    }, {
+      "Index1" : 19,
+      "Index2" : 20
+    }],
+  "ConstraintSetup" : [],
+  "Constraints" : [{
+      "Bone1" : "mixamorig6:Hips",
+      "Bone2" : "mixamorig6:Spine",
+      "DefaultInstance" : {
+        "AngularSwing1Motion" : 1,
+        "AngularSwing2Motion" : 1,
+        "AngularTwistMotion" : 1,
+        "ConstraintBone1" : "mixamorig6:Hips",
+        "ConstraintBone2" : "mixamorig6:Spine",
+        "JointName" : "mixamorig6:Spine_Joint",
+        "LinearLimit" : 0.000000,
+        "LinearXMotion" : 2,
+        "LinearYMotion" : 2,
+        "LinearZMotion" : 2,
+        "Swing1LimitAngle" : 45.000000,
+        "Swing2LimitAngle" : 45.000000,
+        "TwistLimitAngle" : 30.000000,
+        "bDisableCollision" : true
+      },
+      "DisableCollision" : true,
+      "JointName" : "mixamorig6:Spine_Joint",
+      "LinearLimit" : 0.000000,
+      "LinearXMotion" : 2,
+      "LinearYMotion" : 2,
+      "LinearZMotion" : 2,
+      "Swing1Limit" : 45.000000,
+      "Swing1Motion" : 1,
+      "Swing2Limit" : 45.000000,
+      "Swing2Motion" : 1,
+      "TwistLimit" : 30.000000,
+      "TwistMotion" : 1
+    }, {
+      "Bone1" : "mixamorig6:Spine",
+      "Bone2" : "mixamorig6:Spine1",
+      "DefaultInstance" : {
+        "AngularSwing1Motion" : 1,
+        "AngularSwing2Motion" : 1,
+        "AngularTwistMotion" : 1,
+        "ConstraintBone1" : "mixamorig6:Spine",
+        "ConstraintBone2" : "mixamorig6:Spine1",
+        "JointName" : "mixamorig6:Spine1_Joint",
+        "LinearLimit" : 0.000000,
+        "LinearXMotion" : 2,
+        "LinearYMotion" : 2,
+        "LinearZMotion" : 2,
+        "Swing1LimitAngle" : 45.000000,
+        "Swing2LimitAngle" : 45.000000,
+        "TwistLimitAngle" : 30.000000,
+        "bDisableCollision" : true
+      },
+      "DisableCollision" : true,
+      "JointName" : "mixamorig6:Spine1_Joint",
+      "LinearLimit" : 0.000000,
+      "LinearXMotion" : 2,
+      "LinearYMotion" : 2,
+      "LinearZMotion" : 2,
+      "Swing1Limit" : 45.000000,
+      "Swing1Motion" : 1,
+      "Swing2Limit" : 45.000000,
+      "Swing2Motion" : 1,
+      "TwistLimit" : 30.000000,
+      "TwistMotion" : 1
+    }, {
+      "Bone1" : "mixamorig6:Spine1",
+      "Bone2" : "mixamorig6:Spine2",
+      "DefaultInstance" : {
+        "AngularSwing1Motion" : 1,
+        "AngularSwing2Motion" : 1,
+        "AngularTwistMotion" : 1,
+        "ConstraintBone1" : "mixamorig6:Spine1",
+        "ConstraintBone2" : "mixamorig6:Spine2",
+        "JointName" : "mixamorig6:Spine2_Joint",
+        "LinearLimit" : 0.000000,
+        "LinearXMotion" : 2,
+        "LinearYMotion" : 2,
+        "LinearZMotion" : 2,
+        "Swing1LimitAngle" : 45.000000,
+        "Swing2LimitAngle" : 45.000000,
+        "TwistLimitAngle" : 30.000000,
+        "bDisableCollision" : true
+      },
+      "DisableCollision" : true,
+      "JointName" : "mixamorig6:Spine2_Joint",
+      "LinearLimit" : 0.000000,
+      "LinearXMotion" : 2,
+      "LinearYMotion" : 2,
+      "LinearZMotion" : 2,
+      "Swing1Limit" : 45.000000,
+      "Swing1Motion" : 1,
+      "Swing2Limit" : 45.000000,
+      "Swing2Motion" : 1,
+      "TwistLimit" : 30.000000,
+      "TwistMotion" : 1
+    }, {
+      "Bone1" : "mixamorig6:Spine2",
+      "Bone2" : "mixamorig6:Neck",
+      "DefaultInstance" : {
+        "AngularSwing1Motion" : 1,
+        "AngularSwing2Motion" : 1,
+        "AngularTwistMotion" : 1,
+        "ConstraintBone1" : "mixamorig6:Spine2",
+        "ConstraintBone2" : "mixamorig6:Neck",
+        "JointName" : "mixamorig6:Neck_Joint",
+        "LinearLimit" : 0.000000,
+        "LinearXMotion" : 2,
+        "LinearYMotion" : 2,
+        "LinearZMotion" : 2,
+        "Swing1LimitAngle" : 45.000000,
+        "Swing2LimitAngle" : 45.000000,
+        "TwistLimitAngle" : 30.000000,
+        "bDisableCollision" : true
+      },
+      "DisableCollision" : true,
+      "JointName" : "mixamorig6:Neck_Joint",
+      "LinearLimit" : 0.000000,
+      "LinearXMotion" : 2,
+      "LinearYMotion" : 2,
+      "LinearZMotion" : 2,
+      "Swing1Limit" : 45.000000,
+      "Swing1Motion" : 1,
+      "Swing2Limit" : 45.000000,
+      "Swing2Motion" : 1,
+      "TwistLimit" : 30.000000,
+      "TwistMotion" : 1
+    }, {
+      "Bone1" : "mixamorig6:Neck",
+      "Bone2" : "mixamorig6:Head",
+      "DefaultInstance" : {
+        "AngularSwing1Motion" : 1,
+        "AngularSwing2Motion" : 1,
+        "AngularTwistMotion" : 1,
+        "ConstraintBone1" : "mixamorig6:Neck",
+        "ConstraintBone2" : "mixamorig6:Head",
+        "JointName" : "mixamorig6:Head_Joint",
+        "LinearLimit" : 0.000000,
+        "LinearXMotion" : 2,
+        "LinearYMotion" : 2,
+        "LinearZMotion" : 2,
+        "Swing1LimitAngle" : 45.000000,
+        "Swing2LimitAngle" : 45.000000,
+        "TwistLimitAngle" : 30.000000,
+        "bDisableCollision" : true
+      },
+      "DisableCollision" : true,
+      "JointName" : "mixamorig6:Head_Joint",
+      "LinearLimit" : 0.000000,
+      "LinearXMotion" : 2,
+      "LinearYMotion" : 2,
+      "LinearZMotion" : 2,
+      "Swing1Limit" : 45.000000,
+      "Swing1Motion" : 1,
+      "Swing2Limit" : 45.000000,
+      "Swing2Motion" : 1,
+      "TwistLimit" : 30.000000,
+      "TwistMotion" : 1
+    }, {
+      "Bone1" : "mixamorig6:Head",
+      "Bone2" : "mixamorig6:HeadTop_End",
+      "DefaultInstance" : {
+        "AngularSwing1Motion" : 1,
+        "AngularSwing2Motion" : 1,
+        "AngularTwistMotion" : 1,
+        "ConstraintBone1" : "mixamorig6:Head",
+        "ConstraintBone2" : "mixamorig6:HeadTop_End",
+        "JointName" : "mixamorig6:HeadTop_End_Joint",
+        "LinearLimit" : 0.000000,
+        "LinearXMotion" : 2,
+        "LinearYMotion" : 2,
+        "LinearZMotion" : 2,
+        "Swing1LimitAngle" : 45.000000,
+        "Swing2LimitAngle" : 45.000000,
+        "TwistLimitAngle" : 30.000000,
+        "bDisableCollision" : true
+      },
+      "DisableCollision" : true,
+      "JointName" : "mixamorig6:HeadTop_End_Joint",
+      "LinearLimit" : 0.000000,
+      "LinearXMotion" : 2,
+      "LinearYMotion" : 2,
+      "LinearZMotion" : 2,
+      "Swing1Limit" : 45.000000,
+      "Swing1Motion" : 1,
+      "Swing2Limit" : 45.000000,
+      "Swing2Motion" : 1,
+      "TwistLimit" : 30.000000,
+      "TwistMotion" : 1
+    }, {
+      "Bone1" : "mixamorig6:Spine2",
+      "Bone2" : "mixamorig6:LeftShoulder",
+      "DefaultInstance" : {
+        "AngularSwing1Motion" : 1,
+        "AngularSwing2Motion" : 1,
+        "AngularTwistMotion" : 1,
+        "ConstraintBone1" : "mixamorig6:Spine2",
+        "ConstraintBone2" : "mixamorig6:LeftShoulder",
+        "JointName" : "mixamorig6:LeftShoulder_Joint",
+        "LinearLimit" : 0.000000,
+        "LinearXMotion" : 2,
+        "LinearYMotion" : 2,
+        "LinearZMotion" : 2,
+        "Swing1LimitAngle" : 45.000000,
+        "Swing2LimitAngle" : 45.000000,
+        "TwistLimitAngle" : 30.000000,
+        "bDisableCollision" : true
+      },
+      "DisableCollision" : true,
+      "JointName" : "mixamorig6:LeftShoulder_Joint",
+      "LinearLimit" : 0.000000,
+      "LinearXMotion" : 2,
+      "LinearYMotion" : 2,
+      "LinearZMotion" : 2,
+      "Swing1Limit" : 45.000000,
+      "Swing1Motion" : 1,
+      "Swing2Limit" : 45.000000,
+      "Swing2Motion" : 1,
+      "TwistLimit" : 30.000000,
+      "TwistMotion" : 1
+    }, {
+      "Bone1" : "mixamorig6:LeftShoulder",
+      "Bone2" : "mixamorig6:LeftArm",
+      "DefaultInstance" : {
+        "AngularSwing1Motion" : 1,
+        "AngularSwing2Motion" : 1,
+        "AngularTwistMotion" : 1,
+        "ConstraintBone1" : "mixamorig6:LeftShoulder",
+        "ConstraintBone2" : "mixamorig6:LeftArm",
+        "JointName" : "mixamorig6:LeftArm_Joint",
+        "LinearLimit" : 0.000000,
+        "LinearXMotion" : 2,
+        "LinearYMotion" : 2,
+        "LinearZMotion" : 2,
+        "Swing1LimitAngle" : 45.000000,
+        "Swing2LimitAngle" : 45.000000,
+        "TwistLimitAngle" : 30.000000,
+        "bDisableCollision" : true
+      },
+      "DisableCollision" : true,
+      "JointName" : "mixamorig6:LeftArm_Joint",
+      "LinearLimit" : 0.000000,
+      "LinearXMotion" : 2,
+      "LinearYMotion" : 2,
+      "LinearZMotion" : 2,
+      "Swing1Limit" : 45.000000,
+      "Swing1Motion" : 1,
+      "Swing2Limit" : 45.000000,
+      "Swing2Motion" : 1,
+      "TwistLimit" : 30.000000,
+      "TwistMotion" : 1
+    }, {
+      "Bone1" : "mixamorig6:LeftArm",
+      "Bone2" : "mixamorig6:LeftForeArm",
+      "DefaultInstance" : {
+        "AngularSwing1Motion" : 1,
+        "AngularSwing2Motion" : 1,
+        "AngularTwistMotion" : 1,
+        "ConstraintBone1" : "mixamorig6:LeftArm",
+        "ConstraintBone2" : "mixamorig6:LeftForeArm",
+        "JointName" : "mixamorig6:LeftForeArm_Joint",
+        "LinearLimit" : 0.000000,
+        "LinearXMotion" : 2,
+        "LinearYMotion" : 2,
+        "LinearZMotion" : 2,
+        "Swing1LimitAngle" : 45.000000,
+        "Swing2LimitAngle" : 45.000000,
+        "TwistLimitAngle" : 30.000000,
+        "bDisableCollision" : true
+      },
+      "DisableCollision" : true,
+      "JointName" : "mixamorig6:LeftForeArm_Joint",
+      "LinearLimit" : 0.000000,
+      "LinearXMotion" : 2,
+      "LinearYMotion" : 2,
+      "LinearZMotion" : 2,
+      "Swing1Limit" : 45.000000,
+      "Swing1Motion" : 1,
+      "Swing2Limit" : 45.000000,
+      "Swing2Motion" : 1,
+      "TwistLimit" : 30.000000,
+      "TwistMotion" : 1
+    }, {
+      "Bone1" : "mixamorig6:LeftForeArm",
+      "Bone2" : "mixamorig6:LeftHand",
+      "DefaultInstance" : {
+        "AngularSwing1Motion" : 1,
+        "AngularSwing2Motion" : 1,
+        "AngularTwistMotion" : 1,
+        "ConstraintBone1" : "mixamorig6:LeftForeArm",
+        "ConstraintBone2" : "mixamorig6:LeftHand",
+        "JointName" : "mixamorig6:LeftHand_Joint",
+        "LinearLimit" : 0.000000,
+        "LinearXMotion" : 2,
+        "LinearYMotion" : 2,
+        "LinearZMotion" : 2,
+        "Swing1LimitAngle" : 45.000000,
+        "Swing2LimitAngle" : 45.000000,
+        "TwistLimitAngle" : 30.000000,
+        "bDisableCollision" : true
+      },
+      "DisableCollision" : true,
+      "JointName" : "mixamorig6:LeftHand_Joint",
+      "LinearLimit" : 0.000000,
+      "LinearXMotion" : 2,
+      "LinearYMotion" : 2,
+      "LinearZMotion" : 2,
+      "Swing1Limit" : 45.000000,
+      "Swing1Motion" : 1,
+      "Swing2Limit" : 45.000000,
+      "Swing2Motion" : 1,
+      "TwistLimit" : 30.000000,
+      "TwistMotion" : 1
+    }, {
+      "Bone1" : "mixamorig6:Spine2",
+      "Bone2" : "mixamorig6:RightShoulder",
+      "DefaultInstance" : {
+        "AngularSwing1Motion" : 1,
+        "AngularSwing2Motion" : 1,
+        "AngularTwistMotion" : 1,
+        "ConstraintBone1" : "mixamorig6:Spine2",
+        "ConstraintBone2" : "mixamorig6:RightShoulder",
+        "JointName" : "mixamorig6:RightShoulder_Joint",
+        "LinearLimit" : 0.000000,
+        "LinearXMotion" : 2,
+        "LinearYMotion" : 2,
+        "LinearZMotion" : 2,
+        "Swing1LimitAngle" : 45.000000,
+        "Swing2LimitAngle" : 45.000000,
+        "TwistLimitAngle" : 30.000000,
+        "bDisableCollision" : true
+      },
+      "DisableCollision" : true,
+      "JointName" : "mixamorig6:RightShoulder_Joint",
+      "LinearLimit" : 0.000000,
+      "LinearXMotion" : 2,
+      "LinearYMotion" : 2,
+      "LinearZMotion" : 2,
+      "Swing1Limit" : 45.000000,
+      "Swing1Motion" : 1,
+      "Swing2Limit" : 45.000000,
+      "Swing2Motion" : 1,
+      "TwistLimit" : 30.000000,
+      "TwistMotion" : 1
+    }, {
+      "Bone1" : "mixamorig6:RightShoulder",
+      "Bone2" : "mixamorig6:RightArm",
+      "DefaultInstance" : {
+        "AngularSwing1Motion" : 1,
+        "AngularSwing2Motion" : 1,
+        "AngularTwistMotion" : 1,
+        "ConstraintBone1" : "mixamorig6:RightShoulder",
+        "ConstraintBone2" : "mixamorig6:RightArm",
+        "JointName" : "mixamorig6:RightArm_Joint",
+        "LinearLimit" : 0.000000,
+        "LinearXMotion" : 2,
+        "LinearYMotion" : 2,
+        "LinearZMotion" : 2,
+        "Swing1LimitAngle" : 45.000000,
+        "Swing2LimitAngle" : 45.000000,
+        "TwistLimitAngle" : 30.000000,
+        "bDisableCollision" : true
+      },
+      "DisableCollision" : true,
+      "JointName" : "mixamorig6:RightArm_Joint",
+      "LinearLimit" : 0.000000,
+      "LinearXMotion" : 2,
+      "LinearYMotion" : 2,
+      "LinearZMotion" : 2,
+      "Swing1Limit" : 45.000000,
+      "Swing1Motion" : 1,
+      "Swing2Limit" : 45.000000,
+      "Swing2Motion" : 1,
+      "TwistLimit" : 30.000000,
+      "TwistMotion" : 1
+    }, {
+      "Bone1" : "mixamorig6:RightArm",
+      "Bone2" : "mixamorig6:RightForeArm",
+      "DefaultInstance" : {
+        "AngularSwing1Motion" : 1,
+        "AngularSwing2Motion" : 1,
+        "AngularTwistMotion" : 1,
+        "ConstraintBone1" : "mixamorig6:RightArm",
+        "ConstraintBone2" : "mixamorig6:RightForeArm",
+        "JointName" : "mixamorig6:RightForeArm_Joint",
+        "LinearLimit" : 0.000000,
+        "LinearXMotion" : 2,
+        "LinearYMotion" : 2,
+        "LinearZMotion" : 2,
+        "Swing1LimitAngle" : 45.000000,
+        "Swing2LimitAngle" : 45.000000,
+        "TwistLimitAngle" : 30.000000,
+        "bDisableCollision" : true
+      },
+      "DisableCollision" : true,
+      "JointName" : "mixamorig6:RightForeArm_Joint",
+      "LinearLimit" : 0.000000,
+      "LinearXMotion" : 2,
+      "LinearYMotion" : 2,
+      "LinearZMotion" : 2,
+      "Swing1Limit" : 45.000000,
+      "Swing1Motion" : 1,
+      "Swing2Limit" : 45.000000,
+      "Swing2Motion" : 1,
+      "TwistLimit" : 30.000000,
+      "TwistMotion" : 1
+    }, {
+      "Bone1" : "mixamorig6:RightForeArm",
+      "Bone2" : "mixamorig6:RightHand",
+      "DefaultInstance" : {
+        "AngularSwing1Motion" : 1,
+        "AngularSwing2Motion" : 1,
+        "AngularTwistMotion" : 1,
+        "ConstraintBone1" : "mixamorig6:RightForeArm",
+        "ConstraintBone2" : "mixamorig6:RightHand",
+        "JointName" : "mixamorig6:RightHand_Joint",
+        "LinearLimit" : 0.000000,
+        "LinearXMotion" : 2,
+        "LinearYMotion" : 2,
+        "LinearZMotion" : 2,
+        "Swing1LimitAngle" : 45.000000,
+        "Swing2LimitAngle" : 45.000000,
+        "TwistLimitAngle" : 30.000000,
+        "bDisableCollision" : true
+      },
+      "DisableCollision" : true,
+      "JointName" : "mixamorig6:RightHand_Joint",
+      "LinearLimit" : 0.000000,
+      "LinearXMotion" : 2,
+      "LinearYMotion" : 2,
+      "LinearZMotion" : 2,
+      "Swing1Limit" : 45.000000,
+      "Swing1Motion" : 1,
+      "Swing2Limit" : 45.000000,
+      "Swing2Motion" : 1,
+      "TwistLimit" : 30.000000,
+      "TwistMotion" : 1
+    }, {
+      "Bone1" : "mixamorig6:Hips",
+      "Bone2" : "mixamorig6:LeftUpLeg",
+      "DefaultInstance" : {
+        "AngularSwing1Motion" : 1,
+        "AngularSwing2Motion" : 1,
+        "AngularTwistMotion" : 1,
+        "ConstraintBone1" : "mixamorig6:Hips",
+        "ConstraintBone2" : "mixamorig6:LeftUpLeg",
+        "JointName" : "mixamorig6:LeftUpLeg_Joint",
+        "LinearLimit" : 0.000000,
+        "LinearXMotion" : 2,
+        "LinearYMotion" : 2,
+        "LinearZMotion" : 2,
+        "Swing1LimitAngle" : 45.000000,
+        "Swing2LimitAngle" : 45.000000,
+        "TwistLimitAngle" : 30.000000,
+        "bDisableCollision" : true
+      },
+      "DisableCollision" : true,
+      "JointName" : "mixamorig6:LeftUpLeg_Joint",
+      "LinearLimit" : 0.000000,
+      "LinearXMotion" : 2,
+      "LinearYMotion" : 2,
+      "LinearZMotion" : 2,
+      "Swing1Limit" : 45.000000,
+      "Swing1Motion" : 1,
+      "Swing2Limit" : 45.000000,
+      "Swing2Motion" : 1,
+      "TwistLimit" : 30.000000,
+      "TwistMotion" : 1
+    }, {
+      "Bone1" : "mixamorig6:LeftUpLeg",
+      "Bone2" : "mixamorig6:LeftLeg",
+      "DefaultInstance" : {
+        "AngularSwing1Motion" : 1,
+        "AngularSwing2Motion" : 1,
+        "AngularTwistMotion" : 1,
+        "ConstraintBone1" : "mixamorig6:LeftUpLeg",
+        "ConstraintBone2" : "mixamorig6:LeftLeg",
+        "JointName" : "mixamorig6:LeftLeg_Joint",
+        "LinearLimit" : 0.000000,
+        "LinearXMotion" : 2,
+        "LinearYMotion" : 2,
+        "LinearZMotion" : 2,
+        "Swing1LimitAngle" : 45.000000,
+        "Swing2LimitAngle" : 45.000000,
+        "TwistLimitAngle" : 30.000000,
+        "bDisableCollision" : true
+      },
+      "DisableCollision" : true,
+      "JointName" : "mixamorig6:LeftLeg_Joint",
+      "LinearLimit" : 0.000000,
+      "LinearXMotion" : 2,
+      "LinearYMotion" : 2,
+      "LinearZMotion" : 2,
+      "Swing1Limit" : 45.000000,
+      "Swing1Motion" : 1,
+      "Swing2Limit" : 45.000000,
+      "Swing2Motion" : 1,
+      "TwistLimit" : 30.000000,
+      "TwistMotion" : 1
+    }, {
+      "Bone1" : "mixamorig6:LeftLeg",
+      "Bone2" : "mixamorig6:LeftFoot",
+      "DefaultInstance" : {
+        "AngularSwing1Motion" : 1,
+        "AngularSwing2Motion" : 1,
+        "AngularTwistMotion" : 1,
+        "ConstraintBone1" : "mixamorig6:LeftLeg",
+        "ConstraintBone2" : "mixamorig6:LeftFoot",
+        "JointName" : "mixamorig6:LeftFoot_Joint",
+        "LinearLimit" : 0.000000,
+        "LinearXMotion" : 2,
+        "LinearYMotion" : 2,
+        "LinearZMotion" : 2,
+        "Swing1LimitAngle" : 45.000000,
+        "Swing2LimitAngle" : 45.000000,
+        "TwistLimitAngle" : 30.000000,
+        "bDisableCollision" : true
+      },
+      "DisableCollision" : true,
+      "JointName" : "mixamorig6:LeftFoot_Joint",
+      "LinearLimit" : 0.000000,
+      "LinearXMotion" : 2,
+      "LinearYMotion" : 2,
+      "LinearZMotion" : 2,
+      "Swing1Limit" : 45.000000,
+      "Swing1Motion" : 1,
+      "Swing2Limit" : 45.000000,
+      "Swing2Motion" : 1,
+      "TwistLimit" : 30.000000,
+      "TwistMotion" : 1
+    }, {
+      "Bone1" : "mixamorig6:Hips",
+      "Bone2" : "mixamorig6:RightUpLeg",
+      "DefaultInstance" : {
+        "AngularSwing1Motion" : 1,
+        "AngularSwing2Motion" : 1,
+        "AngularTwistMotion" : 1,
+        "ConstraintBone1" : "mixamorig6:Hips",
+        "ConstraintBone2" : "mixamorig6:RightUpLeg",
+        "JointName" : "mixamorig6:RightUpLeg_Joint",
+        "LinearLimit" : 0.000000,
+        "LinearXMotion" : 2,
+        "LinearYMotion" : 2,
+        "LinearZMotion" : 2,
+        "Swing1LimitAngle" : 45.000000,
+        "Swing2LimitAngle" : 45.000000,
+        "TwistLimitAngle" : 30.000000,
+        "bDisableCollision" : true
+      },
+      "DisableCollision" : true,
+      "JointName" : "mixamorig6:RightUpLeg_Joint",
+      "LinearLimit" : 0.000000,
+      "LinearXMotion" : 2,
+      "LinearYMotion" : 2,
+      "LinearZMotion" : 2,
+      "Swing1Limit" : 45.000000,
+      "Swing1Motion" : 1,
+      "Swing2Limit" : 45.000000,
+      "Swing2Motion" : 1,
+      "TwistLimit" : 30.000000,
+      "TwistMotion" : 1
+    }, {
+      "Bone1" : "mixamorig6:RightUpLeg",
+      "Bone2" : "mixamorig6:RightLeg",
+      "DefaultInstance" : {
+        "AngularSwing1Motion" : 1,
+        "AngularSwing2Motion" : 1,
+        "AngularTwistMotion" : 1,
+        "ConstraintBone1" : "mixamorig6:RightUpLeg",
+        "ConstraintBone2" : "mixamorig6:RightLeg",
+        "JointName" : "mixamorig6:RightLeg_Joint",
+        "LinearLimit" : 0.000000,
+        "LinearXMotion" : 2,
+        "LinearYMotion" : 2,
+        "LinearZMotion" : 2,
+        "Swing1LimitAngle" : 45.000000,
+        "Swing2LimitAngle" : 45.000000,
+        "TwistLimitAngle" : 30.000000,
+        "bDisableCollision" : true
+      },
+      "DisableCollision" : true,
+      "JointName" : "mixamorig6:RightLeg_Joint",
+      "LinearLimit" : 0.000000,
+      "LinearXMotion" : 2,
+      "LinearYMotion" : 2,
+      "LinearZMotion" : 2,
+      "Swing1Limit" : 45.000000,
+      "Swing1Motion" : 1,
+      "Swing2Limit" : 45.000000,
+      "Swing2Motion" : 1,
+      "TwistLimit" : 30.000000,
+      "TwistMotion" : 1
+    }, {
+      "Bone1" : "mixamorig6:RightLeg",
+      "Bone2" : "mixamorig6:RightFoot",
+      "DefaultInstance" : {
+        "AngularSwing1Motion" : 1,
+        "AngularSwing2Motion" : 1,
+        "AngularTwistMotion" : 1,
+        "ConstraintBone1" : "mixamorig6:RightLeg",
+        "ConstraintBone2" : "mixamorig6:RightFoot",
+        "JointName" : "mixamorig6:RightFoot_Joint",
+        "LinearLimit" : 0.000000,
+        "LinearXMotion" : 2,
+        "LinearYMotion" : 2,
+        "LinearZMotion" : 2,
+        "Swing1LimitAngle" : 45.000000,
+        "Swing2LimitAngle" : 45.000000,
+        "TwistLimitAngle" : 30.000000,
+        "bDisableCollision" : true
+      },
+      "DisableCollision" : true,
+      "JointName" : "mixamorig6:RightFoot_Joint",
+      "LinearLimit" : 0.000000,
+      "LinearXMotion" : 2,
+      "LinearYMotion" : 2,
+      "LinearZMotion" : 2,
+      "Swing1Limit" : 45.000000,
+      "Swing1Motion" : 1,
+      "Swing2Limit" : 45.000000,
+      "Swing2Motion" : 1,
+      "TwistLimit" : 30.000000,
+      "TwistMotion" : 1
+    }],
+  "DefaultPhysMaterial" : "",
+  "SkeletalBodySetups" : [],
+  "SkeletalMeshPath" : "Data/DancingRacer.fbx"
+}
