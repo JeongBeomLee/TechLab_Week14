@@ -29,6 +29,8 @@ inline float RadiansToDegrees(float Radian) { return Radian * (180.0f / PI); }
 // FMath 네임스페이스 대체
 namespace FMath
 {
+	
+
 	template<typename T>
 	static T Max(T A, T B) { return std::max(A, B); }
 

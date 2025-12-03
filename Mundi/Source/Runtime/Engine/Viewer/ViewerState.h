@@ -3,6 +3,13 @@
 class UWorld; class FViewport; class FViewportClient; class ASkeletalMeshActor; class USkeletalMesh; class UAnimSequence;
 class UParticleSystem; class UParticleSystemComponent; class AActor; class UParticleModule;
 class UPhysicsAsset;
+class FPhysicsScene;
+struct FBodyInstance;
+namespace physx 
+{
+    class PxJoint; 
+    class PxRigidStatic;
+}
 
 struct FAnimNotifyEvent
 {
@@ -159,6 +166,9 @@ struct ParticleEditorState : public ViewerState
     }
 };
 
+// 전방 선언
+class FPrimitiveDrawInterface;
+
 // Physics Asset Editor 상태
 struct PhysicsAssetEditorState : public ViewerState
 {
@@ -166,11 +176,18 @@ struct PhysicsAssetEditorState : public ViewerState
     UPhysicsAsset* EditingPhysicsAsset = nullptr;
 
     // 선택 상태
-    int32 SelectedBodyIndex = -1;
-    int32 SelectedConstraintIndex = -1;
+    int32 SelectedBodyIndex = -1;        // 그래프 내 하이라이트된 바디
+    int32 SelectedConstraintIndex = -1;  // 그래프 내 하이라이트된 컨스트레인트
+    int32 GraphRootBodyIndex = -1;       // 그래프의 중심 바디 (스켈레톤 트리에서만 변경)
 
-    // 시뮬레이션 상태
+    // === 시뮬레이션 상태 ===
     bool bIsSimulating = false;
+    FPhysicsScene* SimulationScene = nullptr;
+    TArray<FBodyInstance*> SimulatedBodies;
+    TArray<physx::PxJoint*> SimulatedJoints;
+    physx::PxRigidStatic* GroundPlane = nullptr;  // 바닥 충돌용 평면
+    TArray<FTransform> OriginalBoneTransforms;  // 리셋용 원본 포즈
+    float SimulationLeftoverTime = 0.0f;        // 고정 시간 스텝용
 
     // 표시 옵션
     bool bShowBodies = true;
@@ -181,16 +198,53 @@ struct PhysicsAssetEditorState : public ViewerState
     FString CurrentFilePath;    // Physics Asset 경로 (저장/불러오기용)
 
     // 시각화 라인 컴포넌트
-    class ULineComponent* BodyShapeLineComponent = nullptr;
-    class ULineComponent* ConstraintLineComponent = nullptr;
+    class ULineComponent* BodyShapeLineComponent = nullptr;           // 비선택 바디용
+    class ULineComponent* SelectedBodyLineComponent = nullptr;        // 선택 바디용
+    class ULineComponent* ConstraintLineComponent = nullptr;          // 비선택 Constraint용
+    class ULineComponent* SelectedConstraintLineComponent = nullptr;  // 선택 Constraint용
+
+    // 디버그 렌더링 인터페이스
+    FPrimitiveDrawInterface* PDI = nullptr;                    // 비선택 바디용
+    FPrimitiveDrawInterface* SelectedPDI = nullptr;            // 선택 바디용
+    FPrimitiveDrawInterface* ConstraintPDI = nullptr;          // 비선택 Constraint용
+    FPrimitiveDrawInterface* SelectedConstraintPDI = nullptr;  // 선택 Constraint용
+
+    // BoneTM 캐시 (본 인덱스 -> 월드 트랜스폼)
+    TMap<int32, FTransform> CachedBoneTM;
+    bool bBoneTMCacheDirty = true;      // 캐시 무효화 플래그
+
+    // Shape 라인 재생성 플래그 (세분화)
+    bool bAllBodyLinesDirty = true;           // 전체 바디 라인 재생성
+    bool bSelectedBodyLineDirty = true;       // 선택 바디 라인만 재생성
+    bool bAllConstraintLinesDirty = true;     // 전체 Constraint 라인 재생성
+    bool bSelectedConstraintLineDirty = true; // 선택 Constraint 라인만 재생성
+    int32 LastSelectedBodyIndex = -1;         // 이전 선택 바디 (변경 감지용)
+    int32 LastSelectedConstraintIndex = -1;   // 이전 선택 컨스트레인트 (변경 감지용)
 
     // 패널 비율 (좌측: Hierarchy/Graph, 우측: Details/Tool)
     float LeftTopRatio = 0.6f;
     float RightTopRatio = 0.6f;
+
+    // Graph 패널 줌/팬
+    float GraphZoomLevel = 0.6f;        // 기본 줌 레벨
+    ImVec2 GraphPanOffset = ImVec2(0, 0);  // 팬 오프셋
 
     // 더티 플래그
     bool bIsDirty = false;
 
     // 경고/에러 팝업용
     FString PendingWarningMessage;
+
+    // === Tool 패널 파라미터 ===
+    // 바디 생성 옵션
+    int32 ToolGeomType = 2;                 // 0: Sphere, 1: Box, 2: Capsule (기본값)
+    float ToolBodySizeScale = 1.0f;         // 바디 크기 비율 (0.5~1.0)
+    bool bToolBodyForAll = false;           // 모든 본에 바디 생성
+    float ToolMinBoneSize = 0.25f;          // 이 크기 미만 본은 무시 (미터)
+
+    // 컨스트레인트 생성 옵션
+    bool bToolCreateConstraints = true;     // 컨스트레인트 자동 생성
+    int32 ToolAngularMode = 1;              // 0: Free, 1: Limited (기본값), 2: Locked
+    float ToolSwingLimit = 45.0f;           // Swing 제한 각도 (도)
+    float ToolTwistLimit = 45.0f;           // Twist 제한 각도 (도)
 };

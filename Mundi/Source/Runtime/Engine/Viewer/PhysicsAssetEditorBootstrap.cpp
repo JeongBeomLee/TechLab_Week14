@@ -14,7 +14,11 @@
 #include "EditorAssetPreviewContext.h"
 #include "Source/Runtime/Engine/Components/LineComponent.h"
 #include "Source/Runtime/Engine/Components/SkeletalMeshComponent.h"
+#include "Source/Runtime/Physics/PrimitiveDrawInterface.h"
+#include "Source/Runtime/Physics/BodyInstance.h"
+#include "Source/Runtime/Physics/PhysicsScene.h"
 #include "ResourceManager.h"
+#include <PxPhysicsAPI.h>
 
 ViewerState* PhysicsAssetEditorBootstrap::CreateViewerState(const char* Name, UWorld* InWorld,
 	ID3D11Device* InDevice, UEditorAssetPreviewContext* Context)
@@ -126,7 +130,7 @@ ViewerState* PhysicsAssetEditorBootstrap::CreateViewerState(const char* Name, UW
 
 			State->EditingPhysicsAsset = PhysAsset;
 
-			// 바디 Shape 시각화용 LineComponent 생성
+			// 바디 Shape 시각화용 LineComponent 생성 (비선택 바디)
 			ULineComponent* BodyLineComp = NewObject<ULineComponent>();
 			BodyLineComp->SetAlwaysOnTop(true);
 			PreviewActor->AddOwnedComponent(BodyLineComp);
@@ -134,13 +138,57 @@ ViewerState* PhysicsAssetEditorBootstrap::CreateViewerState(const char* Name, UW
 			BodyLineComp->SetLineVisible(true);
 			State->BodyShapeLineComponent = BodyLineComp;
 
-			// Constraint 시각화용 LineComponent 생성
+			// 선택 바디용 LineComponent 생성
+			ULineComponent* SelectedBodyLineComp = NewObject<ULineComponent>();
+			SelectedBodyLineComp->SetAlwaysOnTop(true);
+			PreviewActor->AddOwnedComponent(SelectedBodyLineComp);
+			SelectedBodyLineComp->RegisterComponent(State->World);
+			SelectedBodyLineComp->SetLineVisible(true);
+			State->SelectedBodyLineComponent = SelectedBodyLineComp;
+
+			// Constraint 시각화용 LineComponent 생성 (비선택 Constraint)
 			ULineComponent* ConstraintLineComp = NewObject<ULineComponent>();
 			ConstraintLineComp->SetAlwaysOnTop(true);
 			PreviewActor->AddOwnedComponent(ConstraintLineComp);
 			ConstraintLineComp->RegisterComponent(State->World);
 			ConstraintLineComp->SetLineVisible(true);
 			State->ConstraintLineComponent = ConstraintLineComp;
+
+			// 선택 Constraint용 LineComponent 생성
+			ULineComponent* SelectedConstraintLineComp = NewObject<ULineComponent>();
+			SelectedConstraintLineComp->SetAlwaysOnTop(true);
+			PreviewActor->AddOwnedComponent(SelectedConstraintLineComp);
+			SelectedConstraintLineComp->RegisterComponent(State->World);
+			SelectedConstraintLineComp->SetLineVisible(true);
+			State->SelectedConstraintLineComponent = SelectedConstraintLineComp;
+
+			// PrimitiveDrawInterface 생성 및 초기화
+			// PDI: 비선택 바디용
+			State->PDI = new FPrimitiveDrawInterface();
+			State->PDI->Initialize(BodyLineComp);
+
+			// SelectedPDI: 선택 바디용
+			State->SelectedPDI = new FPrimitiveDrawInterface();
+			State->SelectedPDI->Initialize(SelectedBodyLineComp);
+
+			// ConstraintPDI: 비선택 Constraint용
+			State->ConstraintPDI = new FPrimitiveDrawInterface();
+			State->ConstraintPDI->Initialize(ConstraintLineComp);
+
+			// SelectedConstraintPDI: 선택 Constraint용
+			State->SelectedConstraintPDI = new FPrimitiveDrawInterface();
+			State->SelectedConstraintPDI->Initialize(SelectedConstraintLineComp);
+
+			// 초기 렌더링 플래그
+			State->bBoneTMCacheDirty = true;
+			State->bAllBodyLinesDirty = true;
+			State->bSelectedBodyLineDirty = true;
+			State->bAllConstraintLinesDirty = true;
+			State->bSelectedConstraintLineDirty = true;
+
+			// 본 라인 표시 (ViewerState에서 상속)
+			State->bShowBones = true;
+			State->bBoneLinesDirty = true;
 		}
 	}
 
@@ -153,24 +201,83 @@ void PhysicsAssetEditorBootstrap::DestroyViewerState(ViewerState*& State)
 
 	PhysicsAssetEditorState* PhysState = static_cast<PhysicsAssetEditorState*>(State);
 
-	// Viewport/Client 정리
-	if (PhysState->Viewport) 
-	{ 
-		delete PhysState->Viewport; 
-		PhysState->Viewport = nullptr; 
+	// === 시뮬레이션 리소스 정리 (시뮬레이션 중 종료 시) ===
+	// Joint 정리
+	for (physx::PxJoint* Joint : PhysState->SimulatedJoints)
+	{
+		if (Joint)
+		{
+			Joint->release();
+		}
+	}
+	PhysState->SimulatedJoints.Empty();
+
+	// Body 정리
+	for (FBodyInstance* Body : PhysState->SimulatedBodies)
+	{
+		if (Body)
+		{
+			Body->TermBody();
+			delete Body;
+		}
+	}
+	PhysState->SimulatedBodies.Empty();
+
+	// 바닥 평면 정리
+	if (PhysState->GroundPlane)
+	{
+		PhysState->GroundPlane->release();
+		PhysState->GroundPlane = nullptr;
 	}
 
-	if (PhysState->Client) 
-	{ 
-		delete PhysState->Client; 
-		PhysState->Client = nullptr; 
+	// PhysicsScene 정리
+	if (PhysState->SimulationScene)
+	{
+		PhysState->SimulationScene->Shutdown();
+		delete PhysState->SimulationScene;
+		PhysState->SimulationScene = nullptr;
+	}
+
+	// PDI 정리
+	if (PhysState->PDI)
+	{
+		delete PhysState->PDI;
+		PhysState->PDI = nullptr;
+	}
+	if (PhysState->SelectedPDI)
+	{
+		delete PhysState->SelectedPDI;
+		PhysState->SelectedPDI = nullptr;
+	}
+	if (PhysState->ConstraintPDI)
+	{
+		delete PhysState->ConstraintPDI;
+		PhysState->ConstraintPDI = nullptr;
+	}
+	if (PhysState->SelectedConstraintPDI)
+	{
+		delete PhysState->SelectedConstraintPDI;
+		PhysState->SelectedConstraintPDI = nullptr;
+	}
+
+	// Viewport/Client 정리
+	if (PhysState->Viewport)
+	{
+		delete PhysState->Viewport;
+		PhysState->Viewport = nullptr;
+	}
+
+	if (PhysState->Client)
+	{
+		delete PhysState->Client;
+		PhysState->Client = nullptr;
 	}
 
 	// World 정리 (PreviewActor와 LineComponent들은 World가 소유하므로 자동 정리)
-	if (PhysState->World) 
-	{ 
-		ObjectFactory::DeleteObject(PhysState->World); 
-		PhysState->World = nullptr; 
+	if (PhysState->World)
+	{
+		ObjectFactory::DeleteObject(PhysState->World);
+		PhysState->World = nullptr;
 	}
 
 	delete PhysState;

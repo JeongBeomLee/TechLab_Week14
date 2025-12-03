@@ -43,7 +43,7 @@ void UCameraComponent::OnRegister(UWorld* InWorld)
         }
 
         // Create Direction Gizmo if not already created
-        if (!CameraGizmo && !InWorld->bPie)
+        if (!CameraGizmo && !InWorld->bPie && !InWorld->IsPreviewWorld())
         {
             CREATE_EDITOR_COMPONENT(CameraGizmo, UStaticMeshComponent);
 

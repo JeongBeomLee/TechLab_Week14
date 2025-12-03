@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "SViewerWindow.h"
 #include "Source/Runtime/Engine/Viewer/ViewerState.h"
 
@@ -49,12 +49,21 @@ private:
 	void RenderDetailsPanel();
 	void RenderToolPanel();
 
+	// Details 패널 헬퍼
+	void RenderBoneDetails(int32 BoneIndex);
+	void RenderBodyDetails(USkeletalBodySetup* Body, int32 BodyIndex);
+	void RenderConstraintDetails(UPhysicsConstraintTemplate* Constraint, int32 ConstraintIndex);
+	bool RenderShapeDetails(USkeletalBodySetup* Body);  // 변경 여부 반환
+	void AddBodyToBone(int32 BoneIndex, int32 ShapeType);
+	void RemoveBody(int32 BodyIndex);
+
 	// 뷰포트
 	void RenderViewportArea(float width, float height);
 
 	// 시뮬레이션 제어
 	void StartSimulation();
 	void StopSimulation();
+	void TickSimulation(float DeltaTime);
 	void ResetPose();
 
 	// 바디/조인트 생성
@@ -63,8 +72,11 @@ private:
 	void AutoCreateConstraints();
 
 	// 시각화 라인 재구성
-	void RebuildBodyShapeLines();
-	void RebuildConstraintLines();
+	void RebuildBoneTMCache();              // BoneTM 캐시 갱신
+	void RebuildUnselectedBodyLines();      // 비선택 바디 라인 (초록색)
+	void RebuildSelectedBodyLines();        // 선택 바디 라인 (노란색)
+	void RebuildUnselectedConstraintLines();// 비선택 컨스트레인트 라인
+	void RebuildSelectedConstraintLines();  // 선택 컨스트레인트 라인
 
 	// 파일 작업
 	void SavePhysicsAsset();
@@ -83,8 +95,16 @@ private:
 	UTexture* IconStop = nullptr;
 	UTexture* IconReset = nullptr;
 
+	// Hierarchy 패널 아이콘
+	UTexture* IconBone = nullptr;
+	UTexture* IconBody = nullptr;
+
+	// Hierarchy 검색
+	char BoneSearchBuffer[256] = {0};
+
 	// 툴바 상태
 	void LoadToolbarIcons();
+	void LoadHierarchyIcons();
 
 	// Shape 타입 선택 (Tool 패널용)
 	int32 SelectedShapeType = 0;  // 0: Sphere, 1: Box, 2: Capsule

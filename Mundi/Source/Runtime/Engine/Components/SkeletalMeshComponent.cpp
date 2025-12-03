@@ -27,8 +27,9 @@ USkeletalMeshComponent::USkeletalMeshComponent()
     SetSkeletalMesh(GDataDir + "/DancingRacer.fbx");
     // TODO - 애니메이션 나중에 써먹으세요    
     
-    UAnimationAsset* AnimationAsset = UResourceManager::GetInstance().Get<UAnimSequence>("Data/DancingRacer_mixamo.com");
-    PlayAnimation(AnimationAsset, true, 1.f);
+	//UAnimationAsset* AnimationAsset = UResourceManager::GetInstance().Get<UAnimSequence>("Data/DancingRacer_mixamo.com");
+    //PlayAnimation(AnimationAsset, true, 1.f);
+    
 }
 
 USkeletalMeshComponent::~USkeletalMeshComponent()
