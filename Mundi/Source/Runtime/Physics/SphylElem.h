@@ -242,7 +242,10 @@ public:
     virtual void DrawElemWire(FPrimitiveDrawInterface* PDI, const FTransform& ElemTM,
                               float Scale, const FLinearColor& Color) const override
     {
-        if (!PDI) return;
+        if (!PDI)
+        {
+            return;
+        }
 
         // 캡슐의 World Transform
         FVector WorldCenter = ElemTM.TransformPosition(Center);
@@ -259,7 +262,10 @@ public:
     virtual void DrawElemSolid(FPrimitiveDrawInterface* PDI, const FTransform& ElemTM,
                                float Scale, const FLinearColor& Color) const override
     {
-        if (!PDI) return;
+        if (!PDI)
+        {
+            return;
+        }
 
         FTransform WorldTM;
         WorldTM.Translation = ElemTM.TransformPosition(Center);

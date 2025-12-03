@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "ShapeElem.h"
 #include "PrimitiveDrawInterface.h"
 #include "FKSphereElem.generated.h"
@@ -154,7 +154,10 @@ public:
     virtual void DrawElemWire(FPrimitiveDrawInterface* PDI, const FTransform& ElemTM,
                               float Scale, const FLinearColor& Color) const override
     {
-        if (!PDI) return;
+        if (!PDI)
+        {
+            return;
+        }
 
         // ElemTM은 Body의 Transform, Center는 로컬 오프셋
         FVector WorldCenter = ElemTM.TransformPosition(Center);
@@ -166,7 +169,10 @@ public:
     virtual void DrawElemSolid(FPrimitiveDrawInterface* PDI, const FTransform& ElemTM,
                                float Scale, const FLinearColor& Color) const override
     {
-        if (!PDI) return;
+        if (!PDI)
+        {
+            return;
+        }
 
         FVector WorldCenter = ElemTM.TransformPosition(Center);
         float ScaledRadius = Radius * Scale;

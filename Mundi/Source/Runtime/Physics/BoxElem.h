@@ -245,7 +245,10 @@ public:
     virtual void DrawElemWire(FPrimitiveDrawInterface* PDI, const FTransform& ElemTM,
                               float Scale, const FLinearColor& Color) const override
     {
-        if (!PDI) return;
+        if (!PDI)
+        {
+            return;
+        }
 
         // Box의 로컬 Transform (Center + Rotation)
         FTransform LocalTM(Center, Rotation, FVector::One());
@@ -265,7 +268,10 @@ public:
     virtual void DrawElemSolid(FPrimitiveDrawInterface* PDI, const FTransform& ElemTM,
                                float Scale, const FLinearColor& Color) const override
     {
-        if (!PDI) return;
+        if (!PDI)
+        {
+            return;
+        }
 
         FTransform WorldTM;
         WorldTM.Translation = ElemTM.TransformPosition(Center);

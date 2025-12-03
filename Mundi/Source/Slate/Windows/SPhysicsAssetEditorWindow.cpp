@@ -1479,11 +1479,13 @@ void SPhysicsAssetEditorWindow::RebuildBodyShapeLines()
 	UPhysicsAsset* PhysAsset = State->EditingPhysicsAsset;
 	if (!PhysAsset) return;
 
-	// 스켈레탈 메시에서 본 Transform 가져오기
+	// 스켈레탈 메시 컴포넌트에서 본 Transform 가져오기
+	USkeletalMeshComponent* MeshComp = nullptr;
 	USkeletalMesh* Mesh = nullptr;
 	if (State->PreviewActor)
 	{
-		if (USkeletalMeshComponent* MeshComp = State->PreviewActor->GetSkeletalMeshComponent())
+		MeshComp = State->PreviewActor->GetSkeletalMeshComponent();
+		if (MeshComp)
 		{
 			Mesh = MeshComp->GetSkeletalMesh();
 		}
@@ -1498,11 +1500,11 @@ void SPhysicsAssetEditorWindow::RebuildBodyShapeLines()
 		USkeletalBodySetup* Body = PhysAsset->GetBodySetup(BodyIdx);
 		if (!Body) continue;
 
-		// 본 Transform 계산 (현재는 Identity, 추후 애니메이션 적용 시 변경)
+		// 본 Transform 계산 (피직스 씬과 동일한 방식으로 GetBoneWorldTransform 사용)
 		FTransform BoneTM;
 
-		// 본 이름으로 본 인덱스 찾기
-		if (Skeleton)
+		// 본 이름으로 본 인덱스 찾기 후 월드 트랜스폼 획득
+		if (Skeleton && MeshComp)
 		{
 			auto it = Skeleton->BoneNameToIndex.find(Body->BoneName.ToString());
 			if (it != Skeleton->BoneNameToIndex.end())
@@ -1510,10 +1512,9 @@ void SPhysicsAssetEditorWindow::RebuildBodyShapeLines()
 				int32 BoneIndex = it->second;
 				if (BoneIndex >= 0 && BoneIndex < (int32)Skeleton->Bones.Num())
 				{
-					// BindPose에서 위치 추출 (월드 공간)
-					const FMatrix& BindPose = Skeleton->Bones[BoneIndex].BindPose;
-					BoneTM.Translation = FVector(BindPose.M[3][0], BindPose.M[3][1], BindPose.M[3][2]);
-					// 회전은 Identity로 유지 (BindPose에서 회전 추출은 복잡)
+					// GetBoneWorldTransform으로 회전 포함한 전체 트랜스폼 획득
+					BoneTM = MeshComp->GetBoneWorldTransform(BoneIndex);
+					BoneTM.Rotation.Normalize();
 				}
 			}
 		}

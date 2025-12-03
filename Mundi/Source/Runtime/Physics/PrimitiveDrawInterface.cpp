@@ -31,14 +31,20 @@ void FPrimitiveDrawInterface::Clear()
 
 void FPrimitiveDrawInterface::DrawLine(const FVector& Start, const FVector& End, const FLinearColor& Color)
 {
-    if (!LineComp) return;
+    if (!LineComp)
+    {
+        return;
+    }
     LineComp->AddLine(Start, End, FVector4(Color.R, Color.G, Color.B, Color.A));
 }
 
 void FPrimitiveDrawInterface::DrawCircle(const FVector& Center, const FVector& XAxis, const FVector& YAxis,
                                           float Radius, int32 Segments, const FLinearColor& Color)
 {
-    if (!LineComp || Segments < 3) return;
+    if (!LineComp || Segments < 3)
+    {
+        return;
+    }
 
     const float AngleStep = 2.0f * PI / static_cast<float>(Segments);
 
