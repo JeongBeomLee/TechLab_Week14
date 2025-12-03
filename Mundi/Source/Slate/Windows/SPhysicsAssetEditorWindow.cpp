@@ -1613,10 +1613,16 @@ void SPhysicsAssetEditorWindow::RenderToolPanel()
 void SPhysicsAssetEditorWindow::StartSimulation()
 {
 	PhysicsAssetEditorState* State = GetActivePhysicsState();
-	if (!State || State->bIsSimulating) return;
+	if (!State || State->bIsSimulating)
+	{
+		return;
+	}
 
 	UPhysicsAsset* PhysAsset = State->EditingPhysicsAsset;
-	if (!PhysAsset || PhysAsset->GetBodySetupCount() == 0) return;
+	if (!PhysAsset || PhysAsset->GetBodySetupCount() == 0)
+	{
+		return;
+	}
 
 	// 스켈레탈 메시 컴포넌트 가져오기
 	USkeletalMeshComponent* MeshComp = nullptr;
@@ -1624,12 +1630,21 @@ void SPhysicsAssetEditorWindow::StartSimulation()
 	if (State->PreviewActor)
 	{
 		MeshComp = State->PreviewActor->GetSkeletalMeshComponent();
-		if (MeshComp) Mesh = MeshComp->GetSkeletalMesh();
+		if (MeshComp)
+		{
+			Mesh = MeshComp->GetSkeletalMesh();
+		}
 	}
-	if (!MeshComp || !Mesh) return;
+	if (!MeshComp || !Mesh)
+	{
+		return;
+	}
 
 	const FSkeleton* Skeleton = Mesh->GetSkeleton();
-	if (!Skeleton) return;
+	if (!Skeleton)
+	{
+		return;
+	}
 
 	// === 1. 원본 본 트랜스폼 저장 (리셋용) ===
 	State->OriginalBoneTransforms.Empty();
@@ -1641,12 +1656,15 @@ void SPhysicsAssetEditorWindow::StartSimulation()
 
 	// === 2. PhysicsScene 생성 ===
 	FPhysicsSystem* PhysSystem = GEngine.GetPhysicsSystem();
-	if (!PhysSystem) return;
+	if (!PhysSystem)
+	{
+		return;
+	}
 
 	State->SimulationScene = new FPhysicsScene();
 	State->SimulationScene->Initialize(PhysSystem);
 
-	// === 2-1. 바닥 평면 생성 (Y-Up, 원점에 위치) ===
+	// === 2-1. 바닥 평면 생성 ===
 	PxPhysics* Physics = PhysSystem->GetPhysics();
 	if (Physics && State->SimulationScene->GetPxScene())
 	{
@@ -1664,15 +1682,20 @@ void SPhysicsAssetEditorWindow::StartSimulation()
 	// === 3. 각 BodySetup에 대해 FBodyInstance 생성 ===
 	State->SimulatedBodies.Empty();
 	int32 BodyCount = PhysAsset->GetBodySetupCount();
-
 	for (int32 BodyIdx = 0; BodyIdx < BodyCount; ++BodyIdx)
 	{
 		USkeletalBodySetup* BodySetup = PhysAsset->GetBodySetup(BodyIdx);
-		if (!BodySetup) continue;
+		if (!BodySetup)
+		{
+			continue;
+		}
 
 		// 본 인덱스 찾기
 		auto it = Skeleton->BoneNameToIndex.find(BodySetup->BoneName.ToString());
-		if (it == Skeleton->BoneNameToIndex.end()) continue;
+		if (it == Skeleton->BoneNameToIndex.end())
+		{
+			continue;
+		}
 		int32 BoneIndex = it->second;
 
 		// 본 월드 트랜스폼 가져오기
@@ -1696,7 +1719,10 @@ void SPhysicsAssetEditorWindow::StartSimulation()
 	for (int32 ConstraintIdx = 0; ConstraintIdx < ConstraintCount; ++ConstraintIdx)
 	{
 		UPhysicsConstraintTemplate* ConstraintTemplate = PhysAsset->ConstraintSetup[ConstraintIdx];
-		if (!ConstraintTemplate) continue;
+		if (!ConstraintTemplate)
+		{
+			continue;
+		}
 
 		FConstraintInstance& Instance = ConstraintTemplate->DefaultInstance;
 
@@ -1706,11 +1732,20 @@ void SPhysicsAssetEditorWindow::StartSimulation()
 
 		for (FBodyInstance* Body : State->SimulatedBodies)
 		{
-			if (Body->BoneName == Instance.ConstraintBone1) Body1 = Body;
-			if (Body->BoneName == Instance.ConstraintBone2) Body2 = Body;
+			if (Body->BoneName == Instance.ConstraintBone1)
+			{
+				Body1 = Body;
+			}
+			if (Body->BoneName == Instance.ConstraintBone2)
+			{
+				Body2 = Body;
+			}
 		}
 
-		if (!Body1 || !Body2) continue;
+		if (!Body1 || !Body2)
+		{
+			continue;
+		}
 
 		// Joint 생성
 		FConstraintInstance* RuntimeConstraint = new FConstraintInstance(Instance);
@@ -1733,13 +1768,24 @@ void SPhysicsAssetEditorWindow::StartSimulation()
 	State->bShowBones = false;
 
 	// LineComponent 가시성 끄기
-	if (State->BodyShapeLineComponent) State->BodyShapeLineComponent->SetLineVisible(false);
-	if (State->SelectedBodyLineComponent) State->SelectedBodyLineComponent->SetLineVisible(false);
-	if (State->ConstraintLineComponent) State->ConstraintLineComponent->SetLineVisible(false);
+	if (State->BodyShapeLineComponent)
+	{
+		State->BodyShapeLineComponent->SetLineVisible(false);
+	}
+	if (State->SelectedBodyLineComponent)
+	{
+		State->SelectedBodyLineComponent->SetLineVisible(false);
+	}
+	if (State->ConstraintLineComponent)
+	{
+		State->ConstraintLineComponent->SetLineVisible(false);
+	}
 	if (State->PreviewActor)
 	{
 		if (ULineComponent* BoneLineComp = State->PreviewActor->GetBoneLineComponent())
+		{
 			BoneLineComp->SetLineVisible(false);
+		}
 	}
 
 	UE_LOG("[PhysicsAssetEditor] 시뮬레이션 시작: %d 바디, %d 조인트",
@@ -1749,12 +1795,18 @@ void SPhysicsAssetEditorWindow::StartSimulation()
 void SPhysicsAssetEditorWindow::StopSimulation()
 {
 	PhysicsAssetEditorState* State = GetActivePhysicsState();
-	if (!State || !State->bIsSimulating) return;
+	if (!State || !State->bIsSimulating)
+	{
+		return;
+	}
 
 	// === 1. Joint 정리 (PhysX가 소유하므로 release만 호출) ===
 	for (PxJoint* Joint : State->SimulatedJoints)
 	{
-		if (Joint) Joint->release();
+		if (Joint)
+		{
+			Joint->release();
+		}
 	}
 	State->SimulatedJoints.Empty();
 
@@ -1792,9 +1844,18 @@ void SPhysicsAssetEditorWindow::StopSimulation()
 	// State->bShowBones는 false 유지
 
 	// LineComponent 가시성 켜기 (바디, 컨스트레인트만)
-	if (State->BodyShapeLineComponent) State->BodyShapeLineComponent->SetLineVisible(true);
-	if (State->SelectedBodyLineComponent) State->SelectedBodyLineComponent->SetLineVisible(true);
-	if (State->ConstraintLineComponent) State->ConstraintLineComponent->SetLineVisible(true);
+	if (State->BodyShapeLineComponent)
+	{
+		State->BodyShapeLineComponent->SetLineVisible(true);
+	}
+	if (State->SelectedBodyLineComponent)
+	{
+		State->SelectedBodyLineComponent->SetLineVisible(true);
+	}
+	if (State->ConstraintLineComponent)
+	{
+		State->ConstraintLineComponent->SetLineVisible(true);
+	}
 
 	// 즉시 라인 재구성 (다음 프레임 지연 방지)
 	RebuildBoneTMCache();
@@ -1808,7 +1869,10 @@ void SPhysicsAssetEditorWindow::StopSimulation()
 void SPhysicsAssetEditorWindow::ResetPose()
 {
 	PhysicsAssetEditorState* State = GetActivePhysicsState();
-	if (!State) return;
+	if (!State)
+	{
+		return;
+	}
 
 	// 시뮬레이션 중이면 먼저 중지
 	if (State->bIsSimulating)
@@ -1822,7 +1886,10 @@ void SPhysicsAssetEditorWindow::ResetPose()
 	{
 		MeshComp = State->PreviewActor->GetSkeletalMeshComponent();
 	}
-	if (!MeshComp) return;
+	if (!MeshComp)
+	{
+		return;
+	}
 
 	// 원본 포즈가 저장되어 있으면 복원
 	if (State->OriginalBoneTransforms.Num() > 0)
@@ -1840,13 +1907,24 @@ void SPhysicsAssetEditorWindow::ResetPose()
 	State->bShowBones = true;
 
 	// LineComponent 가시성 모두 켜기
-	if (State->BodyShapeLineComponent) State->BodyShapeLineComponent->SetLineVisible(true);
-	if (State->SelectedBodyLineComponent) State->SelectedBodyLineComponent->SetLineVisible(true);
-	if (State->ConstraintLineComponent) State->ConstraintLineComponent->SetLineVisible(true);
+	if (State->BodyShapeLineComponent)
+	{
+		State->BodyShapeLineComponent->SetLineVisible(true);
+	}
+	if (State->SelectedBodyLineComponent)
+	{
+		State->SelectedBodyLineComponent->SetLineVisible(true);
+	}
+	if (State->ConstraintLineComponent)
+	{
+		State->ConstraintLineComponent->SetLineVisible(true);
+	}
 	if (State->PreviewActor)
 	{
 		if (ULineComponent* BoneLineComp = State->PreviewActor->GetBoneLineComponent())
+		{
 			BoneLineComp->SetLineVisible(true);
+		}
 	}
 
 	// 즉시 라인 재구성 (다음 프레임 지연 방지)
@@ -1865,8 +1943,14 @@ void SPhysicsAssetEditorWindow::ResetPose()
 void SPhysicsAssetEditorWindow::TickSimulation(float DeltaTime)
 {
 	PhysicsAssetEditorState* State = GetActivePhysicsState();
-	if (!State || !State->bIsSimulating) return;
-	if (!State->SimulationScene) return;
+	if (!State || !State->bIsSimulating)
+	{
+		return;
+	}
+	if (!State->SimulationScene)
+	{
+		return;
+	}
 
 	// 스켈레탈 메시 컴포넌트 가져오기
 	USkeletalMeshComponent* MeshComp = nullptr;
@@ -1874,7 +1958,10 @@ void SPhysicsAssetEditorWindow::TickSimulation(float DeltaTime)
 	{
 		MeshComp = State->PreviewActor->GetSkeletalMeshComponent();
 	}
-	if (!MeshComp) return;
+	if (!MeshComp)
+	{
+		return;
+	}
 
 	// === 1. 명령 큐 처리 ===
 	State->SimulationScene->ProcessCommandQueue();
@@ -1888,7 +1975,10 @@ void SPhysicsAssetEditorWindow::TickSimulation(float DeltaTime)
 	// === 4. 바디 트랜스폼을 본에 동기화 ===
 	for (FBodyInstance* Body : State->SimulatedBodies)
 	{
-		if (!Body) continue;
+		if (!Body)
+		{
+			continue;
+		}
 
 		// 물리 바디의 월드 트랜스폼 가져오기
 		FTransform BodyTM = Body->GetWorldTransform();
