@@ -144,9 +144,18 @@ ViewerState* PhysicsAssetEditorBootstrap::CreateViewerState(const char* Name, UW
 			State->ConstraintLineComponent = ConstraintLineComp;
 
 			// PrimitiveDrawInterface 생성 및 초기화
+			// PDI: 비선택 바디용 (BodyShapeLineComponent)
 			State->PDI = new FPrimitiveDrawInterface();
 			State->PDI->Initialize(BodyLineComp);
-			State->bShapeLinesDirty = true;  // 초기 렌더링 필요
+
+			// SelectedPDI: 선택 바디용 (ConstraintLineComponent 재활용)
+			State->SelectedPDI = new FPrimitiveDrawInterface();
+			State->SelectedPDI->Initialize(ConstraintLineComp);
+
+			// 초기 렌더링 플래그
+			State->bBoneTMCacheDirty = true;
+			State->bAllBodyLinesDirty = true;
+			State->bSelectedBodyLineDirty = true;
 		}
 	}
 
@@ -164,6 +173,11 @@ void PhysicsAssetEditorBootstrap::DestroyViewerState(ViewerState*& State)
 	{
 		delete PhysState->PDI;
 		PhysState->PDI = nullptr;
+	}
+	if (PhysState->SelectedPDI)
+	{
+		delete PhysState->SelectedPDI;
+		PhysState->SelectedPDI = nullptr;
 	}
 
 	// Viewport/Client 정리

@@ -145,10 +145,34 @@ void SPhysicsAssetEditorWindow::OnUpdate(float DeltaSeconds)
 	PhysicsAssetEditorState* State = GetActivePhysicsState();
 	if (!State) return;
 
-	// Shape 라인 재생성 필요 시
-	if (State->bShapeLinesDirty && State->bShowBodies)
+	// 선택 바디 변경 감지
+	if (State->SelectedBodyIndex != State->LastSelectedBodyIndex)
 	{
-		RebuildBodyShapeLines();
+		State->bAllBodyLinesDirty = true;      // 이전 선택 바디 색상 복원 위해 전체 갱신
+		State->bSelectedBodyLineDirty = true;  // 새 선택 바디 하이라이트
+		State->LastSelectedBodyIndex = State->SelectedBodyIndex;
+	}
+
+	// Shape 라인 재생성
+	if (State->bShowBodies)
+	{
+		// 1. BoneTM 캐시 갱신 (바디 추가/삭제/메시 변경 시에만)
+		if (State->bBoneTMCacheDirty)
+		{
+			RebuildBoneTMCache();
+		}
+
+		// 2. 비선택 바디 라인 갱신 (바디 추가/삭제/선택 변경 시)
+		if (State->bAllBodyLinesDirty)
+		{
+			RebuildUnselectedBodyLines();
+		}
+
+		// 3. 선택 바디 라인 갱신 (선택 변경/Shape 편집 시)
+		if (State->bSelectedBodyLineDirty)
+		{
+			RebuildSelectedBodyLines();
+		}
 	}
 
 	// 시뮬레이션 업데이트
@@ -1331,7 +1355,7 @@ bool SPhysicsAssetEditorWindow::RenderShapeDetails(USkeletalBodySetup* Body)
 	if (bChanged)
 	{
 		State->bIsDirty = true;
-		State->bShapeLinesDirty = true;  // Shape 라인 재생성 필요
+		State->bSelectedBodyLineDirty = true;  // 선택 바디 라인만 재생성
 	}
 
 	return bChanged;
@@ -1396,7 +1420,11 @@ void SPhysicsAssetEditorWindow::AddBodyToBone(int32 BoneIndex, int32 ShapeType)
 	State->SelectedBodyIndex = NewIndex;
 	State->SelectedBoneIndex = -1;
 	State->bIsDirty = true;
-	State->bShapeLinesDirty = true;  // Shape 라인 재생성 필요
+
+	// 바디 추가 시 캐시 및 전체 라인 재생성
+	State->bBoneTMCacheDirty = true;
+	State->bAllBodyLinesDirty = true;
+	State->bSelectedBodyLineDirty = true;
 }
 
 void SPhysicsAssetEditorWindow::RemoveBody(int32 BodyIndex)
@@ -1415,7 +1443,11 @@ void SPhysicsAssetEditorWindow::RemoveBody(int32 BodyIndex)
 	// 선택 상태 초기화
 	State->SelectedBodyIndex = -1;
 	State->bIsDirty = true;
-	State->bShapeLinesDirty = true;  // Shape 라인 재생성 필요
+
+	// 바디 삭제 시 캐시 및 전체 라인 재생성
+	State->bBoneTMCacheDirty = true;
+	State->bAllBodyLinesDirty = true;
+	State->bSelectedBodyLineDirty = true;
 }
 
 void SPhysicsAssetEditorWindow::RenderToolPanel()
@@ -1468,13 +1500,12 @@ void SPhysicsAssetEditorWindow::AutoCreateConstraints()
 	// TODO: Phase 8에서 구현
 }
 
-void SPhysicsAssetEditorWindow::RebuildBodyShapeLines()
+void SPhysicsAssetEditorWindow::RebuildBoneTMCache()
 {
 	PhysicsAssetEditorState* State = GetActivePhysicsState();
-	if (!State || !State->PDI) return;
+	if (!State) return;
 
-	// 기존 라인 클리어
-	State->PDI->Clear();
+	State->CachedBoneTM.Empty();
 
 	UPhysicsAsset* PhysAsset = State->EditingPhysicsAsset;
 	if (!PhysAsset) return;
@@ -1492,61 +1523,141 @@ void SPhysicsAssetEditorWindow::RebuildBodyShapeLines()
 	}
 
 	const FSkeleton* Skeleton = Mesh ? Mesh->GetSkeleton() : nullptr;
+	if (!Skeleton || !MeshComp) return;
 
-	// 각 BodySetup의 Shape들을 렌더링
+	// 각 BodySetup의 본에 대해 BoneTM 캐싱
 	int32 BodyCount = PhysAsset->GetBodySetupCount();
 	for (int32 BodyIdx = 0; BodyIdx < BodyCount; ++BodyIdx)
 	{
 		USkeletalBodySetup* Body = PhysAsset->GetBodySetup(BodyIdx);
 		if (!Body) continue;
 
-		// 본 Transform 계산 (피직스 씬과 동일한 방식으로 GetBoneWorldTransform 사용)
-		FTransform BoneTM;
-
-		// 본 이름으로 본 인덱스 찾기 후 월드 트랜스폼 획득
-		if (Skeleton && MeshComp)
+		auto it = Skeleton->BoneNameToIndex.find(Body->BoneName.ToString());
+		if (it != Skeleton->BoneNameToIndex.end())
 		{
-			auto it = Skeleton->BoneNameToIndex.find(Body->BoneName.ToString());
-			if (it != Skeleton->BoneNameToIndex.end())
+			int32 BoneIndex = it->second;
+			if (BoneIndex >= 0 && BoneIndex < (int32)Skeleton->Bones.Num())
 			{
-				int32 BoneIndex = it->second;
-				if (BoneIndex >= 0 && BoneIndex < (int32)Skeleton->Bones.Num())
-				{
-					// GetBoneWorldTransform으로 회전 포함한 전체 트랜스폼 획득
-					BoneTM = MeshComp->GetBoneWorldTransform(BoneIndex);
-					BoneTM.Rotation.Normalize();
-				}
+				// GetBoneWorldTransform으로 회전 포함한 전체 트랜스폼 획득
+				FTransform BoneTM = MeshComp->GetBoneWorldTransform(BoneIndex);
+				BoneTM.Rotation.Normalize();
+				State->CachedBoneTM.Add(BodyIdx, BoneTM);
 			}
 		}
+	}
 
-		// 선택된 바디는 다른 색상으로 렌더링
-		FLinearColor BodyColor = (BodyIdx == State->SelectedBodyIndex)
-			? FLinearColor(1.0f, 0.8f, 0.0f, 1.0f)   // 선택: 노란색
-			: FLinearColor(0.0f, 1.0f, 0.0f, 1.0f);  // 기본: 초록색
+	State->bBoneTMCacheDirty = false;
+}
 
-		// cm → m 변환 (1유닛 = 1미터, Shape 데이터는 cm 단위)
-		const float CmToM = 0.01f;
+void SPhysicsAssetEditorWindow::RebuildUnselectedBodyLines()
+{
+	PhysicsAssetEditorState* State = GetActivePhysicsState();
+	if (!State || !State->PDI) return;
+
+	// 비선택 바디 라인 클리어
+	State->PDI->Clear();
+
+	UPhysicsAsset* PhysAsset = State->EditingPhysicsAsset;
+	if (!PhysAsset) return;
+
+	const FLinearColor UnselectedColor(0.0f, 1.0f, 0.0f, 1.0f);  // 초록색
+	const float CmToM = 0.01f;
+	const float Default = 1.0f;
+
+	// 선택된 바디를 제외한 모든 바디 렌더링
+	int32 BodyCount = PhysAsset->GetBodySetupCount();
+	for (int32 BodyIdx = 0; BodyIdx < BodyCount; ++BodyIdx)
+	{
+		// 선택된 바디는 건너뜀 (SelectedPDI에서 렌더링)
+		if (BodyIdx == State->SelectedBodyIndex) continue;
+
+		USkeletalBodySetup* Body = PhysAsset->GetBodySetup(BodyIdx);
+		if (!Body) continue;
+
+		// 캐싱된 BoneTM 사용
+		FTransform BoneTM;
+		if (FTransform* CachedTM = State->CachedBoneTM.Find(BodyIdx))
+		{
+			BoneTM = *CachedTM;
+		}
 
 		// Sphere Elements
 		for (const FKSphereElem& Elem : Body->AggGeom.SphereElems)
 		{
-			Elem.DrawElemWire(State->PDI, BoneTM, CmToM, BodyColor);
+			Elem.DrawElemWire(State->PDI, BoneTM, CmToM, UnselectedColor);
 		}
 
 		// Box Elements
 		for (const FKBoxElem& Elem : Body->AggGeom.BoxElems)
 		{
-			Elem.DrawElemWire(State->PDI, BoneTM, CmToM, BodyColor);
+			Elem.DrawElemWire(State->PDI, BoneTM, Default, UnselectedColor);
 		}
 
 		// Capsule (Sphyl) Elements
 		for (const FKSphylElem& Elem : Body->AggGeom.SphylElems)
 		{
-			Elem.DrawElemWire(State->PDI, BoneTM, CmToM, BodyColor);
+			Elem.DrawElemWire(State->PDI, BoneTM, CmToM, UnselectedColor);
 		}
 	}
 
-	State->bShapeLinesDirty = false;
+	State->bAllBodyLinesDirty = false;
+}
+
+void SPhysicsAssetEditorWindow::RebuildSelectedBodyLines()
+{
+	PhysicsAssetEditorState* State = GetActivePhysicsState();
+	if (!State || !State->SelectedPDI) return;
+
+	// 선택 바디 라인 클리어
+	State->SelectedPDI->Clear();
+
+	// 선택된 바디가 없으면 종료
+	if (State->SelectedBodyIndex < 0)
+	{
+		State->bSelectedBodyLineDirty = false;
+		return;
+	}
+
+	UPhysicsAsset* PhysAsset = State->EditingPhysicsAsset;
+	if (!PhysAsset) return;
+
+	USkeletalBodySetup* Body = PhysAsset->GetBodySetup(State->SelectedBodyIndex);
+	if (!Body)
+	{
+		State->bSelectedBodyLineDirty = false;
+		return;
+	}
+
+	const FLinearColor SelectedColor(1.0f, 0.8f, 0.0f, 1.0f);  // 노란색
+	const float CmToM = 0.01f;
+	const float Default = 1.0f;
+
+	// 캐싱된 BoneTM 사용
+	FTransform BoneTM;
+	if (FTransform* CachedTM = State->CachedBoneTM.Find(State->SelectedBodyIndex))
+	{
+		BoneTM = *CachedTM;
+	}
+
+	// Sphere Elements
+	for (const FKSphereElem& Elem : Body->AggGeom.SphereElems)
+	{
+		Elem.DrawElemWire(State->SelectedPDI, BoneTM, CmToM, SelectedColor);
+	}
+
+	// Box Elements
+	for (const FKBoxElem& Elem : Body->AggGeom.BoxElems)
+	{
+		Elem.DrawElemWire(State->SelectedPDI, BoneTM, Default, SelectedColor);
+	}
+
+	// Capsule (Sphyl) Elements
+	for (const FKSphylElem& Elem : Body->AggGeom.SphylElems)
+	{
+		Elem.DrawElemWire(State->SelectedPDI, BoneTM, CmToM, SelectedColor);
+	}
+
+	State->bSelectedBodyLineDirty = false;
 }
 
 void SPhysicsAssetEditorWindow::RebuildConstraintLines()
