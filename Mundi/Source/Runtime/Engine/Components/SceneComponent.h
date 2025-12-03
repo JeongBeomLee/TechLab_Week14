@@ -136,6 +136,7 @@ public:
     // Serialize
     void Serialize(const bool bInIsLoading, JSON& InOutHandle) override;
     void OnRegister(UWorld* InWorld) override;
+    void OnPropertyChanged(const FProperty& Prop) override;
 
     // SceneId
     uint32 GetSceneId() const { return SceneId; }

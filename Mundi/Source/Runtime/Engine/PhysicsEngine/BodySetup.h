@@ -63,4 +63,17 @@ public:
 
 	/** 서브 객체 복제 */
 	virtual void DuplicateSubObjects() override;
+
+	// ====================================================================
+	// UI 렌더링 헬퍼
+	// ====================================================================
+
+	/**
+	 * Shape UI 렌더링 (ImGui)
+	 * TODO: PropertyRenderer에 USTRUCT 리플렉션 렌더링 지원 후 제거
+	 * @param BodySetup 렌더링할 BodySetup
+	 * @param OutSaveRequested 저장이 필요하면 true로 설정됨
+	 * @return 값이 변경되었으면 true
+	 */
+	static bool RenderShapesUI(UBodySetup* BodySetup, bool& OutSaveRequested);
 };

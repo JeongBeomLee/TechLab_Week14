@@ -41,6 +41,12 @@ public:
 
 	FAABB GetWorldAABB() const override;
 
+	/** StaticMesh의 BodySetup을 반환합니다 */
+	virtual UBodySetup* GetBodySetup() override;
+
+	/** 디버그 충돌체 렌더링 */
+	void RenderDebugVolume(class URenderer* Renderer) const override;
+
 	void DuplicateSubObjects() override;
 
 protected:

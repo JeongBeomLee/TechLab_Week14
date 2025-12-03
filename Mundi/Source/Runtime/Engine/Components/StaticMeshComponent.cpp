@@ -10,6 +10,11 @@
 #include "Material.h"
 #include "SceneView.h"
 #include "LuaBindHelpers.h"
+#include "BodySetup.h"
+#include "PhysicsDebugUtils.h"
+#include "World.h"
+#include "Actor.h"
+#include "Renderer.h"
 // IMPLEMENT_CLASS is now auto-generated in .generated.cpp
 UStaticMeshComponent::UStaticMeshComponent()
 {
@@ -215,4 +220,76 @@ void UStaticMeshComponent::DuplicateSubObjects()
 void UStaticMeshComponent::Serialize(const bool bInIsLoading, JSON& InOutHandle)
 {
 	Super::Serialize(bInIsLoading, InOutHandle);
+}
+
+UBodySetup* UStaticMeshComponent::GetBodySetup()
+{
+	if (StaticMesh)
+	{
+		return StaticMesh->GetBodySetup();
+	}
+	return nullptr;
+}
+
+void UStaticMeshComponent::RenderDebugVolume(URenderer* Renderer) const
+{
+	if (!Renderer) return;
+	if (!GetOwner()) return;
+
+	UWorld* World = GetOwner()->GetWorld();
+	if (!World) return;
+
+	// PIE 모드에서는 충돌체 디버그 안 그림
+	if (World->bPie) return;
+
+	// NoCollision이면 시각화하지 않음
+	if (CollisionEnabled == ECollisionEnabled::NoCollision) return;
+
+	// BodySetup 가져오기
+	UBodySetup* BodySetup = StaticMesh ? StaticMesh->GetBodySetup() : nullptr;
+	if (!BodySetup) return;
+
+	// Shape가 없으면 리턴
+	if (BodySetup->AggGeom.GetElementCount() == 0) return;
+
+	// 컴포넌트 월드 트랜스폼
+	FTransform WorldTransform = GetWorldTransform();
+
+	// 디버그 메쉬 생성
+	TArray<FVector> Vertices;
+	TArray<uint32> Indices;
+	TArray<FVector4> Colors;
+
+	FVector4 DebugColor(0.0f, 1.0f, 0.5f, 1.0f); // 청록색 라인
+
+	FPhysicsDebugUtils::GenerateBodyShapeMesh(
+		BodySetup,
+		WorldTransform,
+		DebugColor,
+		Vertices,
+		Indices,
+		Colors);
+
+	// 라인 렌더링 (삼각형 edge 추출)
+	if (Vertices.Num() > 0 && Indices.Num() >= 3)
+	{
+		Renderer->BeginLineBatch();
+
+		// 각 삼각형의 3개 edge를 라인으로 추가
+		for (int32 i = 0; i + 2 < Indices.Num(); i += 3)
+		{
+			uint32 Idx0 = Indices[i];
+			uint32 Idx1 = Indices[i + 1];
+			uint32 Idx2 = Indices[i + 2];
+
+			// Edge 0-1
+			Renderer->AddLine(Vertices[Idx0], Vertices[Idx1], DebugColor);
+			// Edge 1-2
+			Renderer->AddLine(Vertices[Idx1], Vertices[Idx2], DebugColor);
+			// Edge 2-0
+			Renderer->AddLine(Vertices[Idx2], Vertices[Idx0], DebugColor);
+		}
+
+		Renderer->EndLineBatchAlwaysOnTop(FMatrix::Identity());
+	}
 }

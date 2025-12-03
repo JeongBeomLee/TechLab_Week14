@@ -398,6 +398,23 @@ void USceneComponent::Serialize(const bool bInIsLoading, JSON& InOutHandle)
 	}
 }
 
+void USceneComponent::OnPropertyChanged(const FProperty& Prop)
+{
+    Super::OnPropertyChanged(Prop);
+
+    if (Prop.Name == "RelativeLocation" || Prop.Name == "RelativeRotationEuler" || Prop.Name == "RelativeScale")
+    {
+        // Euler 변경 시 Quaternion 동기화
+        if (Prop.Name == "RelativeRotationEuler")
+        {
+            RelativeRotation = FQuat::MakeFromEulerZYX(RelativeRotationEuler).GetNormalized();
+        }
+
+        UpdateRelativeTransform();
+        OnUpdateTransform(EUpdateTransformFlags::None, ETeleportType::None);
+    }
+}
+
 void USceneComponent::OnRegister(UWorld* InWorld)
 {
     Super::OnRegister(InWorld);

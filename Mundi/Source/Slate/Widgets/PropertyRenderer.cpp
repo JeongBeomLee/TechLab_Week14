@@ -27,6 +27,8 @@
 #include "ParticleSystem.h"
 #include "PhysicsAsset.h"
 #include "PhysicalMaterial.h"
+#include "BodySetup.h"
+#include "ConvexElem.h"
 
 // 정적 멤버 변수 초기화
 TArray<FString> UPropertyRenderer::CachedSkeletalMeshPaths;
@@ -302,31 +304,11 @@ bool UPropertyRenderer::RenderProperty(const FProperty& Property, void* ObjectIn
 		ImGui::SetTooltip("%s", Property.Tooltip);
 	}
 
-	// SceneComponent/LightComponent는 특정 프로퍼티가 변경되면 Setter를 통해 동기화
 	// OwnerKind가 Class인 경우에만 UObject로 캐스팅 가능 (Struct인 경우 크래시 발생)
+	// Transform 프로퍼티는 OnPropertyChanged에서 처리됨 (SceneComponent::OnPropertyChanged)
 	if (bChanged && ObjectInstance && Property.OwnerKind == EOwnerKind::Class)
 	{
 		UObject* Obj = static_cast<UObject*>(ObjectInstance);
-
-		// SceneComponent Transform 프로퍼티 처리
-		if (USceneComponent* SceneComponent = Cast<USceneComponent>(Obj))
-		{
-			if (strcmp(Property.Name, "RelativeRotationEuler") == 0)
-			{
-				FVector* EulerValue = Property.GetValuePtr<FVector>(ObjectInstance);
-				SceneComponent->SetRelativeRotationEuler(*EulerValue);
-			}
-			else if (strcmp(Property.Name, "RelativeLocation") == 0)
-			{
-				FVector* LocationValue = Property.GetValuePtr<FVector>(ObjectInstance);
-				SceneComponent->SetRelativeLocation(*LocationValue);
-			}
-			else if (strcmp(Property.Name, "RelativeScale") == 0)
-			{
-				FVector* ScaleValue = Property.GetValuePtr<FVector>(ObjectInstance);
-				SceneComponent->SetRelativeScale(*ScaleValue);
-			}
-		}
 
 		// LightComponent Light 프로퍼티가 변경되면 UpdateLightData 호출
 		if (ULightComponentBase* LightComponent = Cast<ULightComponentBase>(Obj))
@@ -2025,6 +2007,64 @@ bool UPropertyRenderer::RenderStaticMeshProperty(const FProperty& Prop, void* In
 		}
 
 		ImGui::EndTooltip();
+	}
+
+	// BodySetup 프로퍼티 렌더링
+	if (*MeshPtr)
+	{
+		UBodySetup* BodySetup = (*MeshPtr)->GetBodySetup();
+		if (BodySetup)
+		{
+			if (ImGui::TreeNode("Body Setup"))
+			{
+				// 기본 속성 (리플렉션)
+				RenderAllProperties(BodySetup);
+
+				ImGui::Separator();
+
+				// Shape UI (수동 렌더링)
+				// TODO: PropertyRenderer에 USTRUCT 리플렉션 렌더링 지원 후 제거
+				if (ImGui::CollapsingHeader("Collision Shapes", ImGuiTreeNodeFlags_DefaultOpen))
+				{
+					bool bShapeChanged = false;
+					UBodySetup::RenderShapesUI(BodySetup, bShapeChanged);
+					if (bShapeChanged)
+					{
+						// Shape 변경을 OnPropertyChanged로 알림 (물리 재생성은 컴포넌트에서 처리)
+						// 저장은 하지 않음 - Save Metadata 버튼으로 명시적 저장
+						UObject* Object = static_cast<UObject*>(Instance);
+						if (UPrimitiveComponent* PrimitiveComponent = Cast<UPrimitiveComponent>(Object))
+						{
+							FProperty Prop;
+							Prop.Name = "BodySetup";
+							PrimitiveComponent->OnPropertyChanged(Prop);
+						}
+					}
+				}
+
+				ImGui::TreePop();
+			}
+		}
+
+		// StaticMesh 메타데이터 저장/리셋 버튼 (Body Setup 트리 바깥)
+		ImGui::Separator();
+		if (ImGui::Button("Save Metadata"))
+		{
+			(*MeshPtr)->SavePhysicsMetadata();
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Reset to Default"))
+		{
+			(*MeshPtr)->ResetPhysicsToDefault();
+			// 물리 재생성을 위해 OnPropertyChanged 호출
+			UObject* Object = static_cast<UObject*>(Instance);
+			if (UPrimitiveComponent* PrimitiveComponent = Cast<UPrimitiveComponent>(Object))
+			{
+				FProperty Prop;
+				Prop.Name = "BodySetup";
+				PrimitiveComponent->OnPropertyChanged(Prop);
+			}
+		}
 	}
 
 	return false;

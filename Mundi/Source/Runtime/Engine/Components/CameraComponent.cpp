@@ -53,6 +53,9 @@ void UCameraComponent::OnRegister(UWorld* InWorld)
 
             // Set default scale
             CameraGizmo->SetWorldScale(FVector(1.f, 1.f, 1.f));
+
+            // 카메라 기즈모는 물리 충돌에서 제외
+            CameraGizmo->CollisionEnabled = ECollisionEnabled::NoCollision;
         }
     }
 }

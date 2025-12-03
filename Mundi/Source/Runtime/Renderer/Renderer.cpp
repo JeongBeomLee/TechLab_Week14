@@ -564,7 +564,6 @@ void URenderer::AddTriangles(const TArray<FVector>& Vertices, const TArray<uint3
 		TriangleBatchData->Indices.push_back(startIndex + Idx);
 	}
 
-	UE_LOG("[AddTriangles] OK: Added %zu verts, %zu indices", Vertices.size(), Indices.size());
 }
 
 void URenderer::EndTriangleBatch(const FMatrix& ModelMatrix)

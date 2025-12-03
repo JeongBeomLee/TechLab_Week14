@@ -59,6 +59,18 @@ public:
 		TArray<FVector4>& OutColors);
 
 	/**
+	 * Convex Shape 면 기반 시각화 생성
+	 * Convex Hull의 정점/인덱스 데이터를 직접 사용
+	 */
+	static void GenerateConvexMesh(
+		const struct FKConvexElem& Convex,
+		const FTransform& BoneTransform,
+		const FVector4& Color,
+		TArray<FVector>& OutVertices,
+		TArray<uint32>& OutIndices,
+		TArray<FVector4>& OutColors);
+
+	/**
 	 * UBodySetup의 모든 Shape에 대해 면 기반 메쉬 좌표 생성
 	 */
 	static void GenerateBodyShapeMesh(

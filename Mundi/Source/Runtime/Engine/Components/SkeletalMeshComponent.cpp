@@ -1173,6 +1173,12 @@ void USkeletalMeshComponent::RenderDebugVolume(URenderer* Renderer) const
 
 void USkeletalMeshComponent::OnCreatePhysicsState()
 {
+    // NoCollision이면 물리 상태 생성하지 않음
+    if (CollisionEnabled == ECollisionEnabled::NoCollision)
+    {
+        return;
+    }
+
     // PhysicsAsset이 없으면 물리 생성 안함
     if (!PhysicsAsset)
     {
