@@ -1477,94 +1477,129 @@ void SPhysicsAssetEditorWindow::RenderToolPanel()
 	PhysicsAssetEditorState* State = GetActivePhysicsState();
 	if (!State) return;
 
-	// ▼ 바디 생성 섹션
-	if (ImGui::CollapsingHeader("바디 생성 설정", ImGuiTreeNodeFlags_DefaultOpen))
-	{
-		ImGui::Indent(10.0f);
+	// 레이아웃 설정
+	const float LabelWidth = 155.0f;  // 라벨 너비 증가 (긴 한글 텍스트 대응)
+	const float ContentWidth = ImGui::GetContentRegionAvail().x;
+	const float ControlWidth = ContentWidth - LabelWidth;
+	const float ControlStartX = LabelWidth;
+	const float ControlEndX = ContentWidth - 5.0f;
 
-		// 프리미티브 타입 콤보박스
-		ImGui::Text("프리미티브 타입");
+	// PropertyRow 헬퍼 람다: 라벨 좌측, 컨트롤 우측 (통일된 정렬)
+	auto PropertyRow = [&](const char* label) {
+		ImGui::AlignTextToFramePadding();
+		ImGui::SetWindowFontScale(0.95f);  // 살짝 작은 폰트
+		ImGui::Text("%s", label);
+		ImGui::SetWindowFontScale(1.0f);
+		ImGui::SameLine(ControlStartX);
+		ImGui::SetNextItemWidth(ControlEndX - ControlStartX);
+	};
+
+	// CheckboxRow 헬퍼 람다: 라벨 좌측, 체크박스 우측 (동일 정렬선)
+	auto CheckboxRow = [&](const char* label, const char* id, bool* value) {
+		ImGui::AlignTextToFramePadding();
+		ImGui::SetWindowFontScale(0.95f);
+		ImGui::Text("%s", label);
+		ImGui::SetWindowFontScale(1.0f);
+		ImGui::SameLine(ControlStartX);
+		// 컨트롤 영역 내 우측 정렬 (다른 컨트롤과 끝점 맞춤)
+		float checkboxWidth = ImGui::GetFrameHeight();
+		ImGui::SetCursorPosX(ControlEndX - checkboxWidth);
+		ImGui::Checkbox(id, value);
+	};
+
+	// === 바디 생성 섹션 ===
+	if (ImGui::TreeNodeEx("바디 생성", ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_Framed))
+	{
+		ImGui::Spacing();
+		ImGui::Indent(5.0f);
+
+		// 최소 본 크기
+		PropertyRow("최소 본 크기");
+		float minBoneSize = State->ToolMinBoneSize;
+		if (ImGui::DragFloat("##MinBoneSize", &minBoneSize, 0.1f, 0.1f, 100.0f, "%.2f"))
+		{
+			State->ToolMinBoneSize = minBoneSize;
+		}
+
+		// 프리미티브 타입
+		PropertyRow("프리미티브 타입");
 		const char* geomTypes[] = { "Sphere", "Box", "Capsule" };
-		ImGui::SetNextItemWidth(-1);
 		ImGui::Combo("##GeomType", &State->ToolGeomType, geomTypes, IM_ARRAYSIZE(geomTypes));
 
-		// 바디 크기 비율 슬라이더
-		ImGui::Text("바디 크기 비율");
-		ImGui::SetNextItemWidth(-1);
+		// 바디 크기 비율
+		PropertyRow("바디 크기 비율");
 		float scalePercent = State->ToolBodySizeScale * 100.0f;
-		if (ImGui::SliderFloat("##BodySizeScale", &scalePercent, 50.0f, 100.0f, "%.0f%%"))
+		if (ImGui::DragFloat("##BodySizeScale", &scalePercent, 1.0f, 50.0f, 100.0f, "%.0f%%"))
 		{
 			State->ToolBodySizeScale = scalePercent / 100.0f;
 		}
 
-		// 모든 본에 바디 생성 체크박스
-		ImGui::Checkbox("모든 본에 바디 생성", &State->bToolBodyForAll);
+		// 모든 본에 바디 생성
+		CheckboxRow("모든 본에 바디 생성", "##BodyForAll", &State->bToolBodyForAll);
 
-		// 최소 본 크기 (미터)
-		ImGui::Text("최소 본 크기");
-		ImGui::SetNextItemWidth(-1);
-		ImGui::DragFloat("##MinBoneSize", &State->ToolMinBoneSize, 0.001f, 0.001f, 1.0f, "%.3f");
-
-		ImGui::Unindent(10.0f);
+		ImGui::Unindent(5.0f);
+		ImGui::Spacing();
+		ImGui::TreePop();
 	}
 
-	ImGui::Spacing();
-
-	// ▼ 컨스트레인트 생성 섹션
-	if (ImGui::CollapsingHeader("컨스트레인트 생성 설정", ImGuiTreeNodeFlags_DefaultOpen))
+	// === 컨스트레인트 생성 섹션 ===
+	if (ImGui::TreeNodeEx("컨스트레인트 생성", ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_Framed))
 	{
-		ImGui::Indent(10.0f);
+		ImGui::Spacing();
+		ImGui::Indent(5.0f);
 
-		// 컨스트레인트 생성 체크박스
-		ImGui::Checkbox("컨스트레인트 생성", &State->bToolCreateConstraints);
+		// 컨스트레인트 생성 여부
+		CheckboxRow("컨스트레인트 생성", "##CreateConstraints", &State->bToolCreateConstraints);
 
-		// 각 컨스트레인트 모드 콤보박스
+		// 비활성화 영역 시작
 		ImGui::BeginDisabled(!State->bToolCreateConstraints);
 		{
-			ImGui::Text("각 컨스트레인트 모드");
+			// 각 컨스트레인트 모드
+			PropertyRow("컨스트레인트 모드");
 			const char* angularModes[] = { "Free", "Limited", "Locked" };
-			ImGui::SetNextItemWidth(-1);
 			ImGui::Combo("##AngularMode", &State->ToolAngularMode, angularModes, IM_ARRAYSIZE(angularModes));
 
 			// Limited 모드일 때만 각도 설정 표시
 			if (State->ToolAngularMode == 1)
 			{
-				ImGui::Text("Swing 제한 (도)");
-				ImGui::SetNextItemWidth(-1);
+				PropertyRow("Swing 제한 (도)");
 				ImGui::DragFloat("##SwingLimit", &State->ToolSwingLimit, 1.0f, 0.0f, 180.0f, "%.1f");
 
-				ImGui::Text("Twist 제한 (도)");
-				ImGui::SetNextItemWidth(-1);
+				PropertyRow("Twist 제한 (도)");
 				ImGui::DragFloat("##TwistLimit", &State->ToolTwistLimit, 1.0f, 0.0f, 180.0f, "%.1f");
 			}
 		}
 		ImGui::EndDisabled();
 
-		ImGui::Unindent(10.0f);
+		ImGui::Unindent(5.0f);
+		ImGui::Spacing();
+		ImGui::TreePop();
 	}
 
+	// === 하단 버튼 영역 ===
 	ImGui::Spacing();
-	ImGui::Separator();
 	ImGui::Spacing();
 
-	// === 버튼 영역 ===
-	// "모든 바디 생성" 버튼 (초록색 강조)
-	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.55f, 0.3f, 1.0f));
-	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.25f, 0.65f, 0.35f, 1.0f));
-	ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.15f, 0.45f, 0.25f, 1.0f));
-	if (ImGui::Button("모든 바디 생성", ImVec2(-1, 30)))
+	// 버튼 두 개를 한 줄에 배치
+	float buttonWidth = (ContentWidth - 10.0f) * 0.5f;
+
+	// "모든 바디 생성" 버튼 (파란색)
+	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.4f, 0.8f, 1.0f));
+	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.5f, 0.9f, 1.0f));
+	ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.15f, 0.35f, 0.7f, 1.0f));
+	if (ImGui::Button("모든 바디 생성", ImVec2(buttonWidth, 25)))
 	{
 		CreateAllBodies(State->ToolGeomType);
 	}
 	ImGui::PopStyleColor(3);
 
-	ImGui::Spacing();
+	ImGui::SameLine();
 
 	// "모든 바디 삭제" 버튼 (빨간색)
-	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.6f, 0.2f, 0.2f, 1.0f));
-	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.8f, 0.3f, 0.3f, 1.0f));
-	ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.5f, 0.15f, 0.15f, 1.0f));
-	if (ImGui::Button("모든 바디 삭제", ImVec2(-1, 25)))
+	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.7f, 0.2f, 0.2f, 1.0f));
+	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.85f, 0.3f, 0.3f, 1.0f));
+	ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.55f, 0.15f, 0.15f, 1.0f));
+	if (ImGui::Button("모든 바디 삭제", ImVec2(buttonWidth, 25)))
 	{
 		RemoveAllBodies();
 	}
