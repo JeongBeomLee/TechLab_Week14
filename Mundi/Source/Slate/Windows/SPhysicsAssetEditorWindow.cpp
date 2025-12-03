@@ -837,6 +837,7 @@ void SPhysicsAssetEditorWindow::RenderHierarchyPanel()
 			State->SelectedBoneIndex = Index;
 			State->SelectedBodyIndex = -1;
 			State->SelectedConstraintIndex = -1;
+			State->GraphRootBodyIndex = -1;  // 본 선택 시 그래프 루트도 초기화
 		}
 
 		if (!bLeaf && open)
@@ -882,10 +883,11 @@ void SPhysicsAssetEditorWindow::RenderHierarchyPanel()
 					ImGui::PopStyleColor(3);
 				}
 
-				// 바디 클릭 처리
+				// 바디 클릭 처리 (스켈레톤 트리에서 선택 시 그래프 루트도 변경)
 				if (ImGui::IsItemClicked())
 				{
-					State->SelectedBodyIndex = BodyIndex;
+					State->GraphRootBodyIndex = BodyIndex;  // 그래프 중심 변경
+					State->SelectedBodyIndex = BodyIndex;   // 하이라이트도 동일하게
 					State->SelectedBoneIndex = -1;
 					State->SelectedConstraintIndex = -1;
 				}
@@ -921,8 +923,324 @@ void SPhysicsAssetEditorWindow::RenderGraphPanel()
 	PhysicsAssetEditorState* State = GetActivePhysicsState();
 	if (!State) return;
 
-	// TODO: Phase 11에서 구현
-	ImGui::TextDisabled("(Node graph will be shown here)");
+	UPhysicsAsset* PhysAsset = State->EditingPhysicsAsset;
+	ImDrawList* DrawList = ImGui::GetWindowDrawList();
+	ImVec2 WindowPos = ImGui::GetCursorScreenPos();
+	ImVec2 WindowSize = ImGui::GetContentRegionAvail();
+
+	// 클리핑 영역 설정
+	DrawList->PushClipRect(WindowPos, ImVec2(WindowPos.x + WindowSize.x, WindowPos.y + WindowSize.y), true);
+
+	// === 그리드 배경 그리기 ===
+	const float GridSize = 20.0f * State->GraphZoomLevel;
+	const ImU32 ColorGridLine = IM_COL32(50, 50, 50, 255);
+	const ImU32 ColorGridLineBold = IM_COL32(70, 70, 70, 255);
+
+	// 그리드 시작점 (팬 오프셋 적용)
+	float GridOffsetX = fmodf(State->GraphPanOffset.x, GridSize * 5.0f);
+	float GridOffsetY = fmodf(State->GraphPanOffset.y, GridSize * 5.0f);
+
+	// 수직 그리드선
+	int lineCount = 0;
+	for (float x = WindowPos.x + GridOffsetX; x < WindowPos.x + WindowSize.x; x += GridSize)
+	{
+		ImU32 color = (lineCount % 5 == 0) ? ColorGridLineBold : ColorGridLine;
+		DrawList->AddLine(ImVec2(x, WindowPos.y), ImVec2(x, WindowPos.y + WindowSize.y), color);
+		lineCount++;
+	}
+
+	// 수평 그리드선
+	lineCount = 0;
+	for (float y = WindowPos.y + GridOffsetY; y < WindowPos.y + WindowSize.y; y += GridSize)
+	{
+		ImU32 color = (lineCount % 5 == 0) ? ColorGridLineBold : ColorGridLine;
+		DrawList->AddLine(ImVec2(WindowPos.x, y), ImVec2(WindowPos.x + WindowSize.x, y), color);
+		lineCount++;
+	}
+
+	// === 마우스 입력 처리 (영역 체크) ===
+	ImVec2 MousePos = ImGui::GetIO().MousePos;
+	bool bHovered = (MousePos.x >= WindowPos.x && MousePos.x <= WindowPos.x + WindowSize.x &&
+	                 MousePos.y >= WindowPos.y && MousePos.y <= WindowPos.y + WindowSize.y);
+
+	if (bHovered)
+	{
+		// 마우스 휠 줌
+		float wheel = ImGui::GetIO().MouseWheel;
+		if (wheel != 0.0f)
+		{
+			State->GraphZoomLevel += wheel * 0.1f;
+			State->GraphZoomLevel = std::clamp(State->GraphZoomLevel, 0.3f, 2.0f);
+		}
+
+		// 우클릭 드래그로 팬
+		if (ImGui::IsMouseDragging(ImGuiMouseButton_Right))
+		{
+			ImVec2 delta = ImGui::GetIO().MouseDelta;
+			State->GraphPanOffset.x += delta.x;
+			State->GraphPanOffset.y += delta.y;
+		}
+	}
+
+	// 줌 레벨 표시 (우측 상단)
+	char ZoomText[32];
+	sprintf_s(ZoomText, "1:%.0f 줌", State->GraphZoomLevel * 100.0f);
+	ImVec2 ZoomTextSize = ImGui::CalcTextSize(ZoomText);
+	DrawList->AddText(ImVec2(WindowPos.x + WindowSize.x - ZoomTextSize.x - 10.0f, WindowPos.y + 5.0f),
+		IM_COL32(150, 150, 150, 255), ZoomText);
+
+	if (!PhysAsset)
+	{
+		DrawList->AddText(ImVec2(WindowPos.x + 10.0f, WindowPos.y + WindowSize.y * 0.5f),
+			IM_COL32(128, 128, 128, 255), "PhysicsAsset이 없습니다.");
+		DrawList->PopClipRect();
+		return;
+	}
+
+	// 그래프 루트 바디 가져오기 (스켈레톤 트리에서 선택된 바디)
+	USkeletalBodySetup* RootBody = nullptr;
+	FName RootBoneName;
+	if (State->GraphRootBodyIndex >= 0 && State->GraphRootBodyIndex < PhysAsset->GetBodySetupCount())
+	{
+		RootBody = PhysAsset->GetBodySetup(State->GraphRootBodyIndex);
+		if (RootBody)
+		{
+			RootBoneName = RootBody->BoneName;
+		}
+	}
+
+	if (!RootBody)
+	{
+		return;
+	}
+
+	// === 연결된 컨스트레인트와 바디 수집 ===
+	struct FConnectedInfo
+	{
+		int32 ConstraintIndex;
+		UPhysicsConstraintTemplate* Constraint;
+		FName OtherBoneName;
+		int32 OtherBodyIndex;
+	};
+	TArray<FConnectedInfo> ConnectedInfos;
+
+	int32 ConstraintCount = PhysAsset->GetConstraintCount();
+	for (int32 i = 0; i < ConstraintCount; ++i)
+	{
+		UPhysicsConstraintTemplate* Constraint = PhysAsset->ConstraintSetup[i];
+		if (!Constraint) continue;
+
+		FName Bone1 = Constraint->GetBone1Name();
+		FName Bone2 = Constraint->GetBone2Name();
+
+		FName OtherBone;
+		if (Bone1 == RootBoneName)
+		{
+			OtherBone = Bone2;
+		}
+		else if (Bone2 == RootBoneName)
+		{
+			OtherBone = Bone1;
+		}
+		else
+		{
+			continue;
+		}
+
+		int32 OtherBodyIdx = -1;
+		for (int32 j = 0; j < PhysAsset->GetBodySetupCount(); ++j)
+		{
+			USkeletalBodySetup* Body = PhysAsset->GetBodySetup(j);
+			if (Body && Body->BoneName == OtherBone)
+			{
+				OtherBodyIdx = j;
+				break;
+			}
+		}
+
+		FConnectedInfo Info;
+		Info.ConstraintIndex = i;
+		Info.Constraint = Constraint;
+		Info.OtherBoneName = OtherBone;
+		Info.OtherBodyIndex = OtherBodyIdx;
+		ConnectedInfos.Add(Info);
+	}
+
+	// === 줌이 적용된 노드 크기 ===
+	const float Zoom = State->GraphZoomLevel;
+	const float NodeWidth = 100.0f * Zoom;
+	const float NodeHeight = 45.0f * Zoom;
+	const float NodePadding = 8.0f * Zoom;
+	const float FontScale = Zoom;
+
+	// 색상 정의
+	const ImU32 ColorBodyNode = IM_COL32(80, 120, 80, 255);
+	const ImU32 ColorBodyNodeSelected = IM_COL32(120, 160, 80, 255);
+	const ImU32 ColorConstraintNode = IM_COL32(180, 140, 60, 255);
+	const ImU32 ColorBorder = IM_COL32(200, 200, 100, 255);
+	const ImU32 ColorBorderNormal = IM_COL32(80, 80, 80, 255);
+	const ImU32 ColorLine = IM_COL32(150, 150, 150, 200);
+	const ImU32 ColorText = IM_COL32(255, 255, 255, 255);
+
+	// 팬 오프셋 적용
+	const float PanX = State->GraphPanOffset.x;
+	const float PanY = State->GraphPanOffset.y;
+
+	// 열 위치 계산 (줌 + 팬 적용)
+	const float Col1X = WindowPos.x + 15.0f * Zoom + PanX;
+	const float Col2X = WindowPos.x + WindowSize.x * 0.35f + PanX;
+	const float Col3X = WindowPos.x + WindowSize.x * 0.68f + PanX;
+
+	// 중앙 Y 위치 계산 (팬 적용)
+	int32 NumConnections = ConnectedInfos.Num();
+	float TotalHeight = NumConnections > 0 ? NumConnections * (NodeHeight + NodePadding) - NodePadding : NodeHeight;
+	float StartY = WindowPos.y + (WindowSize.y - TotalHeight) * 0.5f + PanY;
+
+	float RootBodyY = WindowPos.y + WindowSize.y * 0.5f - NodeHeight * 0.5f + PanY;
+
+	// 폰트 스케일 적용
+	ImGui::SetWindowFontScale(FontScale);
+
+	// === 1. 루트 바디 노드 그리기 (좌측) ===
+	ImVec2 RootBodyMin(Col1X, RootBodyY);
+	ImVec2 RootBodyMax(Col1X + NodeWidth, RootBodyY + NodeHeight);
+
+	// 루트 바디가 하이라이트 되었는지 확인
+	bool bRootBodyHighlighted = (State->SelectedBodyIndex == State->GraphRootBodyIndex);
+	DrawList->AddRectFilled(RootBodyMin, RootBodyMax, bRootBodyHighlighted ? ColorBodyNodeSelected : ColorBodyNode, 4.0f * Zoom);
+	DrawList->AddRect(RootBodyMin, RootBodyMax, bRootBodyHighlighted ? ColorBorder : ColorBorderNormal, 4.0f * Zoom, 0, bRootBodyHighlighted ? 2.0f : 1.0f);
+
+	const char* BodyLabel = "바디";
+	ImVec2 LabelSize = ImGui::CalcTextSize(BodyLabel);
+	DrawList->AddText(ImVec2(Col1X + (NodeWidth - LabelSize.x) * 0.5f, RootBodyY + 4.0f * Zoom), ColorText, BodyLabel);
+
+	FString BoneNameStr = RootBoneName.ToString();
+	if (BoneNameStr.size() > 12) BoneNameStr = BoneNameStr.substr(0, 9) + "...";
+	ImVec2 BoneNameSize = ImGui::CalcTextSize(BoneNameStr.c_str());
+	DrawList->AddText(ImVec2(Col1X + (NodeWidth - BoneNameSize.x) * 0.5f, RootBodyY + 17.0f * Zoom), ColorText, BoneNameStr.c_str());
+
+	int32 ShapeCount = RootBody->AggGeom.GetElementCount();
+	char ShapeText[32];
+	sprintf_s(ShapeText, "셰이프 %d개", ShapeCount);
+	ImVec2 ShapeSize = ImGui::CalcTextSize(ShapeText);
+	DrawList->AddText(ImVec2(Col1X + (NodeWidth - ShapeSize.x) * 0.5f, RootBodyY + 30.0f * Zoom), IM_COL32(180, 180, 180, 255), ShapeText);
+
+	// 루트 바디 클릭 처리
+	ImGui::SetWindowFontScale(1.0f);
+	ImGui::SetCursorScreenPos(RootBodyMin);
+	ImGui::InvisibleButton("root_body_btn", ImVec2(NodeWidth, NodeHeight));
+	if (ImGui::IsItemClicked())
+	{
+		State->SelectedBodyIndex = State->GraphRootBodyIndex;
+		State->SelectedConstraintIndex = -1;
+		State->SelectedBoneIndex = -1;
+	}
+	ImGui::SetWindowFontScale(FontScale);
+
+	// === 2. 컨스트레인트 및 연결된 바디 노드 그리기 ===
+	for (int32 i = 0; i < ConnectedInfos.Num(); ++i)
+	{
+		const FConnectedInfo& Info = ConnectedInfos[i];
+		float NodeY = StartY + i * (NodeHeight + NodePadding);
+
+		// --- 컨스트레인트 노드 (중앙) ---
+		ImVec2 ConstraintMin(Col2X, NodeY);
+		ImVec2 ConstraintMax(Col2X + NodeWidth, NodeY + NodeHeight);
+
+		bool bConstraintSelected = (State->SelectedConstraintIndex == Info.ConstraintIndex);
+		DrawList->AddRectFilled(ConstraintMin, ConstraintMax, ColorConstraintNode, 4.0f * Zoom);
+		DrawList->AddRect(ConstraintMin, ConstraintMax, bConstraintSelected ? ColorBorder : ColorBorderNormal, 4.0f * Zoom, 0, bConstraintSelected ? 2.0f : 1.0f);
+
+		const char* ConstraintLabel = "컨스트레인트";
+		ImVec2 CLabelSize = ImGui::CalcTextSize(ConstraintLabel);
+		DrawList->AddText(ImVec2(Col2X + (NodeWidth - CLabelSize.x) * 0.5f, NodeY + 4.0f * Zoom), ColorText, ConstraintLabel);
+
+		FString ConstraintName = Info.Constraint->GetBone1Name().ToString() + ":" + Info.Constraint->GetBone2Name().ToString();
+		if (ConstraintName.size() > 16) ConstraintName = ConstraintName.substr(0, 13) + "...";
+		ImVec2 CNameSize = ImGui::CalcTextSize(ConstraintName.c_str());
+		DrawList->AddText(ImVec2(Col2X + (NodeWidth - CNameSize.x) * 0.5f, NodeY + 22.0f * Zoom), ColorText, ConstraintName.c_str());
+
+		// 클릭 영역 (폰트 스케일 복원 후)
+		ImGui::SetWindowFontScale(1.0f);
+		ImGui::SetCursorScreenPos(ConstraintMin);
+		ImGui::InvisibleButton(("constraint_btn_" + std::to_string(i)).c_str(), ImVec2(NodeWidth, NodeHeight));
+		if (ImGui::IsItemClicked())
+		{
+			State->SelectedConstraintIndex = Info.ConstraintIndex;
+			State->SelectedBodyIndex = -1;
+			State->SelectedBoneIndex = -1;
+		}
+		ImGui::SetWindowFontScale(FontScale);
+
+		// --- 연결된 바디 노드 (우측) ---
+		ImVec2 OtherBodyMin(Col3X, NodeY);
+		ImVec2 OtherBodyMax(Col3X + NodeWidth, NodeY + NodeHeight);
+
+		bool bOtherBodySelected = (State->SelectedBodyIndex == Info.OtherBodyIndex);
+		DrawList->AddRectFilled(OtherBodyMin, OtherBodyMax, bOtherBodySelected ? ColorBodyNodeSelected : ColorBodyNode, 4.0f * Zoom);
+		DrawList->AddRect(OtherBodyMin, OtherBodyMax, bOtherBodySelected ? ColorBorder : ColorBorderNormal, 4.0f * Zoom, 0, bOtherBodySelected ? 2.0f : 1.0f);
+
+		DrawList->AddText(ImVec2(Col3X + (NodeWidth - LabelSize.x) * 0.5f, NodeY + 4.0f * Zoom), ColorText, BodyLabel);
+
+		FString OtherBoneStr = Info.OtherBoneName.ToString();
+		if (OtherBoneStr.size() > 12) OtherBoneStr = OtherBoneStr.substr(0, 9) + "...";
+		ImVec2 OtherNameSize = ImGui::CalcTextSize(OtherBoneStr.c_str());
+		DrawList->AddText(ImVec2(Col3X + (NodeWidth - OtherNameSize.x) * 0.5f, NodeY + 17.0f * Zoom), ColorText, OtherBoneStr.c_str());
+
+		int32 OtherShapeCount = 0;
+		if (Info.OtherBodyIndex >= 0)
+		{
+			USkeletalBodySetup* OtherBody = PhysAsset->GetBodySetup(Info.OtherBodyIndex);
+			if (OtherBody) OtherShapeCount = OtherBody->AggGeom.GetElementCount();
+		}
+		sprintf_s(ShapeText, "셰이프 %d개", OtherShapeCount);
+		ShapeSize = ImGui::CalcTextSize(ShapeText);
+		DrawList->AddText(ImVec2(Col3X + (NodeWidth - ShapeSize.x) * 0.5f, NodeY + 30.0f * Zoom), IM_COL32(180, 180, 180, 255), ShapeText);
+
+		// 클릭 영역
+		ImGui::SetWindowFontScale(1.0f);
+		ImGui::SetCursorScreenPos(OtherBodyMin);
+		ImGui::InvisibleButton(("body_btn_" + std::to_string(i)).c_str(), ImVec2(NodeWidth, NodeHeight));
+		if (ImGui::IsItemClicked() && Info.OtherBodyIndex >= 0)
+		{
+			State->SelectedBodyIndex = Info.OtherBodyIndex;
+			State->SelectedConstraintIndex = -1;
+			State->SelectedBoneIndex = -1;
+		}
+		ImGui::SetWindowFontScale(FontScale);
+
+		// === 3. 연결선 그리기 (베지어 커브) ===
+		// 커브 (줌에 따라 모양 유지)
+		const float LineThickness = 1.5f;
+		const float CurveRatio = 0.35f;  // 노드 간 거리의 35%를 커브 오프셋으로 사용
+
+		ImVec2 P1(RootBodyMax.x, RootBodyY + NodeHeight * 0.5f);
+		ImVec2 P2(ConstraintMin.x, NodeY + NodeHeight * 0.5f);
+		float Dist1 = P2.x - P1.x;
+		float Offset1 = Dist1 * CurveRatio;
+		ImVec2 CP1(P1.x + Offset1, P1.y);
+		ImVec2 CP2(P2.x - Offset1, P2.y);
+		DrawList->AddBezierCubic(P1, CP1, CP2, P2, ColorLine, LineThickness);
+
+		ImVec2 P3(ConstraintMax.x, NodeY + NodeHeight * 0.5f);
+		ImVec2 P4(OtherBodyMin.x, NodeY + NodeHeight * 0.5f);
+		float Dist2 = P4.x - P3.x;
+		float Offset2 = Dist2 * CurveRatio;
+		ImVec2 CP3(P3.x + Offset2, P3.y);
+		ImVec2 CP4(P4.x - Offset2, P4.y);
+		DrawList->AddBezierCubic(P3, CP3, CP4, P4, ColorLine, LineThickness);
+	}
+
+	// 연결이 없는 경우 메시지
+	if (ConnectedInfos.Num() == 0)
+	{
+		DrawList->AddText(ImVec2(Col2X, RootBodyY + NodeHeight * 0.5f - 10.0f),
+			IM_COL32(128, 128, 128, 255), "연결된 컨스트레인트가 없습니다.");
+	}
+
+	// 폰트 스케일 복원 및 클리핑 해제
+	ImGui::SetWindowFontScale(1.0f);
+	DrawList->PopClipRect();
 }
 
 void SPhysicsAssetEditorWindow::RenderDetailsPanel()
@@ -944,6 +1262,18 @@ void SPhysicsAssetEditorWindow::RenderDetailsPanel()
 		if (Body)
 		{
 			RenderBodyDetails(Body, State->SelectedBodyIndex);
+		}
+	}
+	// 컨스트레인트가 선택된 경우
+	else if (State->SelectedConstraintIndex != -1 && PhysAsset)
+	{
+		if (State->SelectedConstraintIndex < PhysAsset->GetConstraintCount())
+		{
+			UPhysicsConstraintTemplate* Constraint = PhysAsset->ConstraintSetup[State->SelectedConstraintIndex];
+			if (Constraint)
+			{
+				RenderConstraintDetails(Constraint, State->SelectedConstraintIndex);
+			}
 		}
 	}
 }
@@ -1030,8 +1360,10 @@ void SPhysicsAssetEditorWindow::RenderBoneDetails(int32 BoneIndex)
 
 		if (ImGui::Button("바디 편집", ImVec2(-1, 0)))
 		{
+			State->GraphRootBodyIndex = ExistingBodyIndex;  // 그래프 중심 변경
 			State->SelectedBodyIndex = ExistingBodyIndex;
 			State->SelectedBoneIndex = -1;
+			State->SelectedConstraintIndex = -1;
 		}
 	}
 	else
@@ -1234,6 +1566,193 @@ void SPhysicsAssetEditorWindow::RenderBodyDetails(USkeletalBodySetup* Body, int3
 	if (bChanged)
 	{
 		State->bIsDirty = true;
+	}
+}
+
+void SPhysicsAssetEditorWindow::RenderConstraintDetails(UPhysicsConstraintTemplate* Constraint, int32 ConstraintIndex)
+{
+	PhysicsAssetEditorState* State = GetActivePhysicsState();
+	if (!State || !Constraint) return;
+
+	bool bChanged = false;
+	FConstraintInstance& CI = Constraint->DefaultInstance;
+
+	// ▼ Constraint 기본 정보
+	if (ImGui::CollapsingHeader("컨스트레인트 정보", ImGuiTreeNodeFlags_DefaultOpen))
+	{
+		ImGui::Indent(10.0f);
+
+		// 조인트 이름
+		ImGui::Text("조인트 이름:");
+		ImGui::SameLine(120.0f);
+		ImGui::TextColored(ImVec4(0.9f, 0.8f, 0.5f, 1.0f), "%s", CI.JointName.ToString().c_str());
+
+		// 연결된 본들
+		ImGui::Text("본 1 (부모):");
+		ImGui::SameLine(120.0f);
+		ImGui::TextColored(ImVec4(0.8f, 0.9f, 1.0f, 1.0f), "%s", CI.ConstraintBone1.ToString().c_str());
+
+		ImGui::Text("본 2 (자식):");
+		ImGui::SameLine(120.0f);
+		ImGui::TextColored(ImVec4(0.8f, 0.9f, 1.0f, 1.0f), "%s", CI.ConstraintBone2.ToString().c_str());
+
+		ImGui::Unindent(10.0f);
+	}
+
+	ImGui::Spacing();
+
+	// ▼ Angular Limits
+	if (ImGui::CollapsingHeader("각도 제한", ImGuiTreeNodeFlags_DefaultOpen))
+	{
+		ImGui::Indent(10.0f);
+
+		const char* motionTypes[] = { "Free", "Limited", "Locked" };
+
+		// Swing1 Motion
+		ImGui::Text("Swing1:");
+		ImGui::SameLine(120.0f);
+		int swing1 = static_cast<int>(CI.AngularSwing1Motion);
+		ImGui::SetNextItemWidth(100.0f);
+		if (ImGui::Combo("##Swing1", &swing1, motionTypes, IM_ARRAYSIZE(motionTypes)))
+		{
+			CI.AngularSwing1Motion = static_cast<EAngularConstraintMotion>(swing1);
+			bChanged = true;
+		}
+
+		// Swing2 Motion
+		ImGui::Text("Swing2:");
+		ImGui::SameLine(120.0f);
+		int swing2 = static_cast<int>(CI.AngularSwing2Motion);
+		ImGui::SetNextItemWidth(100.0f);
+		if (ImGui::Combo("##Swing2", &swing2, motionTypes, IM_ARRAYSIZE(motionTypes)))
+		{
+			CI.AngularSwing2Motion = static_cast<EAngularConstraintMotion>(swing2);
+			bChanged = true;
+		}
+
+		// Twist Motion
+		ImGui::Text("Twist:");
+		ImGui::SameLine(120.0f);
+		int twist = static_cast<int>(CI.AngularTwistMotion);
+		ImGui::SetNextItemWidth(100.0f);
+		if (ImGui::Combo("##Twist", &twist, motionTypes, IM_ARRAYSIZE(motionTypes)))
+		{
+			CI.AngularTwistMotion = static_cast<EAngularConstraintMotion>(twist);
+			bChanged = true;
+		}
+
+		ImGui::Spacing();
+
+		// Swing1 Limit Angle
+		ImGui::Text("Swing1 제한각:");
+		ImGui::SameLine(120.0f);
+		ImGui::SetNextItemWidth(-1);
+		if (ImGui::InputFloat("##Swing1Limit", &CI.Swing1LimitAngle, 1.0f, 10.0f, "%.1f"))
+		{
+			CI.Swing1LimitAngle = std::clamp(CI.Swing1LimitAngle, 0.0f, 180.0f);
+			bChanged = true;
+		}
+
+		// Swing2 Limit Angle
+		ImGui::Text("Swing2 제한각:");
+		ImGui::SameLine(120.0f);
+		ImGui::SetNextItemWidth(-1);
+		if (ImGui::InputFloat("##Swing2Limit", &CI.Swing2LimitAngle, 1.0f, 10.0f, "%.1f"))
+		{
+			CI.Swing2LimitAngle = std::clamp(CI.Swing2LimitAngle, 0.0f, 180.0f);
+			bChanged = true;
+		}
+
+		// Twist Limit Angle
+		ImGui::Text("Twist 제한각:");
+		ImGui::SameLine(120.0f);
+		ImGui::SetNextItemWidth(-1);
+		if (ImGui::InputFloat("##TwistLimit", &CI.TwistLimitAngle, 1.0f, 10.0f, "%.1f"))
+		{
+			CI.TwistLimitAngle = std::clamp(CI.TwistLimitAngle, 0.0f, 180.0f);
+			bChanged = true;
+		}
+
+		ImGui::Unindent(10.0f);
+	}
+
+	ImGui::Spacing();
+
+	// ▼ Linear Limits
+	if (ImGui::CollapsingHeader("선형 제한", ImGuiTreeNodeFlags_DefaultOpen))
+	{
+		ImGui::Indent(10.0f);
+
+		const char* linearMotionTypes[] = { "Free", "Limited", "Locked" };
+
+		// Linear X Motion
+		ImGui::Text("X축:");
+		ImGui::SameLine(120.0f);
+		int linearX = static_cast<int>(CI.LinearXMotion);
+		ImGui::SetNextItemWidth(100.0f);
+		if (ImGui::Combo("##LinearX", &linearX, linearMotionTypes, IM_ARRAYSIZE(linearMotionTypes)))
+		{
+			CI.LinearXMotion = static_cast<ELinearConstraintMotion>(linearX);
+			bChanged = true;
+		}
+
+		// Linear Y Motion
+		ImGui::Text("Y축:");
+		ImGui::SameLine(120.0f);
+		int linearY = static_cast<int>(CI.LinearYMotion);
+		ImGui::SetNextItemWidth(100.0f);
+		if (ImGui::Combo("##LinearY", &linearY, linearMotionTypes, IM_ARRAYSIZE(linearMotionTypes)))
+		{
+			CI.LinearYMotion = static_cast<ELinearConstraintMotion>(linearY);
+			bChanged = true;
+		}
+
+		// Linear Z Motion
+		ImGui::Text("Z축:");
+		ImGui::SameLine(120.0f);
+		int linearZ = static_cast<int>(CI.LinearZMotion);
+		ImGui::SetNextItemWidth(100.0f);
+		if (ImGui::Combo("##LinearZ", &linearZ, linearMotionTypes, IM_ARRAYSIZE(linearMotionTypes)))
+		{
+			CI.LinearZMotion = static_cast<ELinearConstraintMotion>(linearZ);
+			bChanged = true;
+		}
+
+		ImGui::Spacing();
+
+		// Linear Limit Distance (3축 모두 Locked이면 비활성화)
+		bool bAllLocked = (CI.LinearXMotion == ELinearConstraintMotion::Locked) &&
+		                  (CI.LinearYMotion == ELinearConstraintMotion::Locked) &&
+		                  (CI.LinearZMotion == ELinearConstraintMotion::Locked);
+
+		ImGui::Text("제한 거리:");
+		ImGui::SameLine(120.0f);
+		ImGui::SetNextItemWidth(-1);
+
+		if (bAllLocked)
+		{
+			ImGui::BeginDisabled();
+		}
+
+		if (ImGui::InputFloat("##LinearLimit", &CI.LinearLimit, 0.1f, 1.0f, "%.1f"))
+		{
+			if (CI.LinearLimit < 0.0f) CI.LinearLimit = 0.0f;
+			bChanged = true;
+		}
+
+		if (bAllLocked)
+		{
+			ImGui::EndDisabled();
+		}
+
+		ImGui::Unindent(10.0f);
+	}
+
+	// 변경 플래그 설정
+	if (bChanged)
+	{
+		State->bIsDirty = true;
+		State->bConstraintLinesDirty = true;
 	}
 }
 
@@ -1443,8 +1962,10 @@ void SPhysicsAssetEditorWindow::AddBodyToBone(int32 BoneIndex, int32 ShapeType)
 	int32 NewIndex = PhysAsset->AddBodySetup(NewBody);
 
 	// 선택 상태 업데이트
+	State->GraphRootBodyIndex = NewIndex;  // 새 바디를 그래프 중심으로
 	State->SelectedBodyIndex = NewIndex;
 	State->SelectedBoneIndex = -1;
+	State->SelectedConstraintIndex = -1;
 	State->bIsDirty = true;
 
 	// 바디 추가 시 캐시 및 전체 라인 재생성
@@ -1467,7 +1988,9 @@ void SPhysicsAssetEditorWindow::RemoveBody(int32 BodyIndex)
 	PhysAsset->RemoveBodySetup(BodyIndex);
 
 	// 선택 상태 초기화
+	State->GraphRootBodyIndex = -1;
 	State->SelectedBodyIndex = -1;
+	State->SelectedConstraintIndex = -1;
 	State->bIsDirty = true;
 
 	// 바디 삭제 시 캐시 및 전체 라인 재생성
@@ -2046,7 +2569,9 @@ void SPhysicsAssetEditorWindow::CreateAllBodies(int32 ShapeType)
 	}
 
 	// 상태 업데이트
+	State->GraphRootBodyIndex = -1;
 	State->SelectedBodyIndex = -1;
+	State->SelectedConstraintIndex = -1;
 	State->SelectedBoneIndex = -1;
 	State->bIsDirty = true;
 	State->bBoneTMCacheDirty = true;
@@ -2070,6 +2595,7 @@ void SPhysicsAssetEditorWindow::RemoveAllBodies()
 	FPhysicsAssetUtils::RemoveAllBodiesAndConstraints(PhysAsset);
 
 	// 상태 업데이트
+	State->GraphRootBodyIndex = -1;
 	State->SelectedBodyIndex = -1;
 	State->SelectedConstraintIndex = -1;
 	State->bIsDirty = true;

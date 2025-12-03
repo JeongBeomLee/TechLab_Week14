@@ -176,8 +176,9 @@ struct PhysicsAssetEditorState : public ViewerState
     UPhysicsAsset* EditingPhysicsAsset = nullptr;
 
     // 선택 상태
-    int32 SelectedBodyIndex = -1;
-    int32 SelectedConstraintIndex = -1;
+    int32 SelectedBodyIndex = -1;        // 그래프 내 하이라이트된 바디
+    int32 SelectedConstraintIndex = -1;  // 그래프 내 하이라이트된 컨스트레인트
+    int32 GraphRootBodyIndex = -1;       // 그래프의 중심 바디 (스켈레톤 트리에서만 변경)
 
     // === 시뮬레이션 상태 ===
     bool bIsSimulating = false;
@@ -219,6 +220,10 @@ struct PhysicsAssetEditorState : public ViewerState
     // 패널 비율 (좌측: Hierarchy/Graph, 우측: Details/Tool)
     float LeftTopRatio = 0.6f;
     float RightTopRatio = 0.6f;
+
+    // Graph 패널 줌/팬
+    float GraphZoomLevel = 0.6f;        // 기본 줌 레벨
+    ImVec2 GraphPanOffset = ImVec2(0, 0);  // 팬 오프셋
 
     // 더티 플래그
     bool bIsDirty = false;

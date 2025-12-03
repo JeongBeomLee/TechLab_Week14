@@ -52,6 +52,7 @@ private:
 	// Details 패널 헬퍼
 	void RenderBoneDetails(int32 BoneIndex);
 	void RenderBodyDetails(USkeletalBodySetup* Body, int32 BodyIndex);
+	void RenderConstraintDetails(UPhysicsConstraintTemplate* Constraint, int32 ConstraintIndex);
 	bool RenderShapeDetails(USkeletalBodySetup* Body);  // 변경 여부 반환
 	void AddBodyToBone(int32 BoneIndex, int32 ShapeType);
 	void RemoveBody(int32 BodyIndex);
