@@ -1443,7 +1443,7 @@ UAnimSequence* UFbxLoader::LoadFbxAnimation(const FString& FilePath, const struc
 
 			// UAnimSequence 생성 및 설정
 			UAnimSequence* AnimSequence = NewObject<UAnimSequence>();
-			AnimSequence->SetFilePath(NormalizedPath);
+			AnimSequence->SetFilePath(ResourceKey);
 			AnimSequence->SetSkeletonName(TargetSkeleton->Name);
 			AnimSequence->SetAnimDataModel(DataModel);
 
@@ -1792,7 +1792,7 @@ UAnimSequence* UFbxLoader::LoadFbxAnimation(const FString& FilePath, const struc
 
 	// 16. UAnimSequence 생성 및 설정
 	UAnimSequence* AnimSequence = NewObject<UAnimSequence>();
-	AnimSequence->SetFilePath(NormalizedPath);
+	AnimSequence->SetFilePath(ResourceKey);
 	AnimSequence->SetSkeletonName(TargetSkeleton->Name);
 	AnimSequence->SetAnimDataModel(DataModel);
 
