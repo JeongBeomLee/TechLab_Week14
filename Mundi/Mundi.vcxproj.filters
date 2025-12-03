@@ -1,4 +1,4 @@
-<?xml version='1.0' encoding='utf-8'?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
   <ItemGroup>
     <FxCompile Include="Shaders\Materials\Fireball.hlsl" />
@@ -674,6 +674,18 @@
     <ClCompile Include="Generated\FKConvexElem.generated.cpp">
       <Filter>Generated</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Runtime\Core\Memory\WeakObjectPtr.cpp" />
+    <ClCompile Include="Source\Runtime\Engine\Cloth\ClothManager.cpp" />
+    <ClCompile Include="Source\Runtime\Engine\Cloth\DxContextManagerCallbackImpl.cpp" />
+    <ClCompile Include="Source\Runtime\Engine\PhysicsEngine\ConvexElem.cpp" />
+    <ClCompile Include="Source\Runtime\Engine\PhysicsEngine\PhysXPublic.cpp" />
+    <ClCompile Include="Source\Runtime\Engine\PhysicsEngine\PhysXSimEventCallback.cpp" />
+    <ClCompile Include="Source\Runtime\Engine\Viewer\PhysicsPickingHelper.cpp" />
+    <ClCompile Include="Generated\UClothComponent.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Runtime\Engine\Components\ClothComponent.cpp" />
+    <ClCompile Include="Source\Runtime\Engine\Cloth\NvClothEnvironment.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Generated\AActor.generated.h">
@@ -1412,6 +1424,32 @@
     <ClInclude Include="Generated\FKConvexElem.generated.h">
       <Filter>Generated</Filter>
     </ClInclude>
+    <ClInclude Include="Source\Runtime\AssetManagement\LinesBatch.h" />
+    <ClInclude Include="Source\Runtime\Core\Memory\PointerTypes.h" />
+    <ClInclude Include="Source\Runtime\Core\Memory\WeakObjectPtr.h" />
+    <ClInclude Include="Source\Runtime\Core\Object\TSubclassOf.h" />
+    <ClInclude Include="Source\Runtime\Engine\Cloth\ClothManager.h" />
+    <ClInclude Include="Source\Runtime\Engine\Cloth\ClothTest.h" />
+    <ClInclude Include="Source\Runtime\Engine\Cloth\DxContextManagerCallbackImpl.h" />
+    <ClInclude Include="Source\Runtime\Engine\Components\EPhysicsMode.h" />
+    <ClInclude Include="Source\Runtime\Engine\Components\TestTypes.h" />
+    <ClInclude Include="Source\Runtime\Engine\PhysicsEngine\ConvexElem.h" />
+    <ClInclude Include="Source\Runtime\Engine\PhysicsEngine\ConvexSource.h" />
+    <ClInclude Include="Source\Runtime\Engine\PhysicsEngine\EAngularConstraintMotion.h" />
+    <ClInclude Include="Source\Runtime\Engine\PhysicsEngine\ECollisionChannel.h" />
+    <ClInclude Include="Source\Runtime\Engine\PhysicsEngine\ELinearConstraintMotion.h" />
+    <ClInclude Include="Source\Runtime\Engine\PhysicsEngine\PhysicsCacheData.h" />
+    <ClInclude Include="Source\Runtime\Engine\PhysicsEngine\PhysXSimEventCallback.h" />
+    <ClInclude Include="Source\Runtime\Engine\Scripting\LuaObjectProxy.h" />
+    <ClInclude Include="Source\Runtime\Engine\Viewer\PhysicsPickingHelper.h" />
+    <ClInclude Include="Source\Runtime\Renderer\LightStats.h" />
+    <ClInclude Include="Source\Runtime\Renderer\ShadowStats.h" />
+    <ClInclude Include="Source\Runtime\Engine\Components\ClothComponent.h" />
+    <ClInclude Include="Generated\UClothComponent.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Engine\Cloth\NvClothEnvironment.h" />
+    <ClInclude Include="Source\Runtime\Engine\Cloth\ClothAllocatorUtil.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="BuildTools\CodeGenerator\generate.py" />
