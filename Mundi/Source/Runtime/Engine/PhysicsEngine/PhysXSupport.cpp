@@ -108,12 +108,21 @@ bool InitGamePhys()
 
 void TermGamePhys()
 {
+    // Dispatcher와 Cooking은 SDK 전에 해제
     if (GPhysXDispatcher)     { GPhysXDispatcher->release(); GPhysXDispatcher = nullptr; }
     if (GPhysXCooking)        { GPhysXCooking->release(); GPhysXCooking = nullptr; }
-    if (GPhysXSDK)            { PxCloseExtensions(); }
-    if (GPhysXSDK)            { GPhysXSDK->release(); GPhysXSDK = nullptr; }
+
+    // PhysicalMaterial은 SDK가 필요하지 않으므로 먼저 삭제
     if (GPhysicalMaterial)    { DeleteObject(GPhysicalMaterial); GPhysicalMaterial = nullptr; }
-    if (GPhysXSDK)            { PxCloseVehicleSDK(); }
+
+    // VehicleSDK와 Extensions는 SDK release 전에 close (순서 중요!)
+    if (GPhysXSDK)
+    {
+        PxCloseVehicleSDK();
+        PxCloseExtensions();
+        GPhysXSDK->release();
+        GPhysXSDK = nullptr;
+    }
 
     // PVD 연결 해제 후 transport 해제 (순서 중요)
     if (GPhysXVisualDebugger)
