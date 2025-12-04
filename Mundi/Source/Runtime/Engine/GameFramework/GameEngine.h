@@ -5,6 +5,7 @@ class URenderer;
 class D3D11RHI;
 class UWorld;
 class FViewport;
+class UClothManager;
 
 class UGameEngine final
 {
@@ -50,6 +51,9 @@ private:
 
     //게임의 메인 뷰포트
     std::unique_ptr<FViewport> GameViewport;
+
+    // Cloth 시뮬레이션 매니저
+    UClothManager* ClothManager = nullptr;
 
     //월드 핸들
     TArray<FWorldContext> WorldContexts;

@@ -1,5 +1,13 @@
 ﻿#include "pch.h"
+
+#ifdef _EDITOR
 #include "EditorEngine.h"
+#endif
+
+#ifdef _GAME
+#include "GameEngine.h"
+#endif
+
 #include "PlatformCrashHandler.h"
 #include "DebugUtils.h"
 #include <exception>

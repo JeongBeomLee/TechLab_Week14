@@ -8,6 +8,9 @@
 #include "FAudioDevice.h"
 #include "GameUI/SGameHUD.h"
 #include "PhysXSupport.h"
+#include "Source/Runtime/Engine/Cloth/ClothManager.h"
+#include "FbxLoader.h"
+#include "PhysicalMaterialLoader.h"
 #include <sol/sol.hpp>
 
 float UGameEngine::ClientWidth = 1024.0f;
@@ -199,10 +202,20 @@ bool UGameEngine::Startup(HINSTANCE hInstance)
     // PhysX 초기화 (StaticMesh Convex 생성에 필요하므로 Preload 전에 초기화)
     InitGamePhys();
 
+    // Cloth 시뮬레이션 매니저 초기화 (ClothComponent에서 사용)
+    ClothManager = new UClothManager();
+    ClothManager->InitClothManager(RHIDevice.GetDevice(), RHIDevice.GetDeviceContext());
+
     FObjManager::Preload();
+
+    // FBX 파일에서 SkeletalMesh, Animation 로드
+    UFbxLoader::PreLoad();
 
     // Preload audio assets
     FAudioDevice::Preload();
+
+    // 물리 재질 로드
+    FPhysicalMaterialLoader::Preload();
 
     ///////////////////////////////////
     WorldContexts.Add(FWorldContext(NewObject<UWorld>(), EWorldType::Game));
@@ -330,6 +343,9 @@ void UGameEngine::MainLoop()
 
         if (!bRunning) break;
 
+        // Cloth 시뮬레이션 업데이트
+        ClothManager->Tick(DeltaSeconds);
+
         Tick(DeltaSeconds);
         Render();
 
@@ -364,6 +380,16 @@ void UGameEngine::Shutdown()
 
     // Shutdown audio device
     FAudioDevice::Shutdown();
+
+    // Cloth 매니저 정리
+    if (ClothManager)
+    {
+        delete ClothManager;
+        ClothManager = nullptr;
+    }
+
+    // PhysX 종료 (리소스 누수 방지)
+    TermGamePhys();
 
     // Explicitly release D3D11RHI resources before global destruction
     RHIDevice.Release();
