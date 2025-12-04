@@ -12,7 +12,7 @@ $PythonDir = Join-Path $ProjectRoot "ThirdParty\Python"
 $PythonExe = Join-Path $PythonDir "python.exe"
 
 # Google Drive 파일 ID (lib.zip)
-$LibFileId = "1KntcGe_4ONi1wb1dOnqjbUYr-G-mIC8h"
+$LibFileId = "1SMsX0NoGimrv-RrdtWELbhXrd7iDuWlS"
 
 # lib 폴더가 이미 존재하고 내용이 있으면 스킵
 if (Test-Path $LibDir) {
