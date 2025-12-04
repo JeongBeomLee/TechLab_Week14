@@ -21,6 +21,9 @@
 
 USkeletalMeshComponent::USkeletalMeshComponent()
 {
+    // 애니메이션 틱을 위해 필수
+    bCanEverTick = true;
+
     // 기본적으로 Kinematic 모드 (애니메이션 + 물리 충돌)
     PhysicsMode = EPhysicsMode::Kinematic;
     bSimulatePhysics = true;
