@@ -128,35 +128,36 @@ void SPhysicalMaterialEditorWindow::OnRender()
 
 void SPhysicalMaterialEditorWindow::RenderTabsAndToolbar(EViewerType CurrentViewerType)
 {
-    if (ImGui::BeginTabBar("PhysicalMaterialTabs", ImGuiTabBarFlags_AutoSelectNewTabs | ImGuiTabBarFlags_Reorderable))
-    {
-        for (int i = 0; i < Tabs.Num(); ++i)
-        {
-            PhysicalMaterialEditorState* State = static_cast<PhysicalMaterialEditorState*>(Tabs[i]);
-            bool open = true;
-            
-            FString DisplayName = State->Name.ToString();
-            if (State->bIsDirty) DisplayName += "*";
+    // Tab bar temporarily disabled
+    // if (ImGui::BeginTabBar("PhysicalMaterialTabs", ImGuiTabBarFlags_AutoSelectNewTabs | ImGuiTabBarFlags_Reorderable))
+    // {
+    //     for (int i = 0; i < Tabs.Num(); ++i)
+    //     {
+    //         PhysicalMaterialEditorState* State = static_cast<PhysicalMaterialEditorState*>(Tabs[i]);
+    //         bool open = true;
+    //
+    //         FString DisplayName = State->Name.ToString();
+    //         if (State->bIsDirty) DisplayName += "*";
 
-            if (ImGui::BeginTabItem((DisplayName + "###Tab" + std::to_string(i)).c_str(), &open))
-            {
-                if (ActiveState != State)
-                {
-                    ActiveTabIndex = i;
-                    ActiveState = State;
-                }
-                ImGui::EndTabItem();
-            }
+    //         if (ImGui::BeginTabItem((DisplayName + "###Tab" + std::to_string(i)).c_str(), &open))
+    //         {
+    //             if (ActiveState != State)
+    //             {
+    //                 ActiveTabIndex = i;
+    //                 ActiveState = State;
+    //             }
+    //             ImGui::EndTabItem();
+    //         }
 
-            if (!open)
-            {
-                CloseTab(i);
-                ImGui::EndTabBar();
-                return;
-            }
-        }
-        ImGui::EndTabBar();
-    }
+    //         if (!open)
+    //         {
+    //             CloseTab(i);
+    //             ImGui::EndTabBar();
+    //             return;
+    //         }
+    //     }
+    //     ImGui::EndTabBar();
+    // }
 
     RenderToolbar();
 }

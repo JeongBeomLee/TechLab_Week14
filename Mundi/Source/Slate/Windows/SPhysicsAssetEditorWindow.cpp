@@ -805,93 +805,93 @@ void SPhysicsAssetEditorWindow::OnSave()
 
 void SPhysicsAssetEditorWindow::RenderTabsAndToolbar(EViewerType CurrentViewerType)
 {
-	// 탭바만 렌더링 (Skeletal Mesh 뷰어 전환 버튼 제외 - SViewerWindow 베이스 호출 안 함)
-	if (!ImGui::BeginTabBar("PhysicsAssetEditorTabs",
-		ImGuiTabBarFlags_AutoSelectNewTabs | ImGuiTabBarFlags_Reorderable))
-		return;
+	// 탭바만 렌더링 (Skeletal Mesh 뷰어 전환 버튼 제외 - SViewerWindow 베이스 호출 안 함) - Temporarily disabled
+	// if (!ImGui::BeginTabBar("PhysicsAssetEditorTabs",
+	// 	ImGuiTabBarFlags_AutoSelectNewTabs | ImGuiTabBarFlags_Reorderable))
+	// 	return;
 
-	// 탭 렌더링
-	for (int i = 0; i < Tabs.Num(); ++i)
-	{
-		ViewerState* State = Tabs[i];
-		PhysicsAssetEditorState* PState = static_cast<PhysicsAssetEditorState*>(State);
-		bool open = true;
+	// // 탭 렌더링
+	// for (int i = 0; i < Tabs.Num(); ++i)
+	// {
+	// 	ViewerState* State = Tabs[i];
+	// 	PhysicsAssetEditorState* PState = static_cast<PhysicsAssetEditorState*>(State);
+	// 	bool open = true;
 
-		// 동적 탭 이름 생성
-		FString TabDisplayName;
-		if (PState->CurrentFilePath.empty())
-		{
-			TabDisplayName = "Untitled";
-		}
-		else
-		{
-			// 파일 경로에서 파일명만 추출 (확장자 제외)
-			size_t lastSlash = PState->CurrentFilePath.find_last_of("/\\");
-			FString filename = (lastSlash != FString::npos)
-				? PState->CurrentFilePath.substr(lastSlash + 1)
-				: PState->CurrentFilePath;
+	// 	// 동적 탭 이름 생성
+	// 	FString TabDisplayName;
+	// 	if (PState->CurrentFilePath.empty())
+	// 	{
+	// 		TabDisplayName = "Untitled";
+	// 	}
+	// 	else
+	// 	{
+	// 		// 파일 경로에서 파일명만 추출 (확장자 제외)
+	// 		size_t lastSlash = PState->CurrentFilePath.find_last_of("/\\");
+	// 		FString filename = (lastSlash != FString::npos)
+	// 			? PState->CurrentFilePath.substr(lastSlash + 1)
+	// 			: PState->CurrentFilePath;
 
-			// 확장자 제거
-			size_t dotPos = filename.find_last_of('.');
-			if (dotPos != FString::npos)
-				filename = filename.substr(0, dotPos);
+	// 		// 확장자 제거
+	// 		size_t dotPos = filename.find_last_of('.');
+	// 		if (dotPos != FString::npos)
+	// 			filename = filename.substr(0, dotPos);
 
-			TabDisplayName = filename;
-		}
+	// 		TabDisplayName = filename;
+	// 	}
 
-		// 수정됨 표시 추가
-		if (PState->bIsDirty)
-		{
-			TabDisplayName += "*";
-		}
+	// 	// 수정됨 표시 추가
+	// 	if (PState->bIsDirty)
+	// 	{
+	// 		TabDisplayName += "*";
+	// 	}
 
-		// ImGui ID 충돌 방지
-		TabDisplayName += "##";
-		TabDisplayName += State->Name.ToString();
+	// 	// ImGui ID 충돌 방지
+	// 	TabDisplayName += "##";
+	// 	TabDisplayName += State->Name.ToString();
 
-		if (ImGui::BeginTabItem(TabDisplayName.c_str(), &open))
-		{
-			if (ActiveState != State)
-			{
-				ActiveTabIndex = i;
-				ActiveState = State;
-				UpdateSubWidgetEditorState();  // 탭 전환 시 sub widget 상태 즉시 갱신
-			}
-			ImGui::EndTabItem();
-		}
-		if (!open)
-		{
-			CloseTab(i);
-			UpdateSubWidgetEditorState();  // 탭 닫힌 직후 sub widget 상태 갱신 (dangling pointer 방지)
-			ImGui::EndTabBar();
-			return;
-		}
-	}
+	// 	if (ImGui::BeginTabItem(TabDisplayName.c_str(), &open))
+	// 	{
+	// 		if (ActiveState != State)
+	// 		{
+	// 			ActiveTabIndex = i;
+	// 			ActiveState = State;
+	// 			UpdateSubWidgetEditorState();  // 탭 전환 시 sub widget 상태 즉시 갱신
+	// 		}
+	// 		ImGui::EndTabItem();
+	// 	}
+	// 	if (!open)
+	// 	{
+	// 		CloseTab(i);
+	// 		UpdateSubWidgetEditorState();  // 탭 닫힌 직후 sub widget 상태 갱신 (dangling pointer 방지)
+	// 		ImGui::EndTabBar();
+	// 		return;
+	// 	}
+	// }
 
-	// + 버튼 (새 탭 추가)
-	if (ImGui::TabItemButton("+", ImGuiTabItemFlags_Trailing))
-	{
-		int maxViewerNum = 0;
-		for (int i = 0; i < Tabs.Num(); ++i)
-		{
-			const FString& tabName = Tabs[i]->Name.ToString();
-			const char* prefix = "PhysicsAssetTab";
-			if (strncmp(tabName.c_str(), prefix, strlen(prefix)) == 0)
-			{
-				const char* numberPart = tabName.c_str() + strlen(prefix);
-				int num = atoi(numberPart);
-				if (num > maxViewerNum)
-				{
-					maxViewerNum = num;
-				}
-			}
-		}
+	// // + 버튼 (새 탭 추가)
+	// if (ImGui::TabItemButton("+", ImGuiTabItemFlags_Trailing))
+	// {
+	// 	int maxViewerNum = 0;
+	// 	for (int i = 0; i < Tabs.Num(); ++i)
+	// 	{
+	// 		const FString& tabName = Tabs[i]->Name.ToString();
+	// 		const char* prefix = "PhysicsAssetTab";
+	// 		if (strncmp(tabName.c_str(), prefix, strlen(prefix)) == 0)
+	// 		{
+	// 			const char* numberPart = tabName.c_str() + strlen(prefix);
+	// 			int num = atoi(numberPart);
+	// 			if (num > maxViewerNum)
+	// 			{
+	// 				maxViewerNum = num;
+	// 			}
+	// 		}
+	// 	}
 
-		char label[64];
-		sprintf_s(label, "PhysicsAssetTab%d", maxViewerNum + 1);
-		OpenNewTab(label);
-	}
-	ImGui::EndTabBar();
+	// 	char label[64];
+	// 	sprintf_s(label, "PhysicsAssetTab%d", maxViewerNum + 1);
+	// 	OpenNewTab(label);
+	// }
+	// ImGui::EndTabBar();
 
 	// Physics Asset Editor 전용 툴바
 	RenderToolbar();

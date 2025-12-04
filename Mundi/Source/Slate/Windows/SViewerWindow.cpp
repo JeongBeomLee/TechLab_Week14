@@ -414,57 +414,57 @@ void SViewerWindow::RenderViewerButton(EViewerType ViewerType, EViewerType Curre
 void SViewerWindow::RenderTabsAndToolbar(EViewerType CurrentViewerType)
 {
     // ============================================
-    // 1. Render Tab Bar
+    // 1. Render Tab Bar (Temporarily disabled)
     // ============================================
-    if (ImGui::BeginTabBar("ViewerTabs", ImGuiTabBarFlags_AutoSelectNewTabs | ImGuiTabBarFlags_Reorderable))
-    {
-        for (int i = 0; i < Tabs.Num(); ++i)
-        {
-            ViewerState* State = Tabs[i];
-            bool open = true;
+    // if (ImGui::BeginTabBar("ViewerTabs", ImGuiTabBarFlags_AutoSelectNewTabs | ImGuiTabBarFlags_Reorderable))
+    // {
+    //     for (int i = 0; i < Tabs.Num(); ++i)
+    //     {
+    //         ViewerState* State = Tabs[i];
+    //         bool open = true;
 
-            // Add '*' to tab name if dirty
-            char tabName[256];
-            sprintf_s(tabName, "%s%s", State->Name.ToString().c_str(), State->bIsDirty ? "*" : "");
+    //         // Add '*' to tab name if dirty
+    //         char tabName[256];
+    //         sprintf_s(tabName, "%s%s", State->Name.ToString().c_str(), State->bIsDirty ? "*" : "");
 
-            if (ImGui::BeginTabItem(tabName, &open))
-            {
-                ActiveTabIndex = i;
-                ActiveState = State;
-                ImGui::EndTabItem();
-            }
-            if (!open)
-            {
-                CloseTab(i);
-                ImGui::EndTabBar();
-                return;
-            }
-        }
+    //         if (ImGui::BeginTabItem(tabName, &open))
+    //         {
+    //             ActiveTabIndex = i;
+    //             ActiveState = State;
+    //             ImGui::EndTabItem();
+    //         }
+    //         if (!open)
+    //         {
+    //             CloseTab(i);
+    //             ImGui::EndTabBar();
+    //             return;
+    //         }
+    //     }
 
-        if (ImGui::TabItemButton("+", ImGuiTabItemFlags_Trailing))
-        {
-            int maxViewerNum = 0;
-            for (int i = 0; i < Tabs.Num(); ++i)
-            {
-                const FString& tabName = Tabs[i]->Name.ToString();
-                const char* prefix = "Viewer ";
-                if (strncmp(tabName.c_str(), prefix, strlen(prefix)) == 0)
-                {
-                    const char* numberPart = tabName.c_str() + strlen(prefix);
-                    int num = atoi(numberPart);
-                    if (num > maxViewerNum)
-                    {
-                        maxViewerNum = num;
-                    }
-                }
-            }
+    //     if (ImGui::TabItemButton("+", ImGuiTabItemFlags_Trailing))
+    //     {
+    //         int maxViewerNum = 0;
+    //         for (int i = 0; i < Tabs.Num(); ++i)
+    //         {
+    //             const FString& tabName = Tabs[i]->Name.ToString();
+    //             const char* prefix = "Viewer ";
+    //             if (strncmp(tabName.c_str(), prefix, strlen(prefix)) == 0)
+    //             {
+    //                 const char* numberPart = tabName.c_str() + strlen(prefix);
+    //                 int num = atoi(numberPart);
+    //                 if (num > maxViewerNum)
+    //                 {
+    //                     maxViewerNum = num;
+    //                 }
+    //             }
+    //         }
 
-            char label[32];
-            sprintf_s(label, "Viewer %d", maxViewerNum + 1);
-            OpenNewTab(label);
-        }
-        ImGui::EndTabBar();
-    }
+    //         char label[32];
+    //         sprintf_s(label, "Viewer %d", maxViewerNum + 1);
+    //         OpenNewTab(label);
+    //     }
+    //     ImGui::EndTabBar();
+    // }
 
     // ============================================
     // 2. Render ToolBar Below Tabs
