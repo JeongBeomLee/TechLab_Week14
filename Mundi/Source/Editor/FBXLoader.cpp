@@ -1162,21 +1162,45 @@ void UFbxLoader::ParseMaterial(FbxSurfaceMaterial* Material, FMaterialInfo& Mate
 		DoubleProp = SurfacePhong->Shininess;
 		MaterialInfo.SpecularExponent = DoubleProp.Get();
 
+		// Unity 방식의 TransparencyFactor 해석 (Maya/3ds Max 호환)
+		// Maya: TransparencyFactor=1.0이 불투명, 3ds Max: TransparencyFactor=0.0이 불투명
 		DoubleProp = SurfacePhong->TransparencyFactor;
-		MaterialInfo.Transparency = DoubleProp.Get();
+		float TransparencyFactor = static_cast<float>(DoubleProp.Get());
+		float Alpha = 1.0f - TransparencyFactor;
+
+		// 극단값(0 또는 1)이면 TransparentColor를 참조
+		if (Alpha == 1.0f || Alpha == 0.0f)
+		{
+			Double3Prop = SurfacePhong->TransparentColor;
+			float TransparentColorGray = static_cast<float>(Double3Prop.Get()[0]);
+			Alpha = 1.0f - TransparentColorGray;
+		}
+
+		MaterialInfo.Transparency = 1.0f - Alpha;
 	}
 	else if (Material->GetClassId().Is(FbxSurfaceLambert::ClassId))
 	{
-		FbxSurfaceLambert* SurfacePhong = (FbxSurfaceLambert*)Material;
+		FbxSurfaceLambert* SurfaceLambert = (FbxSurfaceLambert*)Material;
 
-		Double3Prop = SurfacePhong->Diffuse;
+		Double3Prop = SurfaceLambert->Diffuse;
 		MaterialInfo.DiffuseColor = FVector(Double3Prop.Get()[0], Double3Prop.Get()[1], Double3Prop.Get()[2]);
 
-		Double3Prop = SurfacePhong->Ambient;
+		Double3Prop = SurfaceLambert->Ambient;
 		MaterialInfo.AmbientColor = FVector(Double3Prop.Get()[0], Double3Prop.Get()[1], Double3Prop.Get()[2]);
 
-		DoubleProp = SurfacePhong->TransparencyFactor;
-		MaterialInfo.Transparency = DoubleProp.Get();
+		// Unity 방식의 TransparencyFactor 해석 (Maya/3ds Max 호환)
+		DoubleProp = SurfaceLambert->TransparencyFactor;
+		float TransparencyFactor = static_cast<float>(DoubleProp.Get());
+		float Alpha = 1.0f - TransparencyFactor;
+
+		if (Alpha == 1.0f || Alpha == 0.0f)
+		{
+			Double3Prop = SurfaceLambert->TransparentColor;
+			float TransparentColorGray = static_cast<float>(Double3Prop.Get()[0]);
+			Alpha = 1.0f - TransparentColorGray;
+		}
+
+		MaterialInfo.Transparency = 1.0f - Alpha;
 	}
 
 
