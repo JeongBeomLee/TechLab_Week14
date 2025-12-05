@@ -47,6 +47,30 @@ struct FActorTimeState
 
 enum class EWorldType : uint8;
 
+// Debug Primitive 타입
+enum class EDebugPrimitiveType : uint8
+{
+    Sphere,
+    Box,
+    Capsule,
+    Cone,
+    Arc,
+    Arrow
+};
+
+// Debug Primitive 렌더링 요청 구조체
+struct FDebugPrimitive
+{
+    EDebugPrimitiveType Type;
+    FMatrix Transform;
+    FLinearColor Color;
+    float Radius = 0.0f;      // Sphere, Capsule용
+    float HalfHeight = 0.0f;  // Capsule용
+    float Angle1 = 0.0f;      // Cone: Swing1 각도 (라디안), Arc: Twist 각도 (라디안)
+    float Angle2 = 0.0f;      // Cone: Swing2 각도 (라디안)
+    uint32 UUID = 0;
+};
+
 class UWorld final : public UObject
 {
 public:
@@ -149,6 +173,9 @@ public:
     UCollisionManager* GetCollisionManager() { return CollisionManager.get(); }
     FPhysScene* GetPhysicsScene() { return PhysScene.get(); }
 
+    // Preview World에서 Physics를 사용해야 할 때 호출 (Physics Asset Editor 등)
+    void CreatePhysicsScene();
+
     // PIE용 World 생성
     static UWorld* DuplicateWorldForPIE(UWorld* InEditorWorld);
 
@@ -236,7 +263,85 @@ public:
         DebugTrianglesBatch.Colors = nullptr;
     }
 
+    // ===== Debug Primitive API (Physics Body 시각화 등) =====
+    void AddDebugSphere(const FMatrix& Transform, const FLinearColor& Color, uint32 UUID = 0)
+    {
+        FDebugPrimitive Prim;
+        Prim.Type = EDebugPrimitiveType::Sphere;
+        Prim.Transform = Transform;
+        Prim.Color = Color;
+        Prim.UUID = UUID;
+        DebugPrimitiveQueue.Add(Prim);
+    }
+
+    void AddDebugBox(const FMatrix& Transform, const FLinearColor& Color, uint32 UUID = 0)
+    {
+        FDebugPrimitive Prim;
+        Prim.Type = EDebugPrimitiveType::Box;
+        Prim.Transform = Transform;
+        Prim.Color = Color;
+        Prim.UUID = UUID;
+        DebugPrimitiveQueue.Add(Prim);
+    }
+
+    void AddDebugCapsule(const FMatrix& Transform, float Radius, float HalfHeight, const FLinearColor& Color, uint32 UUID = 0)
+    {
+        FDebugPrimitive Prim;
+        Prim.Type = EDebugPrimitiveType::Capsule;
+        Prim.Transform = Transform;
+        Prim.Radius = Radius;
+        Prim.HalfHeight = HalfHeight;
+        Prim.Color = Color;
+        Prim.UUID = UUID;
+        DebugPrimitiveQueue.Add(Prim);
+    }
+
+    // Swing 원뿔: Transform은 위치/회전, Angle1=Swing1(Y축), Angle2=Swing2(Z축), Radius=높이
+    void AddDebugCone(const FMatrix& Transform, float Swing1Angle, float Swing2Angle, float Height, const FLinearColor& Color, uint32 UUID = 0)
+    {
+        FDebugPrimitive Prim;
+        Prim.Type = EDebugPrimitiveType::Cone;
+        Prim.Transform = Transform;
+        Prim.Angle1 = Swing1Angle;
+        Prim.Angle2 = Swing2Angle;
+        Prim.Radius = Height;  // Height를 Radius 필드에 저장
+        Prim.Color = Color;
+        Prim.UUID = UUID;
+        DebugPrimitiveQueue.Add(Prim);
+    }
+
+    // Twist 부채꼴: Transform은 위치/회전, Angle1=Twist 각도(라디안), Radius=반지름
+    void AddDebugArc(const FMatrix& Transform, float TwistAngle, float Radius, const FLinearColor& Color, uint32 UUID = 0)
+    {
+        FDebugPrimitive Prim;
+        Prim.Type = EDebugPrimitiveType::Arc;
+        Prim.Transform = Transform;
+        Prim.Angle1 = TwistAngle;
+        Prim.Radius = Radius;
+        Prim.Color = Color;
+        Prim.UUID = UUID;
+        DebugPrimitiveQueue.Add(Prim);
+    }
+
+    // 화살표: Transform은 위치/회전(+X 방향), Radius=길이, HalfHeight=머리 크기
+    void AddDebugArrow(const FMatrix& Transform, float Length, float HeadSize, const FLinearColor& Color, uint32 UUID = 0)
+    {
+        FDebugPrimitive Prim;
+        Prim.Type = EDebugPrimitiveType::Arrow;
+        Prim.Transform = Transform;
+        Prim.Radius = Length;
+        Prim.HalfHeight = HeadSize;
+        Prim.Color = Color;
+        Prim.UUID = UUID;
+        DebugPrimitiveQueue.Add(Prim);
+    }
+
+    void ClearDebugPrimitives() { DebugPrimitiveQueue.Empty(); }
+    const TArray<FDebugPrimitive>& GetDebugPrimitives() const { return DebugPrimitiveQueue; }
+
 private:
+    // ===== Debug Primitive Queue =====
+    TArray<FDebugPrimitive> DebugPrimitiveQueue;
 
     //Timinig
     float UnscaledDelta;

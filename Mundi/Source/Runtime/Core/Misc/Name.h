@@ -42,7 +42,11 @@ struct FName
     }
 
     bool operator==(const FName& Other) const { return ComparisonIndex == Other.ComparisonIndex; }
+    // C++20: operator!= is auto-generated from operator==
     FString ToString() const { return FNamePool::Get(DisplayIndex).Display; }
+
+    // Check if this FName is "None" (empty or default)
+    bool IsNone() const { return ToString().empty(); }
 
     friend FName operator+(const FName& A, const FName& B)
     {

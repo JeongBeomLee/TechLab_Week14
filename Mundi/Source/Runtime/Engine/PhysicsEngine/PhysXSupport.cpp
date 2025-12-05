@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "PhysXSupport.h"
 #include "PhysicalMaterial.h"
+#include "PhysxConverter.h"
 
 #include <thread>
 
@@ -60,7 +61,12 @@ bool InitGamePhys()
         return false;
     }
 
-    PxVehicleSetBasisVectors(PxVec3(0, 0, 1), PxVec3(1, 0, 0));
+    // 엔진 좌표계 (Z-up, X-forward)를 변환해서 전달
+    // Up: (0,0,1) → (0,1,0), Forward: (1,0,0) → (0,0,-1)
+    PxVehicleSetBasisVectors(
+        PhysxConverter::ToPxVec3(FVector(0.0f, 0.0f, 1.0f)),
+        PhysxConverter::ToPxVec3(FVector(1.0f, 0.0f, 0.0f))
+    );
 
     PxVehicleSetUpdateMode(PxVehicleUpdateMode::eACCELERATION);
 

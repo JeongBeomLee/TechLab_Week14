@@ -1,6 +1,8 @@
 #pragma once
+#include <cmath>
 #include "ShapeElem.h"
 #include "PhysXSupport.h"
+#include "PhysxConverter.h"
 #include "FKBoxElem.generated.h"
 
 /** 충돌을 위해 사용되는 박스 도형 */
@@ -19,15 +21,15 @@ struct FKBoxElem : public FKShapeElem
     UPROPERTY(EditAnywhere, Category="Transform")
     FQuat Rotation;
 
-    /** x축 방향 박스의 너비 (반지름이 아닌 지름) */
+    /** x축 방향 박스의 Half Extent (중심에서 면까지 거리) */
     UPROPERTY(EditAnywhere, Category="Shape")
     float X;
 
-    /** Y축 방향 박스의 너비 (반지름이 아닌 지름) */
+    /** Y축 방향 박스의 Half Extent (중심에서 면까지 거리) */
     UPROPERTY(EditAnywhere, Category="Shape")
     float Y;
 
-    /** Z축 방향 박스의 너비 (반지름이 아닌 지름) */
+    /** Z축 방향 박스의 Half Extent (중심에서 면까지 거리) */
     UPROPERTY(EditAnywhere, Category="Shape")
     float Z;
 
@@ -73,20 +75,25 @@ struct FKBoxElem : public FKShapeElem
 
     PxBoxGeometry GetPxGeometry(const FVector& Scale3D) const
     {
-        float AbsScaleX = FMath::Abs(Scale3D.X);
-        float AbsScaleY = FMath::Abs(Scale3D.Y);
-        float AbsScaleZ = FMath::Abs(Scale3D.Z);
+        // X, Y, Z는 half-extent로 취급 (에디터와 일치)
+        float HalfX = X * FMath::Abs(Scale3D.X);
+        float HalfY = Y * FMath::Abs(Scale3D.Y);
+        float HalfZ = Z * FMath::Abs(Scale3D.Z);
 
-        float HalfX = (X * 0.5f) * AbsScaleX;
-        float HalfY = (Y * 0.5f) * AbsScaleY;
-        float HalfZ = (Z * 0.5f) * AbsScaleZ;
+        // 축변환 적용: 엔진 (X,Y,Z) → PhysX (Y,Z,-X)
+        // 엔진 Z-up → PhysX Y-up 변환
+        physx::PxVec3 HalfExtent = PhysxConverter::ToPxVec3(FVector(HalfX, HalfY, HalfZ));
+        // 축변환으로 인한 음수 처리
+        HalfExtent.x = std::abs(HalfExtent.x);
+        HalfExtent.y = std::abs(HalfExtent.y);
+        HalfExtent.z = std::abs(HalfExtent.z);
 
         constexpr float MinExtent = 0.01f;
 
         return physx::PxBoxGeometry(
-            FMath::Max(HalfX, MinExtent),
-            FMath::Max(HalfY, MinExtent),
-            FMath::Max(HalfZ, MinExtent)
+            FMath::Max(HalfExtent.x, MinExtent),
+            FMath::Max(HalfExtent.y, MinExtent),
+            FMath::Max(HalfExtent.z, MinExtent)
         );
     }
 };

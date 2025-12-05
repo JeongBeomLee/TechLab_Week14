@@ -448,7 +448,8 @@ bool IntersectRayBody(const FRay& WorldRay, const UBodySetup* Body, const FTrans
 	{
 		FVector WorldCenter = BoneWorldTransform.Translation + BoneWorldTransform.Rotation.RotateVector(Box.Center);
 		FQuat WorldRotation = BoneWorldTransform.Rotation * Box.Rotation;
-		FVector HalfExtent(Box.X * 0.5f, Box.Y * 0.5f, Box.Z * 0.5f);
+		// Box.X/Y/Z는 이미 half extent (중심에서 면까지 거리)
+		FVector HalfExtent(Box.X, Box.Y, Box.Z);
 		float HitT;
 		if (IntersectRayOBB(WorldRay, WorldCenter, HalfExtent, WorldRotation, HitT))
 		{

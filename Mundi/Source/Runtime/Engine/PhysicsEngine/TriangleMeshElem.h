@@ -71,6 +71,9 @@ struct FKTriangleMeshElem : public FKShapeElem
     {
         if (this != &Other)
         {
+            // 기존 TriangleMesh 해제 (메모리 누수 방지)
+            ReleaseTriangleMesh();
+
             FKShapeElem::operator=(Other);
             Source = Other.Source;
             VertexData = Other.VertexData;
@@ -78,7 +81,7 @@ struct FKTriangleMeshElem : public FKShapeElem
             ElemTransform = Other.ElemTransform;
             ElemBox = Other.ElemBox;
             CookedData = Other.CookedData;
-            // TriangleMesh는 복사하지 않음
+            // TriangleMesh는 복사하지 않음, CookedData에서 재생성 필요
         }
         return *this;
     }

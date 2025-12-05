@@ -14,6 +14,7 @@ class UCameraComponent;
 class FSceneView;
 
 struct FMaterialSlot;
+struct FLinearColor;
 
 class URenderer
 {
@@ -58,6 +59,18 @@ public:
 	void SetCurrentCamera(ACameraActor* InCamera) { CurrentCamera = InCamera; }
 	ACameraActor* GetCurrentCamera() const { return CurrentCamera; }
 
+	// ===== Debug Primitive Rendering System =====
+	// 반투명 프리미티브 렌더링 (Physics Body 시각화용)
+	// Transform: Scale * Rotation * Translation 매트릭스
+	void BeginDebugPrimitiveBatch();
+	void DrawDebugSphere(const FMatrix& Transform, const FLinearColor& Color, uint32 UUID = 0);
+	void DrawDebugBox(const FMatrix& Transform, const FLinearColor& Color, uint32 UUID = 0);
+	void DrawDebugCapsule(const FMatrix& Transform, float Radius, float HalfHeight, const FLinearColor& Color, uint32 UUID = 0);
+	void DrawDebugCone(const FMatrix& Transform, float Swing1Angle, float Swing2Angle, float Height, const FLinearColor& Color, uint32 UUID = 0);
+	void DrawDebugArc(const FMatrix& Transform, float TwistAngle, float Radius, const FLinearColor& Color, uint32 UUID = 0);
+	void DrawDebugArrow(const FMatrix& Transform, float Length, float HeadSize, const FLinearColor& Color, uint32 UUID = 0);
+	void EndDebugPrimitiveBatch();
+
 	// Deferred buffer release system (GPU-safe resource management)
 	void DeferredReleaseBuffer(ID3D11Buffer* Buffer);
 
@@ -90,6 +103,12 @@ private:
 
 	void InitializeLineBatch();
 	void InitializeTriangleBatch();
+
+	// Debug Primitive Batch System
+	void InitializeDebugPrimitiveBatch();
+	void DrawPrimitiveMesh(UStaticMesh* Mesh, const FMatrix& Transform, const FLinearColor& Color, uint32 UUID);
+	UShader* DebugPrimitiveShader = nullptr;
+	bool bDebugPrimitiveBatchActive = false;
 
 	// Triangle batch data
 	ULineDynamicMesh* DynamicTriangleMesh = nullptr;

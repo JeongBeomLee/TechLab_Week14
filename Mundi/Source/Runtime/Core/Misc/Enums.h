@@ -189,6 +189,8 @@ enum class EEngineShowFlags : uint64
 
     SF_DOF = 1ull << 23,
 
+    SF_Ragdoll = 1ull << 24,  // Show/hide ragdoll physics debug visualization
+
     // Default enabled flags
     SF_DefaultEnabled = SF_Primitives | SF_StaticMeshes | SF_SkeletalMeshes | SF_Grid | SF_Lighting | SF_Decals |
     SF_DOF | SF_Fog | SF_FXAA | SF_Billboard | SF_EditorIcon | SF_Shadows | SF_ShadowAntiAliasing | SF_GPUSkinning | SF_Particles,

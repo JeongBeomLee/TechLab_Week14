@@ -212,9 +212,10 @@ void FBodyShapeCalculator::ApplyToBody(
 		Box.Rotation = Result.LocalRotation;
 
 		// 본 방향 = Z축, 나머지 = Radius
-		Box.X = std::max(0.001f, Result.Radius * 2.0f);
-		Box.Y = std::max(0.001f, Result.Radius * 2.0f);
-		Box.Z = std::max(0.001f, Result.Length);
+		// FKBoxElem의 X, Y, Z는 half-extent (중심에서 면까지 거리)
+		Box.X = std::max(0.001f, Result.Radius);         // half-extent
+		Box.Y = std::max(0.001f, Result.Radius);         // half-extent
+		Box.Z = std::max(0.001f, Result.Length * 0.5f);  // half-extent
 
 		Body->AggGeom.BoxElems.Add(Box);
 		break;

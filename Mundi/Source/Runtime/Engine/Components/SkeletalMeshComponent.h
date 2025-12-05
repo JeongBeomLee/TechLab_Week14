@@ -213,6 +213,17 @@ public:
     FBodyInstance* GetBodyInstance(int32 BoneIndex) const;
 
     /**
+     * @brief 모든 바디 인스턴스 배열 반환 (인덱스 = 본 인덱스)
+     * @note 에디터 모드에서 lazy 초기화 수행
+     */
+    const TArray<FBodyInstance*>& GetBodies();
+
+    /**
+     * @brief 모든 제약조건 인스턴스 배열 반환
+     */
+    const TArray<FConstraintInstance*>& GetConstraints() const { return Constraints; }
+
+    /**
      * @brief 랙돌에 충격 적용
      * @param Impulse 충격 벡터
      * @param BoneName 적용할 본 이름 (빈 문자열이면 모든 바디에 적용)
@@ -239,12 +250,12 @@ public:
      */
     void InitTestRagdoll(FPhysScene* InPhysScene);
 
-protected:
     /**
-     * @brief 물리 시뮬레이션 결과를 본 트랜스폼에 동기화
+     * @brief 물리 시뮬레이션 결과를 본 트랜스폼에 동기화 (에디터에서도 호출 필요)
      */
     void SyncBonesFromPhysics();
 
+protected:
     /**
      * @brief 현재 본 트랜스폼을 물리 바디에 동기화 (랙돌 시작 시)
      */

@@ -22,8 +22,8 @@ int32 UPhysicsAsset::AddBody(const FName& BoneName, int32 BoneIndex)
 	NewBody->BoneName = BoneName;
 	NewBody->BoneIndex = BoneIndex;
 
-	int32 NewIndex = static_cast<int32>(BodySetups.size());
-	BodySetups.Add(NewBody);
+	int32 NewIndex = static_cast<int32>(Bodies.size());
+	Bodies.Add(NewBody);
 
 	// 캐시 갱신
 	BodySetupIndexMap.Add(BoneName, NewIndex);
@@ -33,35 +33,26 @@ int32 UPhysicsAsset::AddBody(const FName& BoneName, int32 BoneIndex)
 
 bool UPhysicsAsset::RemoveBody(int32 BodyIndex)
 {
-	if (BodyIndex < 0 || BodyIndex >= static_cast<int32>(BodySetups.size()))
+	if (BodyIndex < 0 || BodyIndex >= static_cast<int32>(Bodies.size()))
 	{
 		return false;
 	}
 
-	// 연결된 제약 조건도 제거
-	for (int32 i = static_cast<int32>(ConstraintSetups.size()) - 1; i >= 0; --i)
+	// 제거할 바디의 본 이름
+	FName RemovedBoneName = Bodies[BodyIndex] ? Bodies[BodyIndex]->BoneName : FName();
+
+	// 연결된 제약 조건도 제거 (본 이름 기준)
+	for (int32 i = static_cast<int32>(Constraints.size()) - 1; i >= 0; --i)
 	{
-		FConstraintSetup& Constraint = ConstraintSetups[i];
-		if (Constraint.ParentBodyIndex == BodyIndex || Constraint.ChildBodyIndex == BodyIndex)
+		FConstraintInstance& Constraint = Constraints[i];
+		if (Constraint.ConstraintBone1 == RemovedBoneName || Constraint.ConstraintBone2 == RemovedBoneName)
 		{
-			ConstraintSetups.RemoveAt(i);
-		}
-		else
-		{
-			// 인덱스 조정
-			if (Constraint.ParentBodyIndex > BodyIndex)
-			{
-				Constraint.ParentBodyIndex--;
-			}
-			if (Constraint.ChildBodyIndex > BodyIndex)
-			{
-				Constraint.ChildBodyIndex--;
-			}
+			Constraints.RemoveAt(i);
 		}
 	}
 
 	// 바디 제거
-	BodySetups.RemoveAt(BodyIndex);
+	Bodies.RemoveAt(BodyIndex);
 
 	// 캐시 재구성
 	RebuildIndexMap();
@@ -77,9 +68,9 @@ int32 UPhysicsAsset::FindBodyIndex(const FName& BoneName) const
 
 int32 UPhysicsAsset::FindBodyIndexByBone(int32 BoneIndex) const
 {
-	for (int32 i = 0; i < static_cast<int32>(BodySetups.size()); ++i)
+	for (int32 i = 0; i < static_cast<int32>(Bodies.size()); ++i)
 	{
-		if (BodySetups[i] && BodySetups[i]->BoneIndex == BoneIndex)
+		if (Bodies[i] && Bodies[i]->BoneIndex == BoneIndex)
 		{
 			return i;
 		}
@@ -91,52 +82,59 @@ int32 UPhysicsAsset::FindBodyIndexByBone(int32 BoneIndex) const
 // Constraint 관리 메서드
 // ────────────────────────────────────────────────────────────────
 
-int32 UPhysicsAsset::AddConstraint(const FName& JointName, int32 ParentBodyIndex, int32 ChildBodyIndex)
+int32 UPhysicsAsset::AddConstraint(const FName& ChildBone, const FName& ParentBone)
 {
-	// 유효성 검사
-	if (ParentBodyIndex < 0 || ParentBodyIndex >= static_cast<int32>(BodySetups.size()) ||
-		ChildBodyIndex < 0 || ChildBodyIndex >= static_cast<int32>(BodySetups.size()))
-	{
-		return -1;
-	}
-
 	// 이미 존재하는지 확인
-	int32 ExistingIndex = FindConstraintIndex(ParentBodyIndex, ChildBodyIndex);
+	int32 ExistingIndex = FindConstraintIndex(ChildBone, ParentBone);
 	if (ExistingIndex != -1)
 	{
 		return ExistingIndex;
 	}
 
 	// 새 제약 조건 생성
-	FConstraintSetup NewConstraint(JointName, ParentBodyIndex, ChildBodyIndex);
-	int32 NewIndex = static_cast<int32>(ConstraintSetups.size());
-	ConstraintSetups.Add(NewConstraint);
+	FConstraintInstance NewConstraint;
+	NewConstraint.ConstraintBone1 = ChildBone;   // Child Bone
+	NewConstraint.ConstraintBone2 = ParentBone;  // Parent Bone
+	int32 NewIndex = static_cast<int32>(Constraints.size());
+	Constraints.Add(NewConstraint);
 
 	return NewIndex;
 }
 
 bool UPhysicsAsset::RemoveConstraint(int32 ConstraintIndex)
 {
-	if (ConstraintIndex < 0 || ConstraintIndex >= static_cast<int32>(ConstraintSetups.size()))
+	if (ConstraintIndex < 0 || ConstraintIndex >= static_cast<int32>(Constraints.size()))
 	{
 		return false;
 	}
 
-	ConstraintSetups.RemoveAt(ConstraintIndex);
+	Constraints.RemoveAt(ConstraintIndex);
 	return true;
 }
 
-int32 UPhysicsAsset::FindConstraintIndex(int32 ParentBodyIndex, int32 ChildBodyIndex) const
+int32 UPhysicsAsset::FindConstraintIndex(const FName& ChildBone, const FName& ParentBone) const
 {
-	for (int32 i = 0; i < static_cast<int32>(ConstraintSetups.size()); ++i)
+	for (int32 i = 0; i < static_cast<int32>(Constraints.size()); ++i)
 	{
-		const FConstraintSetup& Constraint = ConstraintSetups[i];
-		if (Constraint.ParentBodyIndex == ParentBodyIndex && Constraint.ChildBodyIndex == ChildBodyIndex)
+		const FConstraintInstance& Constraint = Constraints[i];
+		if (Constraint.ConstraintBone1 == ChildBone && Constraint.ConstraintBone2 == ParentBone)
 		{
 			return i;
 		}
 	}
 	return -1;
+}
+
+UBodySetup* UPhysicsAsset::FindBodySetup(const FName& BoneName) const
+{
+	for (UBodySetup* Body : Bodies)
+	{
+		if (Body && Body->BoneName == BoneName)
+		{
+			return Body;
+		}
+	}
+	return nullptr;
 }
 
 // ────────────────────────────────────────────────────────────────
@@ -145,8 +143,8 @@ int32 UPhysicsAsset::FindConstraintIndex(int32 ParentBodyIndex, int32 ChildBodyI
 
 void UPhysicsAsset::ClearAll()
 {
-	BodySetups.Empty();
-	ConstraintSetups.Empty();
+	Bodies.Empty();
+	Constraints.Empty();
 	BodySetupIndexMap.Empty();
 }
 
@@ -158,26 +156,23 @@ void UPhysicsAsset::ClearBodySelection()
 
 void UPhysicsAsset::ClearConstraintSelection()
 {
-	for (FConstraintSetup& Constraint : ConstraintSetups)
-	{
-		Constraint.bSelected = false;
-	}
+	// FConstraintInstance는 bSelected 필드가 없으므로 에디터 상태에서 관리
 }
 
 bool UPhysicsAsset::IsValid() const
 {
 	// 최소한 하나의 바디가 있어야 함
-	return !BodySetups.IsEmpty();
+	return !Bodies.IsEmpty();
 }
 
 void UPhysicsAsset::RebuildIndexMap()
 {
 	BodySetupIndexMap.Empty();
-	for (int32 i = 0; i < static_cast<int32>(BodySetups.size()); ++i)
+	for (int32 i = 0; i < static_cast<int32>(Bodies.size()); ++i)
 	{
-		if (BodySetups[i])
+		if (Bodies[i])
 		{
-			BodySetupIndexMap.Add(BodySetups[i]->BoneName, i);
+			BodySetupIndexMap.Add(Bodies[i]->BoneName, i);
 		}
 	}
 }
@@ -206,17 +201,17 @@ void UPhysicsAsset::Serialize(const bool bInIsLoading, JSON& InOutHandle)
 	if (bInIsLoading)
 	{
 		UObject::Serialize(bInIsLoading, InOutHandle);
-		BodySetups.Empty();
-		JSON BodySetupsJson;
-		if (FJsonSerializer::ReadArray(InOutHandle, "BodySetups", BodySetupsJson, JSON(), false))
+		Bodies.Empty();
+		JSON BodiesJson;
+		if (FJsonSerializer::ReadArray(InOutHandle, "Bodies", BodiesJson, JSON(), false))
 		{
-			for (int32 i = 0; i < static_cast<int32>(BodySetupsJson.size()); ++i)
+			for (int32 i = 0; i < static_cast<int32>(BodiesJson.size()); ++i)
 			{
-				JSON BodyJson = BodySetupsJson.at(i);
+				JSON BodyJson = BodiesJson.at(i);
 				UBodySetup* NewBody = NewObject<UBodySetup>();
 				// UBodySetup::Serialize가 UPROPERTY (BoneName, BoneIndex, PhysicalMaterial)와 AggGeom을 모두 처리
 				NewBody->Serialize(true, BodyJson);
-				BodySetups.Add(NewBody);
+				Bodies.Add(NewBody);
 			}
 		}
 		RebuildIndexMap();
@@ -224,16 +219,16 @@ void UPhysicsAsset::Serialize(const bool bInIsLoading, JSON& InOutHandle)
 	else
 	{
 		UObject::Serialize(bInIsLoading, InOutHandle);
-		JSON BodySetupsJson = JSON::Make(JSON::Class::Array);
-		for (UBodySetup* Body : BodySetups)
+		JSON BodiesJson = JSON::Make(JSON::Class::Array);
+		for (UBodySetup* Body : Bodies)
 		{
 			if (!Body) continue;
 			JSON BodyJson = JSON::Make(JSON::Class::Object);
 			// UBodySetup::Serialize가 UPROPERTY (BoneName, BoneIndex, PhysicalMaterial)와 AggGeom을 모두 처리
 			Body->Serialize(false, BodyJson);
-			BodySetupsJson.append(BodyJson);
+			BodiesJson.append(BodyJson);
 		}
-		InOutHandle["BodySetups"] = BodySetupsJson;
+		InOutHandle["Bodies"] = BodiesJson;
 	}
 }
 
@@ -243,7 +238,7 @@ void UPhysicsAsset::DuplicateSubObjects()
 
 	// UBodySetup* 배열 복제 - 각 UBodySetup의 Duplicate() 호출
 	TArray<UBodySetup*> DuplicatedSetups;
-	for (UBodySetup* BodySetup : BodySetups)
+	for (UBodySetup* BodySetup : Bodies)
 	{
 		if (BodySetup)
 		{
@@ -252,7 +247,7 @@ void UPhysicsAsset::DuplicateSubObjects()
 			DuplicatedSetups.Add(NewBodySetup);
 		}
 	}
-	BodySetups = DuplicatedSetups;
+	Bodies = DuplicatedSetups;
 
-	// FConstraintSetup은 값 타입이므로 자동 복제됨
+	// FConstraintInstance는 값 타입이므로 자동 복제됨
 }

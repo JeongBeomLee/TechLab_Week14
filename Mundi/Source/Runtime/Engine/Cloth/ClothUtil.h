@@ -71,7 +71,8 @@ public:
 
 };
 
+// 엔진 → PhysX 벡터 변환: (X, Y, Z) → (Y, Z, -X)
 inline PxVec3 ToPxVec(const FVector& Vt3)
 {
-    return PxVec3(Vt3.X, Vt3.Y, Vt3.Z);
+    return PxVec3(Vt3.Y, Vt3.Z, -Vt3.X);
 }

@@ -7,8 +7,8 @@ ABoxActor::ABoxActor()
     ObjectName = "Box Actor";
     
     BoxComponent = CreateDefaultSubobject<UBoxComponent>("BoxComponent");
-    
-    BoxComponent->SetSimulatePhysics(true);
+
+    BoxComponent->SetSimulatePhysics(false);
 
     RootComponent = BoxComponent;
 }

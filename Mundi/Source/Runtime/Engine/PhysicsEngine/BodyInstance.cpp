@@ -2,7 +2,13 @@
 #include "BodyInstance.h"
 #include "BodySetup.h"
 #include "PhysScene.h"
+#include "World.h"
 #include "PrimitiveComponent.h"
+
+#ifdef _EDITOR
+#include "EditorEngine.h"
+extern UEditorEngine GEngine;
+#endif
 
 FBodyInstance::FBodyInstance()
     : OwnerComponent(nullptr)
@@ -123,8 +129,26 @@ void FBodyInstance::InitBody(UBodySetup* Setup, const FTransform& Transform, UPr
         PxRigidDynamic* DynamicActor = RigidActor->is<PxRigidDynamic>();
 
         // Kinematic 모드 설정
-        // bSimulatePhysics가 false이거나 bKinematic이 true면 kinematic
-        if (!bSimulatePhysics || bKinematic)
+        bool bShouldBeKinematic = bKinematic;
+
+        // 에디터 모드에서는 bTickInEditor가 true가 아니면 시뮬레이션 비활성화 (Kinematic으로 설정)
+        // PIE 모드이거나 bTickInEditor가 true인 경우에만 실제 시뮬레이션 수행
+#ifdef _EDITOR
+        if (!bShouldBeKinematic && Component)
+        {
+            UWorld* World = Component->GetWorld();
+            bool bIsPIE = (World && World->bPie) || GEngine.IsPIEActive();
+            bool bCanTickInEditor = Component->CanTickInEditor();
+
+            // 에디터 모드(PIE 아님)이고 에디터에서 틱하지 않으면 Kinematic으로 강제 설정
+            if (!bIsPIE && !bCanTickInEditor)
+            {
+                bShouldBeKinematic = true;
+            }
+        }
+#endif
+
+        if (bShouldBeKinematic)
         {
             DynamicActor->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC, true);
         }

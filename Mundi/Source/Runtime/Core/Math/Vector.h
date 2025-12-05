@@ -519,6 +519,42 @@ struct FQuat
 		return FQuat(N.X * S, N.Y * S, N.Z * S, std::cos(Half));
 	}
 
+	// 두 벡터 사이의 회전을 나타내는 쿼터니언 계산
+	static FQuat FindBetweenVectors(const FVector& From, const FVector& To)
+	{
+		FVector NormFrom = From.GetNormalized();
+		FVector NormTo = To.GetNormalized();
+
+		float DotVal = FVector::Dot(NormFrom, NormTo);
+
+		// 벡터가 거의 같은 방향이면 Identity 반환
+		if (DotVal > 0.9999f)
+		{
+			return FQuat::Identity();
+		}
+
+		// 벡터가 거의 반대 방향이면 임의의 직교축을 기준으로 180도 회전
+		if (DotVal < -0.9999f)
+		{
+			// X축과 직교하는 벡터 찾기
+			FVector Orthogonal = FVector::Cross(FVector(1.0f, 0.0f, 0.0f), NormFrom);
+			if (Orthogonal.SizeSquared() < 0.0001f)
+			{
+				// X축과 평행하면 Y축 사용
+				Orthogonal = FVector::Cross(FVector(0.0f, 1.0f, 0.0f), NormFrom);
+			}
+			Orthogonal = Orthogonal.GetNormalized();
+			return FQuat(Orthogonal.X, Orthogonal.Y, Orthogonal.Z, 0.0f);
+		}
+
+		// 일반적인 경우: cross product로 회전축, dot product로 각도
+		FVector CrossVal = FVector::Cross(NormFrom, NormTo);
+		float S = std::sqrt((1.0f + DotVal) * 2.0f);
+		float InvS = 1.0f / S;
+
+		return FQuat(CrossVal.X * InvS, CrossVal.Y * InvS, CrossVal.Z * InvS, S * 0.5f);
+	}
+
 	// 오일러 → 쿼터니언 (Pitch=X, Yaw=Y, Roll=Z in degrees)
 	// ZYX 순서 (Roll → Yaw → Pitch) - 로컬 축 회전
 	static FQuat MakeFromEulerZYX(const FVector& EulerDeg)

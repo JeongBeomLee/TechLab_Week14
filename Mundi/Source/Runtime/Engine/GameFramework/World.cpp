@@ -121,6 +121,18 @@ void UWorld::Initialize()
 	InitializeGizmo();
 }
 
+void UWorld::CreatePhysicsScene()
+{
+	// 이미 생성되어 있으면 스킵
+	if (PhysScene)
+	{
+		return;
+	}
+
+	PhysScene = std::make_unique<FPhysScene>(this);
+	PhysScene->InitPhysScene();
+}
+
 void UWorld::BeginPlay()
 {
 	// GameMode 생성 (World Settings에 설정된 클래스 사용)

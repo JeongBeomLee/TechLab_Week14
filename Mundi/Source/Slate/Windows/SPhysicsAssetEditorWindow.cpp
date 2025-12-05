@@ -1,3434 +1,5146 @@
 ﻿#include "pch.h"
-#include "SPhysicsAssetEditorWindow.h"
+#include <unordered_map>
 #include "SlateManager.h"
-#include "ImGui/imgui.h"
-#include "ImGui/imnodes.h"
-#include "FViewport.h"
-#include "FViewportClient.h"
-#include <filesystem>
-#include "PathUtils.h"
-#include "Widgets/PropertyRenderer.h"
-#include "Source/Runtime/Engine/Viewer/PhysicsAssetEditorBootstrap.h"
-#include "Source/Runtime/Engine/Viewer/EditorAssetPreviewContext.h"
-#include "Source/Runtime/Engine/PhysicsEngine/PhysicsAsset.h"
-#include "Source/Runtime/Engine/PhysicsEngine/PhysicsTypes.h"
-#include "Source/Runtime/Engine/PhysicsEngine/BodySetup.h"
-#include "Source/Runtime/Engine/PhysicsEngine/FConstraintSetup.h"
-#include "Source/Runtime/Engine/PhysicsEngine/ConstraintInstance.h"
-#include "Source/Runtime/Engine/PhysicsEngine/PhysicsDebugUtils.h"
-#include "Source/Runtime/Engine/PhysicsEngine/BodyShapeCalculator.h"
-#include "Source/Runtime/Engine/Viewer/PhysicsPickingHelper.h"
-#include "Source/Runtime/Core/Misc/VertexData.h"
-#include "SkeletalMeshActor.h"
-#include "SkeletalMesh.h"
-#include "SkeletalMeshComponent.h"
-#include "Source/Runtime/Engine/Components/LineComponent.h"
-#include "Source/Runtime/Engine/Components/TriangleMeshComponent.h"
-#include "Source/Runtime/AssetManagement/Line.h"
-#include "Source/Runtime/AssetManagement/LinesBatch.h"
-#include "Source/Editor/PlatformProcess.h"
-#include "Source/Slate/Widgets/ModalDialog.h"
-#include "ResourceManager.h"
-
-// Sub Widgets
-#include "Source/Slate/Widgets/PhysicsAssetEditor/SkeletonTreeWidget.h"
-#include "Source/Slate/Widgets/PhysicsAssetEditor/BodyPropertiesWidget.h"
-#include "Source/Slate/Widgets/PhysicsAssetEditor/ConstraintPropertiesWidget.h"
-#include "Source/Slate/Widgets/PhysicsAssetEditor/ToolsWidget.h"
-
-// Gizmo
+#include "SPhysicsAssetEditorWindow.h"
+#include "Source/Slate/Widgets/PropertyRenderer.h"
 #include "Source/Editor/Gizmo/GizmoActor.h"
+#include "Source/Runtime/Engine/Viewer/EditorAssetPreviewContext.h"
+#include "Source/Runtime/Engine/Viewer/PhysicsAssetEditorBootstrap.h"
+#include "Source/Runtime/Engine/GameFramework/SkeletalMeshActor.h"
+#include "Source/Runtime/Engine/GameFramework/World.h"
+#include "Source/Runtime/Renderer/FViewport.h"
+#include "Source/Runtime/Engine/PhysicsEngine/PhysicsAsset.h"
+#include "Source/Runtime/Engine/PhysicsEngine/BodySetup.h"
+#include "Source/Runtime/Engine/PhysicsEngine/ConstraintInstance.h"
+#include "Source/Runtime/Engine/PhysicsEngine/AggregateGeom.h"
+#include "Source/Runtime/Engine/PhysicsEngine/PhysScene.h"
+#include "Source/Runtime/Engine/Components/LineComponent.h"
+#include "Source/Runtime/Engine/Components/ShapeAnchorComponent.h"
+#include "Source/Runtime/Engine/Components/ConstraintAnchorComponent.h"
 #include "Source/Runtime/Engine/Components/BoneAnchorComponent.h"
-#include "SelectionManager.h"
-#include "World.h"
-
-// Picking
+#include "Source/Runtime/Engine/Components/SkeletalMeshComponent.h"
 #include "Source/Runtime/Engine/Collision/Picking.h"
-#include "CameraActor.h"
-#include <chrono>
+#include "Source/Runtime/Engine/GameFramework/CameraActor.h"
+#include "Source/Runtime/Renderer/FViewportClient.h"
+#include "SelectionManager.h"
+#include "PlatformProcess.h"
+#include "PathUtils.h"
+#include "Source/Runtime/Engine/PhysicsEngine/BoneUtils.h"
+#include "Source/Runtime/InputCore/InputManager.h"
 
-// Simulation
-#include "BoxActor.h"
-#include "BoxComponent.h"
-#include "PhysScene.h"
+// Static 변수 정의
+bool SPhysicsAssetEditorWindow::bIsAnyPhysicsAssetEditorFocused = false;
 
-// ────────────────────────────────────────────────────────────────
-// Constraint Frame 계산 헬퍼 (에디터용)
-// ────────────────────────────────────────────────────────────────
+// ========== Shape 와이어프레임 생성 함수들 ==========
 
-/**
- * Bone 트랜스폼을 사용하여 Constraint Frame 데이터를 계산합니다.
- * 에디터에서 Constraint 생성 시 사용 (BodyInstance 없이)
- */
-static void CalculateConstraintFramesFromBones(
-    FConstraintSetup& OutSetup,
-    const FTransform& ParentBoneTransform,
-    const FTransform& ChildBoneTransform)
+static const float PI_CONST = 3.14159265358979323846f;
+
+// ========== 부피 기반 질량 계산 함수들 ==========
+// 기본 밀도 (kg/m³) - 인체 평균 밀도 (~1000 kg/m³, 물과 비슷)
+static const float DEFAULT_BODY_DENSITY = 1000.0f;
+
+// Sphere 부피: (4/3) * π * r³
+static float CalculateSphereVolume(float Radius)
 {
-    // 조인트 위치 = 자식 본의 월드 위치 (본의 시작점)
-    FVector JointWorldPos = ChildBoneTransform.Translation;
-
-    // ─────────────────────────────────────────────────────────────
-    // Child Frame: 원점, Identity 회전 (자식 바디 로컬 기준)
-    // ─────────────────────────────────────────────────────────────
-    OutSetup.ChildPosition = FVector::Zero();
-    OutSetup.ChildPriAxis = FVector(1, 0, 0);  // Identity X축
-    OutSetup.ChildSecAxis = FVector(0, 1, 0);  // Identity Y축
-    OutSetup.ChildRotation = FVector::Zero();  // UI용 Euler
-
-    // ─────────────────────────────────────────────────────────────
-    // Parent Frame: 조인트 위치를 부모 로컬로 변환
-    // ─────────────────────────────────────────────────────────────
-    FTransform ParentInverse = ParentBoneTransform.Inverse();
-    FVector JointInParentLocal = ParentInverse.TransformPosition(JointWorldPos);
-
-    OutSetup.ParentPosition = JointInParentLocal;
-
-    // 부모와 자식의 상대 회전 계산
-    FQuat ParentRotInv = ParentBoneTransform.Rotation.Conjugate();
-    FQuat ChildRot = ChildBoneTransform.Rotation;
-    FQuat RelativeRot = ParentRotInv * ChildRot;
-    RelativeRot.Normalize();
-
-    // ─────────────────────────────────────────────────────────────
-    // 축 벡터 계산 (Quaternion에서 직접 추출 - 손실 없음)
-    // ─────────────────────────────────────────────────────────────
-    OutSetup.ParentPriAxis = RelativeRot.RotateVector(FVector(1, 0, 0));
-    OutSetup.ParentSecAxis = RelativeRot.RotateVector(FVector(0, 1, 0));
-
-    // UI용 Euler는 축 벡터에서 역산 (표시용)
-    OutSetup.UpdateParentEulerFromAxes();
-
-    // AngularRotationOffset 초기값은 Zero
-    OutSetup.AngularRotationOffset = FVector::Zero();
+    return (4.0f / 3.0f) * PI_CONST * Radius * Radius * Radius;
 }
 
-// ────────────────────────────────────────────────────────────────
-// Shape 라인 좌표 생성 헬퍼
-// ────────────────────────────────────────────────────────────────
-
-// TODO: M_PI를 Math/MathConstants.h 등에 전역 상수로 이동
-
-/**
- * Sphere Shape 와이어프레임 라인 좌표 생성
- */
-static void GenerateSphereLineCoordinates(
-	const FKSphereElem& Sphere,
-	const FTransform& BoneTransform,
-	TArray<FVector>& OutStartPoints,
-	TArray<FVector>& OutEndPoints)
+// Box 부피: (2*X) * (2*Y) * (2*Z) = 8 * X * Y * Z (half extent 기준)
+static float CalculateBoxVolume(float HalfX, float HalfY, float HalfZ)
 {
-	FVector Center = BoneTransform.Translation + BoneTransform.Rotation.RotateVector(Sphere.Center);
-	float Radius = Sphere.Radius;
-
-	// 3개 평면 (XY, XZ, YZ)에 원 그리기
-	for (int32 j = 0; j < CircleSegments; ++j)
-	{
-		float Angle1 = (j / static_cast<float>(CircleSegments)) * 2.0f * M_PI;
-		float Angle2 = ((j + 1) / static_cast<float>(CircleSegments)) * 2.0f * M_PI;
-		float Cos1 = cos(Angle1), Sin1 = sin(Angle1);
-		float Cos2 = cos(Angle2), Sin2 = sin(Angle2);
-
-		// XY 평면
-		OutStartPoints.Add(Center + FVector(Cos1 * Radius, Sin1 * Radius, 0));
-		OutEndPoints.Add(Center + FVector(Cos2 * Radius, Sin2 * Radius, 0));
-		// XZ 평면
-		OutStartPoints.Add(Center + FVector(Cos1 * Radius, 0, Sin1 * Radius));
-		OutEndPoints.Add(Center + FVector(Cos2 * Radius, 0, Sin2 * Radius));
-		// YZ 평면
-		OutStartPoints.Add(Center + FVector(0, Cos1 * Radius, Sin1 * Radius));
-		OutEndPoints.Add(Center + FVector(0, Cos2 * Radius, Sin2 * Radius));
-	}
+    return 8.0f * HalfX * HalfY * HalfZ;
 }
 
-/**
- * Box Shape 와이어프레임 라인 좌표 생성
- */
-static void GenerateBoxLineCoordinates(
-	const FKBoxElem& Box,
-	const FTransform& BoneTransform,
-	TArray<FVector>& OutStartPoints,
-	TArray<FVector>& OutEndPoints)
+// Capsule 부피: 실린더 + 양쪽 반구 = π * r² * length + (4/3) * π * r³
+static float CalculateCapsuleVolume(float Radius, float Length)
 {
-	FVector Center = BoneTransform.Translation + BoneTransform.Rotation.RotateVector(Box.Center);
-	FQuat Rotation = BoneTransform.Rotation * Box.Rotation;
-
-	// Box.X, Box.Y, Box.Z는 지름이므로 반으로 나눔
-	FVector HalfExtent(Box.X * 0.5f, Box.Y * 0.5f, Box.Z * 0.5f);
-
-	// 8개 코너 생성 (dx/dy/dz 패턴)
-	constexpr int dx[] = {-1, 1, 1, -1, -1, 1, 1, -1};
-	constexpr int dy[] = {-1, -1, 1, 1, -1, -1, 1, 1};
-	constexpr int dz[] = {-1, -1, -1, -1, 1, 1, 1, 1};
-
-	FVector Corners[8];
-	for (int i = 0; i < 8; ++i)
-	{
-		Corners[i] = Center + Rotation.RotateVector(
-			FVector(HalfExtent.X * dx[i], HalfExtent.Y * dy[i], HalfExtent.Z * dz[i]));
-	}
-
-	// 12개 엣지 (pair로 정의)
-	constexpr std::pair<int, int> Edges[] = {
-		{0,1}, {1,2}, {2,3}, {3,0},  // 하단 면
-		{4,5}, {5,6}, {6,7}, {7,4},  // 상단 면
-		{0,4}, {1,5}, {2,6}, {3,7}   // 수직 엣지
-	};
-
-	for (const auto& [a, b] : Edges)
-	{
-		OutStartPoints.Add(Corners[a]);
-		OutEndPoints.Add(Corners[b]);
-	}
+    float CylinderVolume = PI_CONST * Radius * Radius * Length;
+    float SphereVolume = (4.0f / 3.0f) * PI_CONST * Radius * Radius * Radius;
+    return CylinderVolume + SphereVolume;
 }
 
-/**
- * Capsule(Sphyl) Shape 와이어프레임 라인 좌표 생성
- */
-static void GenerateCapsuleLineCoordinates(
-	const FKSphylElem& Capsule,
-	const FTransform& BoneTransform,
-	TArray<FVector>& OutStartPoints,
-	TArray<FVector>& OutEndPoints)
+// Body의 총 부피 계산 (모든 Shape 합산)
+static float CalculateBodyTotalVolume(UBodySetup* Body)
 {
-	FVector Center = BoneTransform.Translation + BoneTransform.Rotation.RotateVector(Capsule.Center);
-	FQuat Rotation = BoneTransform.Rotation * Capsule.Rotation;
+    if (!Body) return 0.0f;
 
-	float HalfLength = Capsule.Length * 0.5f;
-	float Radius = Capsule.Radius;
+    float TotalVolume = 0.0f;
 
-	// 캡슐은 Z축 방향 (기존 엔진 규약)
-	FVector Up = Rotation.RotateVector(FVector(0, 0, 1));  // Z축이 길이 방향
-	FVector Top = Center + Up * HalfLength;
-	FVector Bottom = Center - Up * HalfLength;
+    // Sphere들
+    for (const auto& Sphere : Body->AggGeom.SphereElems)
+    {
+        TotalVolume += CalculateSphereVolume(Sphere.Radius);
+    }
 
-	// 수직 라인들
-	for (int32 j = 0; j < CapsuleVerticalLines; ++j)
-	{
-		float Angle = (j / static_cast<float>(CapsuleVerticalLines)) * 2.0f * M_PI;
-		FVector Dir = Rotation.RotateVector(FVector(cos(Angle), sin(Angle), 0));
-		OutStartPoints.Add(Top + Dir * Radius);
-		OutEndPoints.Add(Bottom + Dir * Radius);
-	}
+    // Box들
+    for (const auto& Box : Body->AggGeom.BoxElems)
+    {
+        TotalVolume += CalculateBoxVolume(Box.X, Box.Y, Box.Z);
+    }
 
-	// 상단/하단 원 (XY 평면, Z축이 길이 방향이므로)
-	for (int32 j = 0; j < CircleSegments; ++j)
-	{
-		float Angle1 = (j / static_cast<float>(CircleSegments)) * 2.0f * M_PI;
-		float Angle2 = ((j + 1) / static_cast<float>(CircleSegments)) * 2.0f * M_PI;
-		FVector Dir1 = Rotation.RotateVector(FVector(cos(Angle1), sin(Angle1), 0));
-		FVector Dir2 = Rotation.RotateVector(FVector(cos(Angle2), sin(Angle2), 0));
+    // Capsule(Sphyl)들
+    for (const auto& Capsule : Body->AggGeom.SphylElems)
+    {
+        TotalVolume += CalculateCapsuleVolume(Capsule.Radius, Capsule.Length);
+    }
 
-		OutStartPoints.Add(Top + Dir1 * Radius);
-		OutEndPoints.Add(Top + Dir2 * Radius);
-		OutStartPoints.Add(Bottom + Dir1 * Radius);
-		OutEndPoints.Add(Bottom + Dir2 * Radius);
-	}
+    return TotalVolume;
 }
 
-/**
- * UBodySetup의 모든 Shape에 대해 와이어프레임 라인 좌표 생성
- */
-static void GenerateBodyShapeLineCoordinates(
-	const UBodySetup* BodySetup,
-	const FTransform& BoneTransform,
-	TArray<FVector>& OutStartPoints,
-	TArray<FVector>& OutEndPoints)
+// 부피와 밀도로 질량 계산 후 Body에 적용
+static void UpdateBodyMassFromVolume(UBodySetup* Body, float Density = DEFAULT_BODY_DENSITY)
 {
-	if (!BodySetup) return;
+    if (!Body) return;
 
-	// Sphere shapes
-	for (const FKSphereElem& Sphere : BodySetup->AggGeom.SphereElems)
-	{
-		GenerateSphereLineCoordinates(Sphere, BoneTransform, OutStartPoints, OutEndPoints);
-	}
-
-	// Box shapes
-	for (const FKBoxElem& Box : BodySetup->AggGeom.BoxElems)
-	{
-		GenerateBoxLineCoordinates(Box, BoneTransform, OutStartPoints, OutEndPoints);
-	}
-
-	// Capsule shapes
-	for (const FKSphylElem& Capsule : BodySetup->AggGeom.SphylElems)
-	{
-		GenerateCapsuleLineCoordinates(Capsule, BoneTransform, OutStartPoints, OutEndPoints);
-	}
+    float Volume = CalculateBodyTotalVolume(Body);
+    // 최소 질량 0.1kg, 최대 질량 10000kg
+    Body->MassInKg = FMath::Clamp(Volume * Density, 0.1f, 10000.0f);
 }
+
+// 박스 와이어프레임 (12개 라인) - 회전 지원
+static void CreateBoxWireframe(ULineComponent* LineComp, const FVector& Center, const FVector& HalfExtent, const FQuat& Rotation, const FVector4& Color)
+{
+    // 로컬 좌표 꼭짓점
+    FVector LocalCorners[8] = {
+        FVector(-HalfExtent.X, -HalfExtent.Y, -HalfExtent.Z),
+        FVector(+HalfExtent.X, -HalfExtent.Y, -HalfExtent.Z),
+        FVector(+HalfExtent.X, +HalfExtent.Y, -HalfExtent.Z),
+        FVector(-HalfExtent.X, +HalfExtent.Y, -HalfExtent.Z),
+        FVector(-HalfExtent.X, -HalfExtent.Y, +HalfExtent.Z),
+        FVector(+HalfExtent.X, -HalfExtent.Y, +HalfExtent.Z),
+        FVector(+HalfExtent.X, +HalfExtent.Y, +HalfExtent.Z),
+        FVector(-HalfExtent.X, +HalfExtent.Y, +HalfExtent.Z),
+    };
+
+    // 월드 좌표로 변환
+    FVector Corners[8];
+    for (int i = 0; i < 8; ++i)
+    {
+        Corners[i] = Center + Rotation.RotateVector(LocalCorners[i]);
+    }
+
+    // 아래 면 (4개 라인)
+    LineComp->AddLine(Corners[0], Corners[1], Color);
+    LineComp->AddLine(Corners[1], Corners[2], Color);
+    LineComp->AddLine(Corners[2], Corners[3], Color);
+    LineComp->AddLine(Corners[3], Corners[0], Color);
+
+    // 위 면 (4개 라인)
+    LineComp->AddLine(Corners[4], Corners[5], Color);
+    LineComp->AddLine(Corners[5], Corners[6], Color);
+    LineComp->AddLine(Corners[6], Corners[7], Color);
+    LineComp->AddLine(Corners[7], Corners[4], Color);
+
+    // 수직 연결 (4개 라인)
+    LineComp->AddLine(Corners[0], Corners[4], Color);
+    LineComp->AddLine(Corners[1], Corners[5], Color);
+    LineComp->AddLine(Corners[2], Corners[6], Color);
+    LineComp->AddLine(Corners[3], Corners[7], Color);
+}
+
+// 구 와이어프레임 (3개 원: XY, XZ, YZ 평면)
+static void CreateSphereWireframe(ULineComponent* LineComp, const FVector& Center, float Radius, const FVector4& Color)
+{
+    const int32 NumSegments = 16;  // 성능을 위해 세그먼트 수 감소
+
+    // XY 평면 원
+    for (int32 i = 0; i < NumSegments; ++i)
+    {
+        float Angle1 = (float(i) / NumSegments) * 2.0f * PI_CONST;
+        float Angle2 = (float((i + 1) % NumSegments) / NumSegments) * 2.0f * PI_CONST;
+
+        FVector P1 = Center + FVector(cos(Angle1) * Radius, sin(Angle1) * Radius, 0.0f);
+        FVector P2 = Center + FVector(cos(Angle2) * Radius, sin(Angle2) * Radius, 0.0f);
+        LineComp->AddLine(P1, P2, Color);
+    }
+
+    // XZ 평면 원
+    for (int32 i = 0; i < NumSegments; ++i)
+    {
+        float Angle1 = (float(i) / NumSegments) * 2.0f * PI_CONST;
+        float Angle2 = (float((i + 1) % NumSegments) / NumSegments) * 2.0f * PI_CONST;
+
+        FVector P1 = Center + FVector(cos(Angle1) * Radius, 0.0f, sin(Angle1) * Radius);
+        FVector P2 = Center + FVector(cos(Angle2) * Radius, 0.0f, sin(Angle2) * Radius);
+        LineComp->AddLine(P1, P2, Color);
+    }
+
+    // YZ 평면 원
+    for (int32 i = 0; i < NumSegments; ++i)
+    {
+        float Angle1 = (float(i) / NumSegments) * 2.0f * PI_CONST;
+        float Angle2 = (float((i + 1) % NumSegments) / NumSegments) * 2.0f * PI_CONST;
+
+        FVector P1 = Center + FVector(0.0f, cos(Angle1) * Radius, sin(Angle1) * Radius);
+        FVector P2 = Center + FVector(0.0f, cos(Angle2) * Radius, sin(Angle2) * Radius);
+        LineComp->AddLine(P1, P2, Color);
+    }
+}
+
+// 캡슐 와이어프레임 (2개 반구 + 4개 세로선 + 2개 링)
+static void CreateCapsuleWireframe(ULineComponent* LineComp, const FVector& Center, const FQuat& Rotation, float Radius, float HalfHeight, const FVector4& Color)
+{
+    const int32 NumSegments = 16;  // 성능을 위해 세그먼트 수 감소
+    const int32 HemiSegments = 8;
+
+    // 캡슐 방향 (Z축 기준)
+    FVector Up = Rotation.RotateVector(FVector(0, 0, 1));
+    FVector Right = Rotation.RotateVector(FVector(1, 0, 0));
+    FVector Forward = Rotation.RotateVector(FVector(0, 1, 0));
+
+    FVector TopCenter = Center + Up * HalfHeight;
+    FVector BottomCenter = Center - Up * HalfHeight;
+
+    // 상단/하단 원형 링
+    for (int32 i = 0; i < NumSegments; ++i)
+    {
+        float Angle1 = (float(i) / NumSegments) * 2.0f * PI_CONST;
+        float Angle2 = (float((i + 1) % NumSegments) / NumSegments) * 2.0f * PI_CONST;
+
+        FVector Offset1 = Right * cos(Angle1) * Radius + Forward * sin(Angle1) * Radius;
+        FVector Offset2 = Right * cos(Angle2) * Radius + Forward * sin(Angle2) * Radius;
+
+        // 상단 링
+        LineComp->AddLine(TopCenter + Offset1, TopCenter + Offset2, Color);
+        // 하단 링
+        LineComp->AddLine(BottomCenter + Offset1, BottomCenter + Offset2, Color);
+    }
+
+    // 세로선 (4개)
+    for (int32 i = 0; i < 4; ++i)
+    {
+        float Angle = (float(i) / 4) * 2.0f * PI_CONST;
+        FVector Offset = Right * cos(Angle) * Radius + Forward * sin(Angle) * Radius;
+        LineComp->AddLine(TopCenter + Offset, BottomCenter + Offset, Color);
+    }
+
+    // 상단 반구 (XZ, YZ 평면 반원)
+    for (int32 i = 0; i < HemiSegments; ++i)
+    {
+        float Angle1 = (float(i) / HemiSegments) * PI_CONST * 0.5f;  // 0 ~ 90도
+        float Angle2 = (float(i + 1) / HemiSegments) * PI_CONST * 0.5f;
+
+        // XZ 평면 반원
+        FVector P1 = TopCenter + Right * cos(Angle1) * Radius + Up * sin(Angle1) * Radius;
+        FVector P2 = TopCenter + Right * cos(Angle2) * Radius + Up * sin(Angle2) * Radius;
+        LineComp->AddLine(P1, P2, Color);
+
+        P1 = TopCenter - Right * cos(Angle1) * Radius + Up * sin(Angle1) * Radius;
+        P2 = TopCenter - Right * cos(Angle2) * Radius + Up * sin(Angle2) * Radius;
+        LineComp->AddLine(P1, P2, Color);
+
+        // YZ 평면 반원
+        P1 = TopCenter + Forward * cos(Angle1) * Radius + Up * sin(Angle1) * Radius;
+        P2 = TopCenter + Forward * cos(Angle2) * Radius + Up * sin(Angle2) * Radius;
+        LineComp->AddLine(P1, P2, Color);
+
+        P1 = TopCenter - Forward * cos(Angle1) * Radius + Up * sin(Angle1) * Radius;
+        P2 = TopCenter - Forward * cos(Angle2) * Radius + Up * sin(Angle2) * Radius;
+        LineComp->AddLine(P1, P2, Color);
+    }
+
+    // 하단 반구 (XZ, YZ 평면 반원)
+    for (int32 i = 0; i < HemiSegments; ++i)
+    {
+        float Angle1 = (float(i) / HemiSegments) * PI_CONST * 0.5f;
+        float Angle2 = (float(i + 1) / HemiSegments) * PI_CONST * 0.5f;
+
+        // XZ 평면 반원
+        FVector P1 = BottomCenter + Right * cos(Angle1) * Radius - Up * sin(Angle1) * Radius;
+        FVector P2 = BottomCenter + Right * cos(Angle2) * Radius - Up * sin(Angle2) * Radius;
+        LineComp->AddLine(P1, P2, Color);
+
+        P1 = BottomCenter - Right * cos(Angle1) * Radius - Up * sin(Angle1) * Radius;
+        P2 = BottomCenter - Right * cos(Angle2) * Radius - Up * sin(Angle2) * Radius;
+        LineComp->AddLine(P1, P2, Color);
+
+        // YZ 평면 반원
+        P1 = BottomCenter + Forward * cos(Angle1) * Radius - Up * sin(Angle1) * Radius;
+        P2 = BottomCenter + Forward * cos(Angle2) * Radius - Up * sin(Angle2) * Radius;
+        LineComp->AddLine(P1, P2, Color);
+
+        P1 = BottomCenter - Forward * cos(Angle1) * Radius - Up * sin(Angle1) * Radius;
+        P2 = BottomCenter - Forward * cos(Angle2) * Radius - Up * sin(Angle2) * Radius;
+        LineComp->AddLine(P1, P2, Color);
+    }
+}
+
+// ========== 클래스 구현 ==========
 
 SPhysicsAssetEditorWindow::SPhysicsAssetEditorWindow()
 {
-	WindowTitle = "Physics Asset Editor";
-	bHasBottomPanel = false; // 기본적으로 하단 패널 숨김
-	CreateSubWidgets();
+    CenterRect = FRect(0, 0, 0, 0);
+    LeftPanelRatio = 0.2f;
+    RightPanelRatio = 0.25f;
 }
 
 SPhysicsAssetEditorWindow::~SPhysicsAssetEditorWindow()
 {
-	DestroySubWidgets();
+    // 포커스 플래그 리셋 (윈도우 파괴 시)
+    bIsAnyPhysicsAssetEditorFocused = false;
 
-	// Clean up tabs (ViewerState 정리)
-	for (int i = 0; i < Tabs.Num(); ++i)
-	{
-		ViewerState* State = Tabs[i];
-
-		// 시뮬레이션 중이면 먼저 정리 (PhysScene 해제 전에)
-		PhysicsAssetEditorState* PhysState = static_cast<PhysicsAssetEditorState*>(State);
-		if (PhysState && PhysState->bSimulating)
-		{
-			// 랙돌 먼저 종료 (PhysScene 사용)
-			USkeletalMeshComponent* MeshComp = PhysState->GetPreviewMeshComponent();
-			/*if (MeshComp)
-			{
-				MeshComp->SetSimulatePhysics(false);
-				MeshComp->TermRagdoll();
-			}*/
-			// 바닥 액터 제거
-			if (PhysState->FloorActor)
-			{
-				UBoxComponent* BoxComp = PhysState->FloorActor->GetBoxComponent();
-				BoxComp->SetSimulatePhysics(false);  // 바닥은 Static
-				PhysState->FloorActor->Destroy();
-				PhysState->FloorActor = nullptr;
-			}
-
-			PhysState->bSimulating = false;
-		}
-
-		PhysicsAssetEditorBootstrap::DestroyViewerState(State);
-	}
-	Tabs.Empty();
-	ActiveState = nullptr;
-}
-
-ViewerState* SPhysicsAssetEditorWindow::CreateViewerState(const char* Name, UEditorAssetPreviewContext* Context)
-{
-	return PhysicsAssetEditorBootstrap::CreateViewerState(Name, World, Device, Context);
-}
-
-void SPhysicsAssetEditorWindow::DestroyViewerState(ViewerState*& State)
-{
-	// 시뮬레이션 중이면 먼저 정리 (PhysScene 해제 전에)
-	PhysicsAssetEditorState* PhysState = static_cast<PhysicsAssetEditorState*>(State);
-	if (PhysState && PhysState->bSimulating)
-	{
-		// 1. 랙돌 먼저 종료 (SimulationPhysScene 사용 중이므로)
-		USkeletalMeshComponent* MeshComp = PhysState->GetPreviewMeshComponent();
-		if (MeshComp)
-		{
-			MeshComp->SetSimulatePhysics(false);
-			MeshComp->TermRagdoll();
-		}
-
-		// 2. 바닥 액터 물리 바디 정리
-		if (PhysState->FloorActor)
-		{
-			UBoxComponent* BoxComp = PhysState->FloorActor->GetBoxComponent();
-			if (BoxComp)
-			{
-				BoxComp->GetBodyInstance()->TermBody();
-			}
-			PhysState->FloorActor->Destroy();
-			PhysState->FloorActor = nullptr;
-		}
-
-		// 3. 시뮬레이션 PhysScene 해제
-		if (PhysState->SimulationPhysScene)
-		{
-			PhysState->SimulationPhysScene.reset();
-		}
-
-		PhysState->bSimulating = false;
-	}
-
-	PhysicsAssetEditorBootstrap::DestroyViewerState(State);
-}
-
-void SPhysicsAssetEditorWindow::OpenOrFocusTab(UEditorAssetPreviewContext* Context)
-{
-	// Context가 없거나 AssetPath가 비어있으면 새 탭 열기
-	if (!Context || Context->AssetPath.empty())
-	{
-		char label[64];
-		sprintf_s(label, "PhysicsAssetTab%d", Tabs.Num() + 1);
-		OpenNewTab(label);
-		return;
-	}
-
-	// 기존 탭 중 동일한 파일 경로를 가진 탭 검색
-	for (int32 i = 0; i < Tabs.Num(); ++i)
-	{
-		PhysicsAssetEditorState* State = static_cast<PhysicsAssetEditorState*>(Tabs[i]);
-		if (State && State->CurrentFilePath == Context->AssetPath)
-		{
-			// 기존 탭으로 전환
-			ActiveTabIndex = i;
-			ActiveState = Tabs[i];
-			return;
-		}
-	}
-
-	// 기존 탭이 없으면 새 탭 생성
-	FString AssetName;
-	const size_t lastSlash = Context->AssetPath.find_last_of("/\\");
-	if (lastSlash != FString::npos)
-		AssetName = Context->AssetPath.substr(lastSlash + 1);
-	else
-		AssetName = Context->AssetPath;
-
-	// 확장자 제거
-	const size_t dotPos = AssetName.find_last_of('.');
-	if (dotPos != FString::npos)
-		AssetName = AssetName.substr(0, dotPos);
-
-	ViewerState* NewState = CreateViewerState(AssetName.c_str(), Context);
-	if (NewState)
-	{
-		Tabs.Add(NewState);
-		ActiveTabIndex = Tabs.Num() - 1;
-		ActiveState = NewState;
-	}
+    for (int i = 0; i < Tabs.Num(); ++i)
+    {
+        ViewerState* State = Tabs[i];
+        DestroyViewerState(State);
+    }
+    Tabs.Empty();
+    ActiveState = nullptr;
 }
 
 void SPhysicsAssetEditorWindow::OnRender()
 {
-	// If window is closed, request cleanup and don't render
-	if (!bIsOpen)
-	{
-		USlateManager::GetInstance().RequestCloseDetachedWindow(this);
-		return;
-	}
+    if (!bIsOpen)
+    {
+        USlateManager::GetInstance().RequestCloseDetachedWindow(this);
+        return;
+    }
 
-	// Parent detachable window (movable, top-level) with solid background
-	ImGuiWindowFlags flags = ImGuiWindowFlags_NoSavedSettings;
+    // 아이콘 로드 (한 번만)
+    if (!IconSave && Device)
+    {
+        IconSave = NewObject<UTexture>();
+        IconSave->Load(GDataDir + "/Icon/Toolbar_Save.png", Device);
 
-	if (!bInitialPlacementDone)
-	{
-		ImGui::SetNextWindowPos(ImVec2(Rect.Left, Rect.Top));
-		ImGui::SetNextWindowSize(ImVec2(Rect.GetWidth(), Rect.GetHeight()));
-		bInitialPlacementDone = true;
-	}
-	if (bRequestFocus)
-	{
-		ImGui::SetNextWindowFocus();
-	}
+        IconSaveAs = NewObject<UTexture>();
+        IconSaveAs->Load(GDataDir + "/Icon/Toolbar_SaveAs.png", Device);
 
-	// Generate a unique window title to pass to ImGui
-	char UniqueTitle[256];
-	FString Title = GetWindowTitle();
-	if (Tabs.Num() == 1 && ActiveState)
-	{
-		PhysicsAssetEditorState* PhysState = static_cast<PhysicsAssetEditorState*>(ActiveState);
-		if (!PhysState->CurrentFilePath.empty())
-		{
-			std::filesystem::path fsPath(UTF8ToWide(PhysState->CurrentFilePath));
-			FString AssetName = WideToUTF8(fsPath.filename().wstring());
-			Title += " - " + AssetName;
-		}
-	}
-	sprintf_s(UniqueTitle, sizeof(UniqueTitle), "%s###%p", Title.c_str(), this);
+        IconLoad = NewObject<UTexture>();
+        IconLoad->Load(GDataDir + "/Icon/Toolbar_Load.png", Device);
+    }
 
-	bool bViewerVisible = false;
-	if (ImGui::Begin(UniqueTitle, &bIsOpen, flags))
-	{
-		bViewerVisible = true;
+    // 매 프레임 시작 시 포커스 플래그 리셋 (윈도우가 닫혀도 리셋되도록)
+    bIsAnyPhysicsAssetEditorFocused = false;
 
-		// 입력 라우팅을 위한 hover/focus 상태 캡처
-		bIsWindowHovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_RootAndChildWindows);
-		bIsWindowFocused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
+    ImGuiWindowFlags flags = ImGuiWindowFlags_NoSavedSettings;
 
-		// Render tab bar and switch active state
-		RenderTabsAndToolbar(EViewerType::PhysicsAsset);
+    if (!bInitialPlacementDone)
+    {
+        ImGui::SetNextWindowPos(ImVec2(Rect.Left, Rect.Top));
+        ImGui::SetNextWindowSize(ImVec2(Rect.GetWidth(), Rect.GetHeight()));
+        bInitialPlacementDone = true;
+    }
 
-		// 마지막 탭을 닫은 경우 렌더링 중단
-		if (!bIsOpen)
-		{
-			USlateManager::GetInstance().RequestCloseDetachedWindow(this);
-			ImGui::End();
-			return;
-		}
+    if (bRequestFocus)
+    {
+        ImGui::SetNextWindowFocus();
+    }
 
-		ImVec2 pos = ImGui::GetWindowPos();
-		ImVec2 size = ImGui::GetWindowSize();
-		Rect.Left = pos.x; Rect.Top = pos.y; Rect.Right = pos.x + size.x; Rect.Bottom = pos.y + size.y; Rect.UpdateMinMax();
+    char UniqueTitle[256];
+    FString Title = GetWindowTitle();
+    sprintf_s(UniqueTitle, sizeof(UniqueTitle), "%s###%p", Title.c_str(), this);
 
-		ImVec2 contentAvail = ImGui::GetContentRegionAvail();
-		float totalWidth = contentAvail.x;
-		float totalHeight = contentAvail.y;
+    bool bViewerVisible = false;
+    if (ImGui::Begin(UniqueTitle, &bIsOpen, flags))
+    {
+        bViewerVisible = true;
+        bIsWindowHovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_RootAndChildWindows);
+        bIsWindowFocused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
 
-		float splitterWidth = 4.0f; // 분할선 두께
+        // 다른 위젯에서 체크할 수 있도록 static 변수 업데이트
+        bIsAnyPhysicsAssetEditorFocused = bIsWindowFocused;
 
-		// 시뮬레이션 중에는 좌/우 패널 숨김
-		PhysicsAssetEditorState* PhysState = GetActivePhysicsState();
-		bool bHidePanels = PhysState && PhysState->bSimulating;
+        RenderTabsAndToolbar(EViewerType::PhysicsAsset);
 
-		float leftWidth = bHidePanels ? 0.0f : totalWidth * LeftPanelRatio;
-		float rightWidth = bHidePanels ? 0.0f : totalWidth * RightPanelRatio;
-		float numSplitters = bHidePanels ? 0.0f : 2.0f;
-		float centerWidth = totalWidth - leftWidth - rightWidth - (splitterWidth * numSplitters);
+        if (!bIsOpen)
+        {
+            USlateManager::GetInstance().RequestCloseDetachedWindow(this);
+            ImGui::End();
+            return;
+        }
 
-		// 중앙 패널이 음수가 되지 않도록 보정 (안전장치)
-		if (centerWidth < 0.0f)
-		{
-			centerWidth = 0.0f;
-		}
+        ImVec2 pos = ImGui::GetWindowPos();
+        ImVec2 size = ImGui::GetWindowSize();
+        Rect.Left = pos.x; Rect.Top = pos.y; Rect.Right = pos.x + size.x; Rect.Bottom = pos.y + size.y;
+        Rect.UpdateMinMax();
 
-		// Remove spacing between panels
-		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
+        ImVec2 contentAvail = ImGui::GetContentRegionAvail();
+        float totalWidth = contentAvail.x;
+        float totalHeight = contentAvail.y;
+        float splitterWidth = 4.0f;
 
-		// Left panel - Skeleton Tree & Bodies (시뮬레이션 중에는 숨김)
-		if (!bHidePanels)
-		{
-			ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 8.0f);
-			ImGui::BeginChild("LeftPanel", ImVec2(leftWidth, totalHeight), true, ImGuiWindowFlags_NoScrollbar);
-			ImGui::PopStyleVar();
-			RenderLeftPanel(leftWidth);
-			ImGui::EndChild();
+        float leftWidth = totalWidth * LeftPanelRatio;
+        float rightWidth = totalWidth * RightPanelRatio;
+        float centerWidth = totalWidth - leftWidth - rightWidth - (splitterWidth * 2);
+        if (centerWidth < 0.0f) centerWidth = 0.0f;
 
-			ImGui::SameLine(0, 0); // No spacing between panels
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
 
-			// Left splitter (드래그 가능한 분할선)
-			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.3f, 0.3f, 0.5f));
-			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.4f, 0.4f, 0.4f, 0.7f));
-			ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.5f, 0.5f, 0.5f, 0.9f));
-			ImGui::Button("##LeftSplitter", ImVec2(splitterWidth, totalHeight));
-			ImGui::PopStyleColor(3);
+        // Left panel
+        ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 8.0f);
+        ImGui::BeginChild("LeftPanel", ImVec2(leftWidth, totalHeight), true, ImGuiWindowFlags_NoScrollbar);
+        ImGui::PopStyleVar();
+        RenderLeftPanel(leftWidth);
+        ImGui::EndChild();
 
-			if (ImGui::IsItemHovered())
-				ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+        ImGui::SameLine(0, 0);
 
-			if (ImGui::IsItemActive())
-			{
-				float delta = ImGui::GetIO().MouseDelta.x;
-				if (delta != 0.0f)
-				{
-					float newLeftRatio = LeftPanelRatio + delta / totalWidth;
-					float maxLeftRatio = 1.0f - RightPanelRatio - (splitterWidth * 2) / totalWidth;
-					LeftPanelRatio = std::max(0.1f, std::min(newLeftRatio, maxLeftRatio));
-				}
-			}
+        // Left splitter
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.3f, 0.3f, 0.5f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.4f, 0.4f, 0.4f, 0.7f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.5f, 0.5f, 0.5f, 0.9f));
+        ImGui::Button("##LeftSplitter", ImVec2(splitterWidth, totalHeight));
+        ImGui::PopStyleColor(3);
 
-			ImGui::SameLine(0, 0);
-		}
+        if (ImGui::IsItemHovered()) ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+        if (ImGui::IsItemActive())
+        {
+            float delta = ImGui::GetIO().MouseDelta.x;
+            if (delta != 0.0f)
+            {
+                float newLeftRatio = LeftPanelRatio + delta / totalWidth;
+                float maxLeftRatio = 1.0f - RightPanelRatio - (splitterWidth * 2) / totalWidth;
+                LeftPanelRatio = std::max(0.1f, std::min(newLeftRatio, maxLeftRatio));
+            }
+        }
 
-		// Center panel (viewport area)
-		if (centerWidth > 0.0f)
-		{
-			ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 8.0f);
-			ImGui::BeginChild("CenterPanel", ImVec2(centerWidth, totalHeight), false,
-				ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoNavInputs | ImGuiWindowFlags_NoNavFocus);
-			ImGui::PopStyleVar();
+        ImGui::SameLine(0, 0);
 
-			// 뷰어 툴바 렌더링 (뷰포트 상단)
-			RenderViewerToolbar();
+        // Center panel
+        if (centerWidth > 0.0f)
+        {
+            ImGui::BeginChild("CenterPanel", ImVec2(centerWidth, totalHeight), false,
+                ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoNavInputs | ImGuiWindowFlags_NoNavFocus);
 
-			// 툴바 아래 뷰포트 영역
-			ImVec2 viewportPos = ImGui::GetCursorScreenPos();
-			float remainingWidth = ImGui::GetContentRegionAvail().x;
-			float remainingHeight = ImGui::GetContentRegionAvail().y;
+            RenderViewerToolbar();
 
-			// 뷰포트 영역 설정
-			CenterRect.Left = viewportPos.x;
-			CenterRect.Top = viewportPos.y;
-			CenterRect.Right = viewportPos.x + remainingWidth;
-			CenterRect.Bottom = viewportPos.y + remainingHeight;
-			CenterRect.UpdateMinMax();
+            float viewportHeight = ImGui::GetContentRegionAvail().y;
+            float viewportWidth = ImGui::GetContentRegionAvail().x;
 
-			// 뷰포트 렌더링 (텍스처에)
-			OnRenderViewport();
+            ImVec2 Pos = ImGui::GetCursorScreenPos();
+            CenterRect.Left = Pos.x;
+            CenterRect.Top = Pos.y;
+            CenterRect.Right = Pos.x + viewportWidth;
+            CenterRect.Bottom = Pos.y + viewportHeight;
+            CenterRect.UpdateMinMax();
 
-			// ImGui::Image로 결과 텍스처 표시
-			if (ActiveState && ActiveState->Viewport)
-			{
-				ID3D11ShaderResourceView* SRV = ActiveState->Viewport->GetSRV();
-				if (SRV)
-				{
-					ImGui::Image((void*)SRV, ImVec2(remainingWidth, remainingHeight));
-					ActiveState->Viewport->SetViewportHovered(ImGui::IsItemHovered());
-				}
-				else
-				{
-					ImGui::Dummy(ImVec2(remainingWidth, remainingHeight));
-					ActiveState->Viewport->SetViewportHovered(false);
-				}
-			}
-			else
-			{
-				ImGui::Dummy(ImVec2(remainingWidth, remainingHeight));
-			}
+            OnRenderViewport();
 
-			// === 좌상단: Physics Asset 통계 오버레이 ===
-			PhysicsAssetEditorState* PhysState = GetActivePhysicsState();
-			if (PhysState && PhysState->EditingAsset && PhysState->bShowStats)
-			{
-				ImDrawList* DrawList = ImGui::GetWindowDrawList();
+            if (ActiveState && ActiveState->Viewport)
+            {
+                ID3D11ShaderResourceView* SRV = ActiveState->Viewport->GetSRV();
+                if (SRV)
+                {
+                    ImGui::Image((void*)SRV, ImVec2(viewportWidth, viewportHeight));
+                    ActiveState->Viewport->SetViewportHovered(ImGui::IsItemHovered());
+                }
+                else
+                {
+                    ImGui::Dummy(ImVec2(viewportWidth, viewportHeight));
+                }
+            }
+            else
+            {
+                ImGui::Dummy(ImVec2(viewportWidth, viewportHeight));
+            }
 
-				// 통계 수집
-				int32 NumBodies = static_cast<int32>(PhysState->EditingAsset->BodySetups.size());
-				int32 NumConstraints = static_cast<int32>(PhysState->EditingAsset->ConstraintSetups.size());
+            ImGui::EndChild();
+            ImGui::SameLine(0, 0);
+        }
+        else
+        {
+            CenterRect = FRect(0, 0, 0, 0);
+            CenterRect.UpdateMinMax();
+        }
 
-				int32 NumSpheres = 0, NumBoxes = 0, NumCapsules = 0, NumConvex = 0;
-				for (UBodySetup* Body : PhysState->EditingAsset->BodySetups)
-				{
-					if (Body)
-					{
-						NumSpheres += Body->AggGeom.SphereElems.Num();
-						NumBoxes += Body->AggGeom.BoxElems.Num();
-						NumCapsules += Body->AggGeom.SphylElems.Num();
-						NumConvex += Body->AggGeom.ConvexElems.Num();
-					}
-				}
-				int32 TotalPrimitives = NumSpheres + NumBoxes + NumCapsules + NumConvex;
+        // Right splitter
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.3f, 0.3f, 0.5f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.4f, 0.4f, 0.4f, 0.7f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.5f, 0.5f, 0.5f, 0.9f));
+        ImGui::Button("##RightSplitter", ImVec2(splitterWidth, totalHeight));
+        ImGui::PopStyleColor(3);
 
-				// 텍스트 생성
-				char StatsText[256];
-				sprintf_s(StatsText, "%d Bodies\n%d Primitives (%d Spheres, %d Boxes, %d Capsules, %d Convex)\n%d Constraints",
-					NumBodies, TotalPrimitives, NumSpheres, NumBoxes, NumCapsules, NumConvex, NumConstraints);
+        if (ImGui::IsItemHovered()) ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+        if (ImGui::IsItemActive())
+        {
+            float delta = ImGui::GetIO().MouseDelta.x;
+            if (delta != 0.0f)
+            {
+                float newRightRatio = RightPanelRatio - delta / totalWidth;
+                float maxRightRatio = 1.0f - LeftPanelRatio - (splitterWidth * 2) / totalWidth;
+                RightPanelRatio = std::max(0.1f, std::min(newRightRatio, maxRightRatio));
+            }
+        }
 
-				// 좌상단 위치 (여백 10px)
-				ImVec2 TextPos(viewportPos.x + 10.0f, viewportPos.y + 10.0f);
+        ImGui::SameLine(0, 0);
 
-				// 그림자 + 본문 텍스트
-				DrawList->AddText(ImVec2(TextPos.x + 1, TextPos.y + 1), IM_COL32(0, 0, 0, 180), StatsText);
-				DrawList->AddText(TextPos, IM_COL32(220, 220, 220, 255), StatsText);
-			}
+        // Right panel
+        ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 8.0f);
+        ImGui::BeginChild("RightPanel", ImVec2(rightWidth, totalHeight), true);
+        ImGui::PopStyleVar();
+        RenderRightPanel();
+        ImGui::EndChild();
 
-			ImGui::EndChild(); // CenterPanel
+        ImGui::PopStyleVar();
 
-			ImGui::SameLine(0, 0);
-		}
-		else
-		{
-			CenterRect = FRect(0, 0, 0, 0);
-			CenterRect.UpdateMinMax();
-		}
+        // Delete 키로 선택된 Constraint 또는 Shape 삭제 (OnRender에서 bIsWindowFocused 설정 후 처리)
+        PhysicsAssetEditorState* PhysState = GetPhysicsState();
+        if (bIsWindowFocused && ImGui::IsKeyPressed(ImGuiKey_Delete))
+        {
+            if (PhysState && PhysState->SelectedConstraintIndex >= 0)
+            {
+                RemoveConstraint(PhysState->SelectedConstraintIndex);
+            }
+            else
+            {
+                DeleteSelectedShape();
+            }
+        }
+    }
+    ImGui::End();
 
-		// Right splitter and panel (시뮬레이션 중에는 숨김)
-		if (!bHidePanels)
-		{
-			// Right splitter (드래그 가능한 분할선)
-			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.3f, 0.3f, 0.5f));
-			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.4f, 0.4f, 0.4f, 0.7f));
-			ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.5f, 0.5f, 0.5f, 0.9f));
-			ImGui::Button("##RightSplitter", ImVec2(splitterWidth, totalHeight));
-			ImGui::PopStyleColor(3);
+    if (!bViewerVisible)
+    {
+        CenterRect = FRect(0, 0, 0, 0);
+        CenterRect.UpdateMinMax();
+        bIsWindowHovered = false;
+        bIsWindowFocused = false;
+        bIsAnyPhysicsAssetEditorFocused = false;
+    }
 
-			if (ImGui::IsItemHovered())
-				ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+    if (!bIsOpen)
+    {
+        USlateManager::GetInstance().RequestCloseDetachedWindow(this);
+    }
 
-			if (ImGui::IsItemActive())
-			{
-				float delta = ImGui::GetIO().MouseDelta.x;
-				if (delta != 0.0f)
-				{
-					float newRightRatio = RightPanelRatio - delta / totalWidth;
-					float maxRightRatio = 1.0f - LeftPanelRatio - (splitterWidth * 2) / totalWidth;
-					RightPanelRatio = std::max(0.1f, std::min(newRightRatio, maxRightRatio));
-				}
-			}
-
-			ImGui::SameLine(0, 0);
-
-			// Right panel - Properties
-			ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 8.0f);
-			ImGui::BeginChild("RightPanel", ImVec2(rightWidth, totalHeight), true);
-			ImGui::PopStyleVar();
-			RenderRightPanel();
-			ImGui::EndChild();
-		}
-
-		// Pop the ItemSpacing style
-		ImGui::PopStyleVar();
-	}
-	ImGui::End();
-
-	// If collapsed or not visible, clear the center rect
-	if (!bViewerVisible)
-	{
-		CenterRect = FRect(0, 0, 0, 0);
-		CenterRect.UpdateMinMax();
-		bIsWindowHovered = false;
-		bIsWindowFocused = false;
-	}
-
-	// If window was closed via X button, notify the manager to clean up
-	if (!bIsOpen)
-	{
-		USlateManager::GetInstance().RequestCloseDetachedWindow(this);
-	}
-
-	bRequestFocus = false;
+    bRequestFocus = false;
 }
 
 void SPhysicsAssetEditorWindow::OnUpdate(float DeltaSeconds)
 {
-	SViewerWindow::OnUpdate(DeltaSeconds);
+    SViewerWindow::OnUpdate(DeltaSeconds);
 
-	PhysicsAssetEditorState* State = GetActivePhysicsState();
+    PhysicsAssetEditorState* PhysState = GetPhysicsState();
 
-	// 시뮬레이션 중이면 PhysScene 틱
-	if (State && State->bSimulating && State->SimulationPhysScene)
-	{
-		// PhysScene 시뮬레이션 진행
-		State->SimulationPhysScene->TickPhysScene(DeltaSeconds);
-		State->SimulationPhysScene->WaitPhysScene();
-		State->SimulationPhysScene->ProcessPhysScene();
+    // === 에디터 시뮬레이션 처리 ===
+    // 참고: 물리 시뮬레이션 자체는 SViewerWindow::OnUpdate() → World::Tick()에서 처리됨
+    //       StartFrame() → TickPhysScene() → ... → EndFrame() → WaitPhysScene() + ProcessPhysScene()
+    //       여기서는 래그돌 결과만 본에 적용
+    if (bSimulateInEditor && PhysState && PhysState->World)
+    {
+        // 래그돌 결과를 본에 적용 (에디터에서는 TickComponent가 호출되지 않으므로 수동으로)
+        if (ActiveState && ActiveState->PreviewActor)
+        {
+            if (USkeletalMeshComponent* MeshComp = ActiveState->PreviewActor->GetSkeletalMeshComponent())
+            {
+                MeshComp->SyncBonesFromPhysics();
+            }
+        }
+    }
 
-		// 랙돌 본 동기화
-		USkeletalMeshComponent* MeshComp = State->GetPreviewMeshComponent();
-		if (MeshComp && MeshComp->IsSimulatingPhysics())
-		{
-			MeshComp->TickComponent(DeltaSeconds);
-		}
-	}
+    //// Delete 키로 선택된 Constraint 또는 Shape 삭제
+    //if (ImGui::IsKeyPressed(ImGuiKey_Delete))
+    //{
+    //    if (PhysState && PhysState->SelectedConstraintIndex >= 0)
+    //    {
+    //        RemoveConstraint(PhysState->SelectedConstraintIndex);
+    //    }
+    //    else
+    //    {
+    //        DeleteSelectedShape();
+    //    }
+    //}
 
-	// Sub Widget 에디터 상태 업데이트
-	UpdateSubWidgetEditorState();
+    if (!PhysState) return;
 
-	// Sub Widget Update 호출
-	if (SkeletonTreeWidget) SkeletonTreeWidget->Update();
-	if (BodyPropertiesWidget) BodyPropertiesWidget->Update();
-	if (ConstraintPropertiesWidget) ConstraintPropertiesWidget->Update();
-	if (ToolsWidget) ToolsWidget->Update();
+    // 기즈모 드래그 상태 체크 - 드래그 중일 때만 UpdateAnchorFromShape 방지
+    AGizmoActor* Gizmo = GetGizmoActor();
+    if (PhysState->ShapeGizmoAnchor)
+    {
+        PhysState->ShapeGizmoAnchor->bIsBeingManipulated = (Gizmo && Gizmo->GetbIsDragging());
+    }
+    if (PhysState->ConstraintGizmoAnchor)
+    {
+        static bool bWasConstraintDragging = false;
+        bool bIsDragging = (Gizmo && Gizmo->GetbIsDragging());
 
-	// Delete 키로 선택 항목 삭제
-	if (State && ImGui::IsKeyPressed(ImGuiKey_Delete) && !ImGui::GetIO().WantTextInput)
-	{
-		if (State->bBodySelectionMode && State->SelectedBodyIndex >= 0)
-		{
-			RemoveSelectedBody();
-		}
-		else if (!State->bBodySelectionMode && State->SelectedConstraintIndex >= 0)
-		{
-			RemoveSelectedConstraint();
-		}
-	}
+        // 키 입력에 따른 조작 모드 설정 (드래그 전에도 감지하여 기즈모 위치 변경)
+        UInputManager& Input = UInputManager::GetInstance();
+        bool bAlt = Input.IsKeyDown(VK_MENU);
+        bool bShift = Input.IsKeyDown(VK_SHIFT);
 
-	// Shape 프리뷰 업데이트
-	if (State)
-	{
-		// ─────────────────────────────────────────────────
-		// 기즈모 연동: 선택된 바디의 트랜스폼 편집 (시뮬레이션 중에는 비활성화)
-		// ─────────────────────────────────────────────────
-		if (!State->bSimulating && State->bBodySelectionMode && State->HasPrimitiveSelection() && State->World)
-		{
-			AGizmoActor* Gizmo = State->World->GetGizmoActor();
-			bool bCurrentlyDragging = Gizmo && Gizmo->GetbIsDragging();
+        EConstraintManipulationMode NewMode;
+        if (bShift && bAlt)
+        {
+            // SHIFT+ALT: Child frame만 (화살표 위치 조정 → 한 방향 굽힘)
+            NewMode = EConstraintManipulationMode::ChildOnly;
+        }
+        else if (bAlt)
+        {
+            // ALT: Parent frame만 (부채꼴 방향 변경)
+            NewMode = EConstraintManipulationMode::ParentOnly;
+        }
+        else
+        {
+            // 일반: 축 방향 전체 변경
+            NewMode = EConstraintManipulationMode::Both;
+        }
 
-			// 드래그 첫 프레임인지 확인 (World→Local 변환 오차 방지)
-			bool bIsFirstDragFrame = bCurrentlyDragging && !State->bWasGizmoDragging;
+        PhysState->ConstraintGizmoAnchor->ManipulationMode = NewMode;
 
-			if (bCurrentlyDragging && !bIsFirstDragFrame)
-			{
-				// 첫 프레임이 아닐 때만 기즈모로부터 트랜스폼 업데이트
-				UpdatePrimitiveTransformFromGizmo();
-			}
-			else if (!bCurrentlyDragging)
-			{
-				// 드래그 중이 아니면 기즈모 앵커를 선택된 primitive 위치로 이동
-				RepositionAnchorToPrimitive();
-			}
+        // 드래그 시작 감지 - BeginManipulation() 호출
+        if (bIsDragging && !bWasConstraintDragging)
+        {
+            PhysState->ConstraintGizmoAnchor->BeginManipulation();
+        }
+        bWasConstraintDragging = bIsDragging;
 
-			// 드래그 상태 업데이트 (다음 프레임에서 첫 프레임 감지용)
-			State->bWasGizmoDragging = bCurrentlyDragging;
-		}
-		else
-		{
-			State->bWasGizmoDragging = false;
+        PhysState->ConstraintGizmoAnchor->bIsBeingManipulated = bIsDragging;
+    }
 
-			// Primitive가 없으면 기즈모 숨기기
-			if (State->bBodySelectionMode && State->SelectedBodyIndex >= 0 && !State->HasPrimitiveSelection())
-			{
-				State->HideGizmo();
-			}
-		}
+    // 기즈모로 Shape가 수정되었는지 체크
+    if (PhysState->ShapeGizmoAnchor && PhysState->ShapeGizmoAnchor->bShapeModified)
+    {
+        PhysState->bShapesDirty = true;
+        PhysState->bIsDirty = true;
+        PhysState->ShapeGizmoAnchor->bShapeModified = false;
+    }
 
-		// ─────────────────────────────────────────────────
-		// 기즈모 연동: 선택된 Constraint의 Frame 편집 (시뮬레이션 중에는 비활성화)
-		// ─────────────────────────────────────────────────
-		if (!State->bSimulating && !State->bBodySelectionMode && State->SelectedConstraintIndex >= 0 && State->World)
-		{
-			AGizmoActor* Gizmo = State->World->GetGizmoActor();
-			bool bCurrentlyDragging = Gizmo && Gizmo->GetbIsDragging();
-
-			// 드래그 첫 프레임인지 확인
-			bool bIsFirstDragFrame = bCurrentlyDragging && !State->bWasConstraintGizmoDragging;
-
-			if (bIsFirstDragFrame)
-			{
-				// 첫 드래그 프레임: 앵커 위치를 constraint로 고정 (클릭 시 기즈모가 앵커를 이동시킬 수 있으므로)
-				RepositionAnchorToConstraint();
-			}
-			else if (bCurrentlyDragging)
-			{
-				// 드래그 중: 기즈모에서 constraint frame 업데이트
-				UpdateConstraintFrameFromGizmo();
-			}
-			else
-			{
-				// 드래그 중이 아니면 기즈모 앵커를 constraint 위치로 이동
-				RepositionAnchorToConstraint();
-			}
-
-			State->bWasConstraintGizmoDragging = bCurrentlyDragging;
-		}
-		else
-		{
-			State->bWasConstraintGizmoDragging = false;
-		}
-
-		// 라인 재구성이 필요한 경우 (바디/제약조건 추가/제거)
-		if (State->bShapeLinesNeedRebuild)
-		{
-			RebuildShapeLines();
-			State->bShapeLinesNeedRebuild = false;
-			State->bSelectedBodyLinesNeedUpdate = false;  // 전체 재구성 시 개별 업데이트 불필요
-			State->bSelectionColorDirty = false;  // 재구성 시 색상도 업데이트됨
-			State->CachedSelectedBodyIndex = State->SelectedBodyIndex;
-			State->CachedSelectedConstraintIndex = State->SelectedConstraintIndex;
-		}
-		// 선택된 바디의 속성만 변경된 경우 (좌표만 업데이트, new/delete 없음)
-		else if (State->bSelectedBodyLinesNeedUpdate)
-		{
-			UpdateSelectedBodyLines();
-			State->bSelectedBodyLinesNeedUpdate = false;
-		}
-		// 선택만 변경된 경우 (색상만 업데이트)
-		else if (State->bSelectionColorDirty)
-		{
-			UpdateSelectionColors();
-			State->bSelectionColorDirty = false;
-			State->CachedSelectedBodyIndex = State->SelectedBodyIndex;
-			State->CachedSelectedConstraintIndex = State->SelectedConstraintIndex;
-		}
-	}
+    // 기즈모로 Constraint가 수정되었는지 체크
+    if (PhysState->ConstraintGizmoAnchor && PhysState->ConstraintGizmoAnchor->bConstraintModified)
+    {
+        PhysState->bIsDirty = true;
+        PhysState->ConstraintGizmoAnchor->bConstraintModified = false;
+    }
 }
 
 void SPhysicsAssetEditorWindow::PreRenderViewportUpdate()
 {
-	// 삼각형 배치는 ULineComponent를 통해 처리됨 (RebuildShapeLines에서 설정)
-	// 별도 처리 불필요
+    if (!ActiveState || !ActiveState->PreviewActor) return;
+
+    PhysicsAssetEditorState* PhysState = GetPhysicsState();
+
+    // 본 포즈 업데이트 (새 메시 로드 후 본 트랜스폼이 올바르게 계산되도록)
+    // 시뮬레이션 중에는 호출하지 않음 (물리 시뮬레이션 결과가 덮어써지는 것 방지)
+    if (!bSimulateInEditor)
+    {
+        if (USkeletalMeshComponent* MeshComp = ActiveState->PreviewActor->GetSkeletalMeshComponent())
+        {
+            MeshComp->ResetToRefPose();
+        }
+    }
+
+    // 본이 선택된 경우: 기즈모 위치 업데이트는 SelectBone에서만 수행
+    // (BlendSpaceEditor 패턴: 기즈모를 조작해도 본 위치로 돌아가지 않음,
+    //  다른 본 선택 시에만 새 본 위치로 이동)
+
+    // 본 라인 하이라이트 업데이트 (SSkeletalMeshViewerWindow 패턴)
+    if (ActiveState->bShowBones)
+    {
+        ActiveState->bBoneLinesDirty = true;
+    }
+    if (ActiveState->bShowBones && ActiveState->PreviewActor && ActiveState->CurrentMesh && ActiveState->bBoneLinesDirty)
+    {
+        if (ULineComponent* LineComp = ActiveState->PreviewActor->GetBoneLineComponent())
+        {
+            LineComp->SetLineVisible(true);
+        }
+        ActiveState->PreviewActor->RebuildBoneLines(ActiveState->SelectedBoneIndex);
+        ActiveState->bBoneLinesDirty = false;
+    }
+
+    RenderPhysicsBodies();
+    RenderConstraintVisuals();
+
+    // Constraint 기즈모 앵커 위치 업데이트 (드래그 중이 아닐 때만)
+    if (PhysState && PhysState->ConstraintGizmoAnchor && !PhysState->ConstraintGizmoAnchor->bIsBeingManipulated)
+    {
+        PhysState->ConstraintGizmoAnchor->UpdateAnchorFromConstraint();
+    }
 }
 
 void SPhysicsAssetEditorWindow::OnSave()
 {
-	SavePhysicsAsset();
+    SavePhysicsAsset();
 }
-
-void SPhysicsAssetEditorWindow::RenderTabsAndToolbar(EViewerType CurrentViewerType)
-{
-	// 탭바만 렌더링 (Skeletal Mesh 뷰어 전환 버튼 제외 - SViewerWindow 베이스 호출 안 함) - Temporarily disabled
-	// if (!ImGui::BeginTabBar("PhysicsAssetEditorTabs",
-	// 	ImGuiTabBarFlags_AutoSelectNewTabs | ImGuiTabBarFlags_Reorderable))
-	// 	return;
-
-	// // 탭 렌더링
-	// for (int i = 0; i < Tabs.Num(); ++i)
-	// {
-	// 	ViewerState* State = Tabs[i];
-	// 	PhysicsAssetEditorState* PState = static_cast<PhysicsAssetEditorState*>(State);
-	// 	bool open = true;
-
-	// 	// 동적 탭 이름 생성
-	// 	FString TabDisplayName;
-	// 	if (PState->CurrentFilePath.empty())
-	// 	{
-	// 		TabDisplayName = "Untitled";
-	// 	}
-	// 	else
-	// 	{
-	// 		// 파일 경로에서 파일명만 추출 (확장자 제외)
-	// 		size_t lastSlash = PState->CurrentFilePath.find_last_of("/\\");
-	// 		FString filename = (lastSlash != FString::npos)
-	// 			? PState->CurrentFilePath.substr(lastSlash + 1)
-	// 			: PState->CurrentFilePath;
-
-	// 		// 확장자 제거
-	// 		size_t dotPos = filename.find_last_of('.');
-	// 		if (dotPos != FString::npos)
-	// 			filename = filename.substr(0, dotPos);
-
-	// 		TabDisplayName = filename;
-	// 	}
-
-	// 	// 수정됨 표시 추가
-	// 	if (PState->bIsDirty)
-	// 	{
-	// 		TabDisplayName += "*";
-	// 	}
-
-	// 	// ImGui ID 충돌 방지
-	// 	TabDisplayName += "##";
-	// 	TabDisplayName += State->Name.ToString();
-
-	// 	if (ImGui::BeginTabItem(TabDisplayName.c_str(), &open))
-	// 	{
-	// 		if (ActiveState != State)
-	// 		{
-	// 			ActiveTabIndex = i;
-	// 			ActiveState = State;
-	// 			UpdateSubWidgetEditorState();  // 탭 전환 시 sub widget 상태 즉시 갱신
-	// 		}
-	// 		ImGui::EndTabItem();
-	// 	}
-	// 	if (!open)
-	// 	{
-	// 		CloseTab(i);
-	// 		UpdateSubWidgetEditorState();  // 탭 닫힌 직후 sub widget 상태 갱신 (dangling pointer 방지)
-	// 		ImGui::EndTabBar();
-	// 		return;
-	// 	}
-	// }
-
-	// // + 버튼 (새 탭 추가)
-	// if (ImGui::TabItemButton("+", ImGuiTabItemFlags_Trailing))
-	// {
-	// 	int maxViewerNum = 0;
-	// 	for (int i = 0; i < Tabs.Num(); ++i)
-	// 	{
-	// 		const FString& tabName = Tabs[i]->Name.ToString();
-	// 		const char* prefix = "PhysicsAssetTab";
-	// 		if (strncmp(tabName.c_str(), prefix, strlen(prefix)) == 0)
-	// 		{
-	// 			const char* numberPart = tabName.c_str() + strlen(prefix);
-	// 			int num = atoi(numberPart);
-	// 			if (num > maxViewerNum)
-	// 			{
-	// 				maxViewerNum = num;
-	// 			}
-	// 		}
-	// 	}
-
-	// 	char label[64];
-	// 	sprintf_s(label, "PhysicsAssetTab%d", maxViewerNum + 1);
-	// 	OpenNewTab(label);
-	// }
-	// ImGui::EndTabBar();
-
-	// Physics Asset Editor 전용 툴바
-	RenderToolbar();
-}
-
-void SPhysicsAssetEditorWindow::RenderLeftPanel(float PanelWidth)
-{
-	PhysicsAssetEditorState* State = GetActivePhysicsState();
-	if (!State) return;
-
-	ImGuiStyle& style = ImGui::GetStyle();
-
-	// ─────────────────────────────────────────────────
-	// SELECT MESH 섹션 (로드된 메시 목록에서 선택)
-	// ─────────────────────────────────────────────────
-	ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 6);
-	ImGui::Text("SELECT MESH");
-	ImGui::Dummy(ImVec2(0, 6));
-	ImGui::Separator();
-	ImGui::Dummy(ImVec2(0, 6));
-
-	// 현재 선택된 메시 표시
-	FString CurrentMeshName = State->LoadedMeshPath.empty() ? "(None)" : ExtractFileName(State->LoadedMeshPath);
-	ImGui::Text("Current: %s", CurrentMeshName.c_str());
-	ImGui::Dummy(ImVec2(0, 4));
-
-	// 메시 목록 스크롤 영역
-	float meshListHeight = 120.0f;
-	ImGui::BeginChild("MeshList", ImVec2(0, meshListHeight), true);
-
-	// SkeletalMesh 목록 (ResourceManager에서 가져오기)
-	TArray<FString> MeshPaths = UResourceManager::GetInstance().GetAllFilePaths<USkeletalMesh>();
-
-	if (MeshPaths.IsEmpty())
-	{
-		ImGui::TextDisabled("No skeletal meshes loaded");
-		ImGui::TextDisabled("Load FBX files first");
-	}
-	else
-	{
-		for (const FString& Path : MeshPaths)
-		{
-			bool bSelected = (State->LoadedMeshPath == Path);
-
-			// 파일명만 표시
-			FString DisplayName = ExtractFileName(Path);
-
-			if (ImGui::Selectable(DisplayName.c_str(), bSelected))
-			{
-				// 현재 메시와 다르면 변경
-				if (!bSelected)
-				{
-					// 미저장 확인 후 메시 로드
-					CheckUnsavedChangesAndExecute([this, Path]()
-					{
-						PhysicsAssetEditorState* S = GetActivePhysicsState();
-						if (S)
-						{
-							LoadMeshAndResetPhysics(S, Path);
-						}
-					});
-				}
-			}
-
-			// 툴팁으로 전체 경로 표시
-			if (ImGui::IsItemHovered())
-			{
-				ImGui::SetTooltip("%s", Path.c_str());
-			}
-		}
-	}
-
-	ImGui::EndChild();
-
-	ImGui::Dummy(ImVec2(0, 8));
-	ImGui::Separator();
-	ImGui::Dummy(ImVec2(0, 8));
-
-	// ─────────────────────────────────────────────────
-	// 남은 높이 계산 (Skeleton 60%, Graph 40%)
-	// ─────────────────────────────────────────────────
-	float remainingHeight = ImGui::GetContentRegionAvail().y;
-	float graphSectionHeight = remainingHeight * 0.4f;
-	float skeletonHeight = remainingHeight * 0.6f - 40.0f;
-
-	// ─────────────────────────────────────────────────
-	// SKELETON 섹션 (본 계층 구조만 표시)
-	// ─────────────────────────────────────────────────
-	ImGui::Text("SKELETON");
-	ImGui::Dummy(ImVec2(0, 4));
-	ImGui::Separator();
-	ImGui::Dummy(ImVec2(0, 4));
-
-	if (skeletonHeight > 50.0f)
-	{
-		ImGui::BeginChild("SkeletonTreeScroll", ImVec2(0, skeletonHeight), false);
-		if (SkeletonTreeWidget) SkeletonTreeWidget->RenderWidget();
-		ImGui::EndChild();
-	}
-
-	ImGui::Dummy(ImVec2(0, 4));
-	ImGui::Separator();
-	ImGui::Dummy(ImVec2(0, 4));
-
-	// ─────────────────────────────────────────────────
-	// GRAPH 섹션 (GraphPivotBodyIndex 기준 그래프)
-	// 더블클릭으로만 그래프 기준 변경, 일반 클릭은 선택만 변경
-	// ─────────────────────────────────────────────────
-	ImGui::Text("GRAPH");
-	ImGui::Dummy(ImVec2(0, 4));
-	ImGui::Separator();
-	ImGui::Dummy(ImVec2(0, 4));
-
-	float graphHeight = ImGui::GetContentRegionAvail().y;
-
-	// 그래프의 기준 바디 (State에 저장된 값 사용)
-	int32 pivotBodyIdx = State->GraphPivotBodyIndex;
-
-	if (pivotBodyIdx < 0 || pivotBodyIdx >= static_cast<int32>(State->EditingAsset->BodySetups.size()))
-	{
-		ImGui::TextDisabled("Double-click a body to view graph");
-	}
-	else
-	{
-		UBodySetup* pivotBody = State->EditingAsset->BodySetups[pivotBodyIdx];
-		if (!pivotBody) return;
-
-		// 연결된 컨스트레인트 수집 (항상 pivot -> constraint -> other 방향으로)
-		struct FConstraintLink
-		{
-			int32 ConstraintIndex;
-			int32 OtherBodyIndex;
-		};
-		std::vector<FConstraintLink> connectedConstraints;
-
-		for (int32 i = 0; i < static_cast<int32>(State->EditingAsset->ConstraintSetups.size()); ++i)
-		{
-			const FConstraintSetup& Constraint = State->EditingAsset->ConstraintSetups[i];
-			if (Constraint.ParentBodyIndex == pivotBodyIdx)
-			{
-				connectedConstraints.push_back({ i, Constraint.ChildBodyIndex });
-			}
-			else if (Constraint.ChildBodyIndex == pivotBodyIdx)
-			{
-				connectedConstraints.push_back({ i, Constraint.ParentBodyIndex });
-			}
-		}
-
-		// ImNodes 그래프 에디터
-		ImNodes::BeginNodeEditor();
-
-		// 레이아웃 상수
-		const float ColumnSpacing = 200.0f;
-		const float RowSpacing = 100.0f;
-		const float TextWrapWidth = 140.0f;  // 텍스트 줄바꿈 너비
-
-		float col1X = 50.0f;
-		float col2X = col1X + ColumnSpacing;
-		float col3X = col2X + ColumnSpacing;
-		float centerY = (connectedConstraints.size() * RowSpacing) / 2.0f;
-
-		// ─────────────────────────────────────────────────
-		// 열 1: 기준 바디 노드
-		// ─────────────────────────────────────────────────
-		ImNodes::SetNodeGridSpacePos(pivotBodyIdx, ImVec2(col1X, centerY));
-
-		bool bPivotSelected = (State->bBodySelectionMode && State->SelectedBodyIndex == pivotBodyIdx);
-		if (bPivotSelected)
-		{
-			ImNodes::PushColorStyle(ImNodesCol_NodeBackground, IM_COL32(60, 100, 60, 255));
-			ImNodes::PushColorStyle(ImNodesCol_TitleBar, IM_COL32(40, 80, 40, 255));
-		}
-		else
-		{
-			ImNodes::PushColorStyle(ImNodesCol_NodeBackground, IM_COL32(50, 80, 50, 255));
-			ImNodes::PushColorStyle(ImNodesCol_TitleBar, IM_COL32(35, 60, 35, 255));
-		}
-
-		ImNodes::BeginNode(pivotBodyIdx);
-		ImNodes::BeginNodeTitleBar();
-		ImGui::Text("Body");
-		ImNodes::EndNodeTitleBar();
-
-		// 바디 이름과 Shape 개수 + 오른쪽 핀
-		ImNodes::BeginOutputAttribute(pivotBodyIdx * 2);
-		ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + TextWrapWidth);
-		ImGui::TextWrapped("%s", pivotBody->BoneName.ToString().c_str());
-		int32 shapeCount = pivotBody->AggGeom.GetElementCount();
-		ImGui::Text("%d shape(s)", shapeCount);
-		ImGui::PopTextWrapPos();
-		ImNodes::EndOutputAttribute();
-
-		ImNodes::EndNode();
-		ImNodes::PopColorStyle();
-		ImNodes::PopColorStyle();
-
-		// ─────────────────────────────────────────────────
-		// 열 2: 컨스트레인트 노드들 + 열 3: 연결된 바디들
-		// ─────────────────────────────────────────────────
-		for (size_t i = 0; i < connectedConstraints.size(); ++i)
-		{
-			const FConstraintLink& link = connectedConstraints[i];
-			float rowY = i * RowSpacing;
-
-			int32 constraintNodeId = 10000 + link.ConstraintIndex;
-			int32 constraintInputAttr = 20000 + link.ConstraintIndex * 2;
-			int32 constraintOutputAttr = 20000 + link.ConstraintIndex * 2 + 1;
-
-			// 컨스트레인트 노드 (열 2)
-			ImNodes::SetNodeGridSpacePos(constraintNodeId, ImVec2(col2X, rowY));
-
-			bool bConstraintSelected = (!State->bBodySelectionMode && State->SelectedConstraintIndex == link.ConstraintIndex);
-			if (bConstraintSelected)
-			{
-				ImNodes::PushColorStyle(ImNodesCol_NodeBackground, IM_COL32(120, 100, 40, 255));
-				ImNodes::PushColorStyle(ImNodesCol_TitleBar, IM_COL32(100, 80, 30, 255));
-			}
-			else
-			{
-				ImNodes::PushColorStyle(ImNodesCol_NodeBackground, IM_COL32(80, 70, 50, 255));
-				ImNodes::PushColorStyle(ImNodesCol_TitleBar, IM_COL32(60, 50, 35, 255));
-			}
-
-			ImNodes::BeginNode(constraintNodeId);
-			ImNodes::BeginNodeTitleBar();
-			ImGui::Text("Constraint");
-			ImNodes::EndNodeTitleBar();
-
-			// From : To 표시 (ParentBody : ChildBody)
-			const FConstraintSetup& constraint = State->EditingAsset->ConstraintSetups[link.ConstraintIndex];
-			FString parentName = "?";
-			FString childName = "?";
-			if (constraint.ParentBodyIndex >= 0 && constraint.ParentBodyIndex < static_cast<int32>(State->EditingAsset->BodySetups.size()))
-			{
-				parentName = State->EditingAsset->BodySetups[constraint.ParentBodyIndex]->BoneName.ToString();
-			}
-			if (constraint.ChildBodyIndex >= 0 && constraint.ChildBodyIndex < static_cast<int32>(State->EditingAsset->BodySetups.size()))
-			{
-				childName = State->EditingAsset->BodySetups[constraint.ChildBodyIndex]->BoneName.ToString();
-			}
-			// 핀과 내용을 같은 줄에 배치 (긴 이름은 줄바꿈)
-			ImNodes::BeginInputAttribute(constraintInputAttr);
-			ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + TextWrapWidth);
-			ImGui::TextWrapped("%s : %s", parentName.c_str(), childName.c_str());
-			ImGui::PopTextWrapPos();
-			ImNodes::EndInputAttribute();
-			ImGui::SameLine();
-			ImNodes::BeginOutputAttribute(constraintOutputAttr);
-			ImNodes::EndOutputAttribute();
-
-			ImNodes::EndNode();
-			ImNodes::PopColorStyle();
-			ImNodes::PopColorStyle();
-
-			// 연결된 바디 노드 (열 3)
-			if (link.OtherBodyIndex >= 0 && link.OtherBodyIndex < static_cast<int32>(State->EditingAsset->BodySetups.size()))
-			{
-				UBodySetup* otherBody = State->EditingAsset->BodySetups[link.OtherBodyIndex];
-				if (otherBody)
-				{
-					int32 otherNodeId = 30000 + static_cast<int32>(i);
-
-					ImNodes::SetNodeGridSpacePos(otherNodeId, ImVec2(col3X, rowY));
-
-					bool bOtherSelected = (State->bBodySelectionMode && State->SelectedBodyIndex == link.OtherBodyIndex);
-					if (bOtherSelected)
-					{
-						ImNodes::PushColorStyle(ImNodesCol_NodeBackground, IM_COL32(60, 90, 120, 255));
-						ImNodes::PushColorStyle(ImNodesCol_TitleBar, IM_COL32(50, 75, 100, 255));
-					}
-					else
-					{
-						ImNodes::PushColorStyle(ImNodesCol_NodeBackground, IM_COL32(50, 70, 90, 255));
-						ImNodes::PushColorStyle(ImNodesCol_TitleBar, IM_COL32(40, 55, 70, 255));
-					}
-
-					ImNodes::BeginNode(otherNodeId);
-					ImNodes::BeginNodeTitleBar();
-					ImGui::Text("Body");
-					ImNodes::EndNodeTitleBar();
-
-					// 바디 이름과 Shape 개수 + 왼쪽 핀
-					ImNodes::BeginInputAttribute(40000 + static_cast<int32>(i) * 2 + 1);
-					ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + TextWrapWidth);
-					ImGui::TextWrapped("%s", otherBody->BoneName.ToString().c_str());
-					int32 otherShapeCount = otherBody->AggGeom.GetElementCount();
-					ImGui::Text("%d shape(s)", otherShapeCount);
-					ImGui::PopTextWrapPos();
-					ImNodes::EndInputAttribute();
-
-					ImNodes::EndNode();
-					ImNodes::PopColorStyle();
-					ImNodes::PopColorStyle();
-
-					// 링크: 항상 왼쪽→오른쪽 (기준바디.Out -> Constraint.In, Constraint.Out -> 상대바디.In)
-					ImNodes::Link(static_cast<int>(i) * 2, pivotBodyIdx * 2, constraintInputAttr);
-					ImNodes::Link(static_cast<int>(i) * 2 + 1, constraintOutputAttr, 40000 + static_cast<int32>(i) * 2 + 1);
-				}
-			}
-		}
-
-		ImNodes::MiniMap(0.15f, ImNodesMiniMapLocation_BottomRight);
-		ImNodes::EndNodeEditor();
-
-		// ─────────────────────────────────────────────────
-		// 상호작용 처리
-		// - 일반 클릭: 선택만 변경
-		// - 더블클릭: 바디 노드만 그래프 기준 변경
-		// ─────────────────────────────────────────────────
-		int hoveredNode = -1;
-		if (ImNodes::IsNodeHovered(&hoveredNode))
-		{
-			// 더블클릭 처리 (바디 노드만)
-			if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
-			{
-				if (hoveredNode >= 30000)
-				{
-					// 연결된 바디 노드 더블클릭 -> 그래프 기준 변경
-					int32 linkIndex = hoveredNode - 30000;
-					if (linkIndex >= 0 && linkIndex < static_cast<int32>(connectedConstraints.size()))
-					{
-						State->GraphPivotBodyIndex = connectedConstraints[linkIndex].OtherBodyIndex;
-						State->SelectBody(connectedConstraints[linkIndex].OtherBodyIndex);
-					}
-				}
-				else if (hoveredNode >= 0 && hoveredNode < 10000)
-				{
-					// 기준 바디 노드 더블클릭 (이미 기준이므로 선택만)
-					State->SelectBody(hoveredNode);
-				}
-				// 컨스트레인트 노드 더블클릭 -> 아무것도 안 함
-			}
-			// 일반 클릭 처리 (선택만 변경, 그래프 기준은 유지)
-			else if (ImGui::IsMouseClicked(ImGuiMouseButton_Left))
-			{
-				if (hoveredNode >= 10000 && hoveredNode < 20000)
-				{
-					// 컨스트레인트 노드 클릭 -> 선택만 변경
-					State->SelectConstraint(hoveredNode - 10000);
-				}
-				else if (hoveredNode >= 30000)
-				{
-					// 연결된 바디 노드 클릭 -> 선택만 변경
-					int32 linkIndex = hoveredNode - 30000;
-					if (linkIndex >= 0 && linkIndex < static_cast<int32>(connectedConstraints.size()))
-					{
-						State->SelectBody(connectedConstraints[linkIndex].OtherBodyIndex);
-					}
-				}
-				else if (hoveredNode >= 0 && hoveredNode < 10000)
-				{
-					// 기준 바디 노드 클릭 -> 선택만 변경
-					State->SelectBody(hoveredNode);
-				}
-			}
-		}
-	}
-}
-
-void SPhysicsAssetEditorWindow::RenderRightPanel()
-{
-	PhysicsAssetEditorState* State = GetActivePhysicsState();
-	if (!State || !State->EditingAsset) return;
-
-	float totalHeight = ImGui::GetContentRegionAvail().y;
-	float splitterHeight = 4.0f;
-
-	// === DETAILS 섹션 (상단 60%) ===
-	float detailsHeight = totalHeight * 0.6f - splitterHeight * 0.5f;
-
-	ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 6);
-	ImGui::Text("DETAILS");
-	ImGui::Spacing();
-	ImGui::Separator();
-	ImGui::Spacing();
-
-	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(7, 5));
-	ImGui::BeginChild("DetailsPanel", ImVec2(0, detailsHeight - 40), false);
-	{
-		// 선택된 바디 또는 제약 조건의 속성 표시
-		if (State->bBodySelectionMode && State->SelectedBodyIndex >= 0)
-		{
-			if (BodyPropertiesWidget) BodyPropertiesWidget->RenderWidget();
-		}
-		else if (!State->bBodySelectionMode && State->SelectedConstraintIndex >= 0)
-		{
-			if (ConstraintPropertiesWidget) ConstraintPropertiesWidget->RenderWidget();
-		}
-		else
-		{
-			ImGui::TextDisabled("Select a body or constraint to view details");
-		}
-	}
-	ImGui::EndChild();
-	ImGui::PopStyleVar();
-
-	// === 수평 분할선 ===
-	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.3f, 0.3f, 0.5f));
-	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.4f, 0.4f, 0.4f, 0.8f));
-	ImGui::Button("##Splitter", ImVec2(-1, splitterHeight));
-	ImGui::PopStyleColor(2);
-
-	// === TOOLS 섹션 (하단 40%) ===
-	ImGui::Spacing();
-	ImGui::Text("TOOLS");
-	ImGui::Spacing();
-	ImGui::Separator();
-	ImGui::Spacing();
-
-	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(7, 5));
-	ImGui::BeginChild("ToolsPanel", ImVec2(0, 0), false);
-	{
-		if (ToolsWidget)
-		{
-			ToolsWidget->RenderWidget();
-		}
-	}
-	ImGui::EndChild();
-	ImGui::PopStyleVar();
-}
-
-void SPhysicsAssetEditorWindow::RenderBottomPanel()
-{
-	// 더 이상 사용하지 않음 - Graph가 좌측 패널로 이동됨
-}
-
-void SPhysicsAssetEditorWindow::OnSkeletalMeshLoaded(ViewerState* State, const FString& Path)
-{
-	PhysicsAssetEditorState* PhysicsState = static_cast<PhysicsAssetEditorState*>(State);
-	if (!PhysicsState || !PhysicsState->EditingAsset) return;
-
-	// Physics Asset에 스켈레탈 메시 경로 저장
-	PhysicsState->EditingAsset->SkeletalMeshPath = Path;
-	PhysicsState->RequestLinesRebuild();
-
-	UE_LOG("[SPhysicsAssetEditorWindow] Skeletal mesh loaded: %s", Path.c_str());
-}
-
-// ────────────────────────────────────────────────────────────────
-// 툴바
-// ────────────────────────────────────────────────────────────────
-
-void SPhysicsAssetEditorWindow::RenderToolbar()
-{
-	PhysicsAssetEditorState* State = GetActivePhysicsState();
-	if (!State) return;
-
-	// 파일 관련 버튼 (시뮬레이션 중에는 비활성화)
-	if (State->bSimulating) ImGui::BeginDisabled();
-	if (ImGui::Button("Save"))
-	{
-		SavePhysicsAsset();
-	}
-	ImGui::SameLine();
-
-	if (ImGui::Button("Save As"))
-	{
-		SavePhysicsAssetAs();
-	}
-	ImGui::SameLine();
-
-	if (ImGui::Button("Load"))
-	{
-		LoadPhysicsAsset();
-	}
-	if (State->bSimulating) ImGui::EndDisabled();
-	ImGui::SameLine();
-
-	ImGui::SeparatorEx(ImGuiSeparatorFlags_Vertical);
-	ImGui::SameLine();
-
-	// Simulate 버튼 (토글)
-	if (State->bSimulating)
-	{
-		if (ImGui::Button("Stop"))
-		{
-			StopSimulation();
-		}
-	}
-	else
-	{
-		if (ImGui::Button("Simulate"))
-		{
-			StartSimulation();
-		}
-	}
-	ImGui::SameLine();
-
-	ImGui::SeparatorEx(ImGuiSeparatorFlags_Vertical);
-	ImGui::SameLine();
-
-	// 표시 옵션 (Bodies, Constraints는 시뮬레이션 중 비활성화)
-	if (ImGui::Checkbox("Meshes", &State->bShowMesh))
-	{
-		// 메시 가시성 토글
-		if (auto* comp = State->PreviewActor->GetSkeletalMeshComponent())
-		{
-			comp->SetVisibility(State->bShowMesh);
-		}
-	}
-	ImGui::SameLine();
-	if (State->bSimulating) ImGui::BeginDisabled();
-	if (ImGui::Checkbox("Bodies", &State->bShowBodies))
-	{
-		if (State->BodyPreviewLineComponent)
-			State->BodyPreviewLineComponent->SetLineVisible(State->bShowBodies);
-		// BodyMeshComponents (triangle mesh) visibility도 업데이트
-		for (UTriangleMeshComponent* MeshComp : State->BodyMeshComponents)
-		{
-			if (MeshComp)
-				MeshComp->SetMeshVisible(State->bShowBodies);
-		}
-	}
-	ImGui::SameLine();
-	if (ImGui::Checkbox("Constraints", &State->bShowConstraints))
-	{
-		if (State->ConstraintPreviewLineComponent)
-			State->ConstraintPreviewLineComponent->SetLineVisible(State->bShowConstraints);
-		if (State->ConstraintMeshComponent)
-			State->ConstraintMeshComponent->SetMeshVisible(State->bShowConstraints);
-	}
-	if (State->bSimulating) ImGui::EndDisabled();
-	ImGui::SameLine();
-	ImGui::Checkbox("Stats", &State->bShowStats);
-}
-
-// ────────────────────────────────────────────────────────────────
-// Shape 라인 관리
-// ────────────────────────────────────────────────────────────────
-
-void SPhysicsAssetEditorWindow::RebuildShapeLines()
-{
-	PhysicsAssetEditorState* State = GetActivePhysicsState();
-	if (!State || !State->EditingAsset) return;
-
-	ULineComponent* BodyLineComp = State->BodyPreviewLineComponent;
-
-	// ─────────────────────────────────────────────────
-	// 바디 라인 + 메쉬 재구성
-	// (Constraint 시각화는 SkeletalMeshComponent::RenderDebugVolume에서 처리)
-	// ─────────────────────────────────────────────────
-	State->BodyLinesBatch.Clear();
-	State->BodyLineRanges.Empty();
-	State->BodyLineRanges.SetNum(static_cast<int32>(State->EditingAsset->BodySetups.size()));
-
-	// 예상 크기 예약
-	int32 NumBodies = static_cast<int32>(State->EditingAsset->BodySetups.size());
-	State->BodyLinesBatch.Reserve(NumBodies * 40);
-
-	UE_LOG("[RebuildShapeLines] NumBodies=%d, CurrentMeshComponents=%d", NumBodies, State->BodyMeshComponents.Num());
-
-	// 바디 메시 컴포넌트 배열 크기 조정
-	int32 CurrentSize = State->BodyMeshComponents.Num();
-
-	// 필요한 것보다 많으면 제거
-	while (State->BodyMeshComponents.Num() > NumBodies)
-	{
-		int32 LastIndex = State->BodyMeshComponents.Num() - 1;
-		UTriangleMeshComponent* MeshComp = State->BodyMeshComponents[LastIndex];
-		if (MeshComp)
-		{
-			MeshComp->UnregisterComponent();
-			if (State->PreviewActor)
-			{
-				State->PreviewActor->RemoveOwnedComponent(MeshComp);
-			}
-		}
-		State->BodyMeshComponents.RemoveAt(LastIndex);
-	}
-
-	// 부족하면 추가
-	while (State->BodyMeshComponents.Num() < NumBodies)
-	{
-		UTriangleMeshComponent* NewMeshComp = NewObject<UTriangleMeshComponent>();
-		NewMeshComp->SetMeshVisible(State->bShowBodies);
-		NewMeshComp->SetAlwaysOnTop(true);  // 편집을 위해 항상 위에 표시
-
-		if (State->PreviewActor)
-		{
-			State->PreviewActor->AddOwnedComponent(NewMeshComp);
-			NewMeshComp->RegisterComponent(State->World);
-		}
-
-		State->BodyMeshComponents.Add(NewMeshComp);
-	}
-
-	USkeletalMeshComponent* MeshComp = State->GetPreviewMeshComponent();
-
-	for (int32 i = 0; i < NumBodies; ++i)
-	{
-		UBodySetup* Body = State->EditingAsset->BodySetups[i];
-		if (!Body) continue;
-
-		// 바디 라인 범위 시작
-		PhysicsAssetEditorState::FBodyLineRange& Range = State->BodyLineRanges[i];
-		Range.StartIndex = State->BodyLinesBatch.Num();
-
-		// 선택된 바디는 다른 색상
-		bool bSelected = (State->bBodySelectionMode && State->SelectedBodyIndex == i);
-		FVector4 LineColor = bSelected
-			? FVector4(0.0f, 1.0f, 0.0f, 1.0f)  // 선택: 녹색
-			: FVector4(0.0f, 0.5f, 1.0f, 1.0f); // 기본: 파랑
-		FVector4 MeshColor = bSelected
-			? FVector4(1.0f, 1.0f, 0.8f, 0.4f)  // 선택: 옅은 노란색 (40% 투명)
-			: FVector4(0.9f, 0.9f, 0.9f, 0.25f); // 기본: 옅은 흰색 (25% 투명)
-
-		// 본 트랜스폼 가져오기
-		FTransform BoneTransform;
-		if (MeshComp && Body->BoneIndex >= 0)
-		{
-			BoneTransform = MeshComp->GetBoneWorldTransform(Body->BoneIndex);
-			// m → cm 변환 (PhysX에서 0.01 스케일이 적용된 경우 복원)
-			constexpr float MToCm = 100.0f;
-			BoneTransform.Scale3D = BoneTransform.Scale3D * MToCm;
-		}
-
-		// 헬퍼 함수로 라인 좌표 생성 (AggGeom의 모든 Shape 처리)
-		TArray<FVector> StartPoints, EndPoints;
-		GenerateBodyShapeLineCoordinates(Body, BoneTransform, StartPoints, EndPoints);
-
-		// FLinesBatch에 직접 추가 (NewObject 없음!)
-		for (int32 j = 0; j < StartPoints.Num(); ++j)
-		{
-			State->BodyLinesBatch.Add(StartPoints[j], EndPoints[j], LineColor);
-		}
-
-		// 바디 라인 범위 종료
-		Range.Count = State->BodyLinesBatch.Num() - Range.StartIndex;
-
-		// 바디 메시 생성 (개별 TriangleMeshComponent에 설정)
-		if (State->BodyMeshComponents[i])
-		{
-			FTrianglesBatch MeshBatch;
-			FPhysicsDebugUtils::GenerateBodyShapeMesh(Body, BoneTransform, MeshColor,
-				MeshBatch.Vertices, MeshBatch.Indices, MeshBatch.Colors);
-
-			UE_LOG("[RebuildShapeLines] Body[%d] SetMesh: Vertices=%zu, Indices=%zu, Colors=%zu",
-				i, MeshBatch.Vertices.size(), MeshBatch.Indices.size(), MeshBatch.Colors.size());
-
-			State->BodyMeshComponents[i]->SetMesh(MeshBatch);
-		}
-	}
-
-	// ULineComponent에 배치 데이터 설정 (wireframe만)
-	if (BodyLineComp)
-	{
-		BodyLineComp->ClearLines();  // 기존 ULine 정리
-		BodyLineComp->SetDirectBatch(State->BodyLinesBatch);
-		BodyLineComp->SetLineVisible(State->bShowBodies);
-	}
-
-	// ─────────────────────────────────────────────────
-	// 제약 조건 시각화 (캐싱된 ConstraintMeshComponent 사용)
-	// ─────────────────────────────────────────────────
-	if (MeshComp && State->bShowConstraints)
-	{
-		// PhysicsAsset 연결
-		if (MeshComp->GetPhysicsAsset() != State->EditingAsset)
-		{
-			MeshComp->SetPhysicsAsset(State->EditingAsset);
-		}
-
-		// BoneTransforms 수집 (RenderDebugVolume과 동일한 방식)
-		USkeletalMesh* SkelMesh = MeshComp->GetSkeletalMesh();
-		if (SkelMesh)
-		{
-			const FSkeletalMeshData* MeshData = SkelMesh->GetSkeletalMeshData();
-			if (MeshData)
-			{
-				int32 BoneCount = static_cast<int32>(MeshData->Skeleton.Bones.size());
-				TArray<FTransform> BoneTransforms;
-				BoneTransforms.SetNum(BoneCount);
-
-				FMatrix ComponentToWorld = MeshComp->GetWorldMatrix();
-
-				const TArray<FTransform>& CurrentPose = MeshComp->GetCurrentComponentSpacePose();
-
-				for (int32 i = 0; i < BoneCount; ++i)
-				{
-					FTransform ComponentSpaceTransform;
-					if (i < CurrentPose.Num())
-					{
-						ComponentSpaceTransform = CurrentPose[i];
-					}
-					else
-					{
-						ComponentSpaceTransform = MeshData->Skeleton.Bones[i].BindPose;
-					}
-
-					FMatrix BoneWorldMatrix = ComponentSpaceTransform.ToMatrix() * ComponentToWorld;
-					BoneTransforms[i] = FTransform(BoneWorldMatrix);
-				}
-
-				// 선택된 Constraint 인덱스
-				int32 SelectedIdx = (!State->bBodySelectionMode) ? State->SelectedConstraintIndex : -1;
-
-				// Constraint 메시/라인 생성
-				FTrianglesBatch ConstraintTriBatch;
-				FLinesBatch ConstraintLineBatch;
-				FPhysicsDebugUtils::GenerateConstraintsDebugMesh(
-					State->EditingAsset, BoneTransforms, SelectedIdx,
-					ConstraintTriBatch, ConstraintLineBatch);
-
-				// ConstraintMeshComponent 생성 (없으면)
-				if (!State->ConstraintMeshComponent)
-				{
-					State->ConstraintMeshComponent = NewObject<UTriangleMeshComponent>();
-					State->ConstraintMeshComponent->SetAlwaysOnTop(true);
-					if (State->PreviewActor)
-					{
-						State->PreviewActor->AddOwnedComponent(State->ConstraintMeshComponent);
-						State->ConstraintMeshComponent->RegisterComponent(State->World);
-					}
-				}
-
-				// ConstraintPreviewLineComponent 생성 (없으면)
-				if (!State->ConstraintPreviewLineComponent)
-				{
-					State->ConstraintPreviewLineComponent = NewObject<ULineComponent>();
-					State->ConstraintPreviewLineComponent->SetAlwaysOnTop(true);
-					if (State->PreviewActor)
-					{
-						State->PreviewActor->AddOwnedComponent(State->ConstraintPreviewLineComponent);
-						State->ConstraintPreviewLineComponent->RegisterComponent(State->World);
-					}
-				}
-
-				// 메시/라인 데이터 설정 (캐싱)
-				State->ConstraintMeshComponent->SetMesh(ConstraintTriBatch);
-				State->ConstraintMeshComponent->SetMeshVisible(State->bShowConstraints);
-
-				State->ConstraintLinesBatch = ConstraintLineBatch;
-				State->ConstraintPreviewLineComponent->SetDirectBatch(State->ConstraintLinesBatch);
-				State->ConstraintPreviewLineComponent->SetLineVisible(State->bShowConstraints);
-			}
-		}
-	}
-	else if (!State->bShowConstraints)
-	{
-		// Constraint 숨기기
-		if (State->ConstraintMeshComponent)
-		{
-			State->ConstraintMeshComponent->SetMeshVisible(false);
-		}
-		if (State->ConstraintPreviewLineComponent)
-		{
-			State->ConstraintPreviewLineComponent->SetLineVisible(false);
-		}
-	}
-}
-
-void SPhysicsAssetEditorWindow::UpdateSelectedBodyLines()
-{
-	PhysicsAssetEditorState* State = GetActivePhysicsState();
-	if (!State || !State->EditingAsset) return;
-	if (State->SelectedBodyIndex < 0) return;
-	if (State->SelectedBodyIndex >= static_cast<int32>(State->EditingAsset->BodySetups.size())) return;
-	if (State->SelectedBodyIndex >= State->BodyLineRanges.Num()) return;
-
-	UBodySetup* Body = State->EditingAsset->BodySetups[State->SelectedBodyIndex];
-	if (!Body) return;
-	const PhysicsAssetEditorState::FBodyLineRange& Range = State->BodyLineRanges[State->SelectedBodyIndex];
-
-	// 본 트랜스폼 가져오기
-	FTransform BoneTransform;
-	USkeletalMeshComponent* MeshComp = State->GetPreviewMeshComponent();
-	if (MeshComp && Body->BoneIndex >= 0)
-	{
-		BoneTransform = MeshComp->GetBoneWorldTransform(Body->BoneIndex);
-		// m → cm 변환 (PhysX에서 0.01 스케일이 적용된 경우 복원)
-		constexpr float MToCm = 100.0f;
-		BoneTransform.Scale3D = BoneTransform.Scale3D * MToCm;
-	}
-
-	// 헬퍼 함수로 좌표 생성 (AggGeom의 모든 Shape 처리)
-	TArray<FVector> StartPoints, EndPoints;
-	GenerateBodyShapeLineCoordinates(Body, BoneTransform, StartPoints, EndPoints);
-
-	// FLinesBatch 직접 업데이트 (범위 내 라인 좌표만 변경)
-	for (int32 i = 0; i < Range.Count && i < StartPoints.Num(); ++i)
-	{
-		State->BodyLinesBatch.SetLine(Range.StartIndex + i, StartPoints[i], EndPoints[i]);
-	}
-
-	// ULineComponent에 갱신된 배치 데이터 재설정 (wireframe)
-	if (ULineComponent* BodyLineComp = State->BodyPreviewLineComponent)
-	{
-		BodyLineComp->SetDirectBatch(State->BodyLinesBatch);
-	}
-
-	// 선택된 바디의 메시 컴포넌트 업데이트 (solid mesh)
-	if (State->SelectedBodyIndex < State->BodyMeshComponents.Num())
-	{
-		UTriangleMeshComponent* MeshComp = State->BodyMeshComponents[State->SelectedBodyIndex];
-		if (MeshComp)
-		{
-			// 선택된 바디는 옅은 노란색 (40% 투명)
-			FVector4 MeshColor(1.0f, 1.0f, 0.8f, 0.4f);
-
-			FTrianglesBatch MeshBatch;
-			FPhysicsDebugUtils::GenerateBodyShapeMesh(Body, BoneTransform, MeshColor,
-				MeshBatch.Vertices, MeshBatch.Indices, MeshBatch.Colors);
-
-			MeshComp->SetMesh(MeshBatch);
-		}
-	}
-}
-
-void SPhysicsAssetEditorWindow::UpdateSelectionColors()
-{
-	// TODO: 현재 Body 단위 하이라이트 -> Primitive 단위 하이라이트로 변경 고려
-	//       선택된 primitive만 SelectedColor, 같은 body의 다른 primitive는 NormalColor
-	//       (현재는 gizmo 위치로 선택된 primitive 분간 가능)
-
-	PhysicsAssetEditorState* State = GetActivePhysicsState();
-	if (!State || !State->EditingAsset) return;
-
-	const FVector4 SelectedColor(0.0f, 1.0f, 0.0f, 1.0f);   // 녹색
-	const FVector4 NormalColor(0.0f, 0.5f, 1.0f, 1.0f);     // 파랑
-
-	bool bBodyBatchDirty = false;
-
-	// 헬퍼 람다: 특정 바디의 라인 및 메시 색상 업데이트
-	auto UpdateBodyColor = [&](int32 BodyIndex, const FVector4& LineColor, const FVector4& MeshColor)
-	{
-		// 라인 색상 업데이트
-		if (BodyIndex >= 0 && BodyIndex < State->BodyLineRanges.Num())
-		{
-			const PhysicsAssetEditorState::FBodyLineRange& Range = State->BodyLineRanges[BodyIndex];
-			State->BodyLinesBatch.SetColorRange(Range.StartIndex, Range.Count, LineColor);
-			bBodyBatchDirty = true;
-		}
-
-		// 메시 색상 업데이트 (메시 재생성 필요)
-		if (BodyIndex >= 0 && BodyIndex < State->BodyMeshComponents.Num() &&
-			BodyIndex < static_cast<int32>(State->EditingAsset->BodySetups.size()))
-		{
-			UTriangleMeshComponent* MeshComp = State->BodyMeshComponents[BodyIndex];
-			UBodySetup* Body = State->EditingAsset->BodySetups[BodyIndex];
-			if (MeshComp && Body)
-			{
-				FTransform BoneTransform;
-				USkeletalMeshComponent* SkeletalMeshComp = State->GetPreviewMeshComponent();
-				if (SkeletalMeshComp && Body->BoneIndex >= 0)
-				{
-					BoneTransform = SkeletalMeshComp->GetBoneWorldTransform(Body->BoneIndex);
-					// m → cm 변환 (PhysX에서 0.01 스케일이 적용된 경우 복원)
-					constexpr float MToCm = 100.0f;
-					BoneTransform.Scale3D = BoneTransform.Scale3D * MToCm;
-				}
-
-				FTrianglesBatch MeshBatch;
-				FPhysicsDebugUtils::GenerateBodyShapeMesh(Body, BoneTransform, MeshColor,
-					MeshBatch.Vertices, MeshBatch.Indices, MeshBatch.Colors);
-
-				MeshComp->SetMesh(MeshBatch);
-			}
-		}
-	};
-
-	// 바디 선택 변경 처리 (이전 선택 → 비선택, 새 선택 → 선택)
-	if (State->CachedSelectedBodyIndex != State->SelectedBodyIndex)
-	{
-		// 이전에 선택된 바디를 일반 색상으로
-		FVector4 NormalMeshColor(0.9f, 0.9f, 0.9f, 0.15f);  // 옅은 흰색
-		UpdateBodyColor(State->CachedSelectedBodyIndex, NormalColor, NormalMeshColor);
-
-		// 새로 선택된 바디를 선택 색상으로 (바디 선택 모드일 때만)
-		if (State->bBodySelectionMode)
-		{
-			FVector4 SelectedMeshColor(1.0f, 1.0f, 0.8f, 0.4f);  // 옅은 노란색 (40% 투명)
-			UpdateBodyColor(State->SelectedBodyIndex, SelectedColor, SelectedMeshColor);
-		}
-	}
-
-	// 제약조건 선택 변경 처리 (SkeletalMeshComponent의 DebugSelectedConstraintIndex로 처리)
-	if (State->CachedSelectedConstraintIndex != State->SelectedConstraintIndex)
-	{
-		USkeletalMeshComponent* MeshComp = State->GetPreviewMeshComponent();
-		if (MeshComp)
-		{
-			// 제약조건 모드일 때만 선택 인덱스 설정
-			int32 SelectedIdx = (!State->bBodySelectionMode) ? State->SelectedConstraintIndex : -1;
-			MeshComp->DebugSelectedConstraintIndex = SelectedIdx;
-		}
-	}
-
-	// ULineComponent에 갱신된 배치 데이터 재설정 (바디만)
-	if (bBodyBatchDirty && State->BodyPreviewLineComponent)
-	{
-		State->BodyPreviewLineComponent->SetDirectBatch(State->BodyLinesBatch);
-	}
-}
-
-// ────────────────────────────────────────────────────────────────
-// 파일 작업
-// ────────────────────────────────────────────────────────────────
 
 void SPhysicsAssetEditorWindow::SavePhysicsAsset()
 {
-	PhysicsAssetEditorState* State = GetActivePhysicsState();
-	if (!State || !State->EditingAsset) return;
+    PhysicsAssetEditorState* PhysState = GetPhysicsState();
+    if (!PhysState)
+    {
+        UE_LOG("[PhysicsAssetEditor] SavePhysicsAsset: 활성 상태가 없습니다");
+        return;
+    }
 
-	if (State->CurrentFilePath.empty())
-	{
-		SavePhysicsAssetAs();
-		return;
-	}
+    if (!PhysState->EditingAsset)
+    {
+        UE_LOG("[PhysicsAssetEditor] SavePhysicsAsset: 편집 중인 에셋이 없습니다");
+        return;
+    }
 
-	if (PhysicsAssetEditorBootstrap::SavePhysicsAsset(State->EditingAsset, State->CurrentFilePath))
-	{
-		State->bIsDirty = false;
+    // 파일 경로가 없으면 SaveAs 호출
+    if (PhysState->CurrentFilePath.empty())
+    {
+        SavePhysicsAssetAs();
+        return;
+    }
 
-		// ResourceManager에 등록/갱신 (캐시와 동기화)
-		UResourceManager::GetInstance().AddOrReplace<UPhysicsAsset>(State->CurrentFilePath, State->EditingAsset);
+    // 저장 수행 (FBX 경로도 함께 저장)
+    FString SourceFbxPath = ActiveState ? ActiveState->LoadedMeshPath : "";
+    if (PhysicsAssetEditorBootstrap::SavePhysicsAsset(PhysState->EditingAsset, PhysState->CurrentFilePath, SourceFbxPath))
+    {
+        PhysState->bIsDirty = false;
+        UE_LOG("[PhysicsAssetEditor] 저장 완료: %s (FBX: %s)", PhysState->CurrentFilePath.c_str(), SourceFbxPath.c_str());
 
-		UE_LOG("[SPhysicsAssetEditorWindow] Physics Asset saved: %s", State->CurrentFilePath.c_str());
-	}
+        // 리소스 캐시 갱신 (콤보박스 목록에 새 파일 반영)
+        UPropertyRenderer::ClearResourcesCache();
+
+        // === Physics Asset 자동 연결 시스템 ===
+        // Week_Final_5에는 SetPhysicsAssetPath가 없음 - 에디터에서만 직접 연결
+        // RefreshPhysicsAssetInWorld는 에디터 전용 기능이므로 제거
+        UE_LOG("[PhysicsAssetEditor] 저장 완료: %s", PhysState->CurrentFilePath.c_str());
+    }
+    else
+    {
+        UE_LOG("[PhysicsAssetEditor] 저장 실패: %s", PhysState->CurrentFilePath.c_str());
+    }
 }
 
 void SPhysicsAssetEditorWindow::SavePhysicsAssetAs()
 {
-	PhysicsAssetEditorState* State = GetActivePhysicsState();
-	if (!State || !State->EditingAsset) return;
+    PhysicsAssetEditorState* PhysState = GetPhysicsState();
+    if (!PhysState)
+    {
+        UE_LOG("[PhysicsAssetEditor] SavePhysicsAssetAs: 활성 상태가 없습니다");
+        return;
+    }
 
-	// 파일 저장 다이얼로그 열기 (.physicsasset 확장자)
-	auto widePath = FPlatformProcess::OpenSaveFileDialog(
-		UTF8ToWide(GDataDir),
-		L"physicsasset",
-		L"Physics Asset Files"
-	);
+    if (!PhysState->EditingAsset)
+    {
+        UE_LOG("[PhysicsAssetEditor] SavePhysicsAssetAs: 편집 중인 에셋이 없습니다");
+        return;
+    }
 
-	if (widePath.empty()) return;
+    // 저장 파일 다이얼로그 열기
+    std::filesystem::path SavePath = FPlatformProcess::OpenSaveFileDialog(
+        L"Data/Physics",           // 기본 디렉토리
+        L"physicsasset",           // 기본 확장자
+        L"Physics Asset Files",    // 파일 타입 설명
+        L"NewPhysicsAsset"         // 기본 파일명
+    );
 
-	// 경로 정규화
-	FString FilePath = ResolveAssetRelativePath(NormalizePath(WideToUTF8(widePath.wstring())), "");
+    // 사용자가 취소한 경우
+    if (SavePath.empty())
+    {
+        UE_LOG("[PhysicsAssetEditor] SavePhysicsAssetAs: 사용자가 취소했습니다");
+        return;
+    }
 
-	// 원본 파일 경로와 dirty 상태 저장 (복구용)
-	FString OriginalFilePath = State->CurrentFilePath;
-	bool bWasDirty = State->bIsDirty;
+    // std::filesystem::path를 FString으로 변환 (상대 경로로 변환)
+    FString SavePathStr = ResolveAssetRelativePath(NormalizePath(WideToUTF8(SavePath.wstring())), "");
 
-	if (PhysicsAssetEditorBootstrap::SavePhysicsAsset(State->EditingAsset, FilePath))
-	{
-		// 원본 파일이 있고 변경이 있었다면, 원본 캐시 복구
-		if (!OriginalFilePath.empty() && bWasDirty)
-		{
-			UResourceManager::GetInstance().ForceLoad<UPhysicsAsset>(OriginalFilePath);
-		}
+    // 저장 수행 (FBX 경로도 함께 저장)
+    FString SourceFbxPath = ActiveState ? ActiveState->LoadedMeshPath : "";
+    if (PhysicsAssetEditorBootstrap::SavePhysicsAsset(PhysState->EditingAsset, SavePathStr, SourceFbxPath))
+    {
+        // 에디터 상태 업데이트
+        PhysState->CurrentFilePath = SavePathStr;
+        PhysState->bIsDirty = false;
 
-		// SaveAs는 새로운 인스턴스를 생성해야 함 (기존 파일과 분리)
-		UPhysicsAsset* NewAsset = static_cast<UPhysicsAsset*>(State->EditingAsset->Duplicate());
-		NewAsset->SetFilePath(FilePath);
+        // 리소스 캐시 갱신 (콤보박스 목록에 새 파일 반영)
+        UPropertyRenderer::ClearResourcesCache();
 
-		// ResourceManager에 새 인스턴스 등록
-		UResourceManager::GetInstance().AddOrReplace<UPhysicsAsset>(FilePath, NewAsset);
-
-		// 에디터 상태를 새 인스턴스로 교체
-		State->EditingAsset = NewAsset;
-		State->CurrentFilePath = FilePath;
-		State->bIsDirty = false;
-
-		// 리소스 캐시 갱신 (새 파일이 선택 목록에 반영되도록)
-		UPropertyRenderer::ClearResourcesCache();
-
-		UE_LOG("[SPhysicsAssetEditorWindow] Physics Asset saved as: %s", FilePath.c_str());
-	}
+        UE_LOG("[PhysicsAssetEditor] 저장 완료: %s (FBX: %s)", SavePathStr.c_str(), SourceFbxPath.c_str());
+    }
+    else
+    {
+        UE_LOG("[PhysicsAssetEditor] 저장 실패: %s", SavePathStr.c_str());
+    }
 }
 
 void SPhysicsAssetEditorWindow::LoadPhysicsAsset()
 {
-	CheckUnsavedChangesAndExecute([this]()
-	{
-		// 파일 열기 다이얼로그 (.physicsasset 확장자)
-		auto widePath = FPlatformProcess::OpenLoadFileDialog(
-			UTF8ToWide(GDataDir),
-			L"physicsasset",
-			L"Physics Asset Files"
-		);
-
-		if (widePath.empty()) return;
-
-		FString FilePath = WideToUTF8(widePath.wstring());
-
-		UPhysicsAsset* LoadedAsset = PhysicsAssetEditorBootstrap::LoadPhysicsAsset(FilePath);
-		if (LoadedAsset)
-		{
-			PhysicsAssetEditorState* State = GetActivePhysicsState();
-			if (State)
-			{
-				State->EditingAsset = LoadedAsset;
-				State->CurrentFilePath = FilePath;
-				State->ClearSelection();
-				State->RequestLinesRebuild();
-				State->HideGizmo();
-
-				// 연결된 스켈레탈 메시 로드
-				if (!LoadedAsset->SkeletalMeshPath.empty())
-				{
-					USkeletalMesh* Mesh = UResourceManager::GetInstance().Load<USkeletalMesh>(
-						LoadedAsset->SkeletalMeshPath);
-					if (Mesh && State->PreviewActor)
-					{
-						State->PreviewActor->SetSkeletalMesh(LoadedAsset->SkeletalMeshPath);
-						State->CurrentMesh = Mesh;
-						State->LoadedMeshPath = LoadedAsset->SkeletalMeshPath;
-						State->RequestLinesRebuild();
-					}
-				}
-
-				// 파일에서 로드한 것이므로 dirty 아님
-				State->bIsDirty = false;
-				UE_LOG("[SPhysicsAssetEditorWindow] Physics Asset loaded: %s", FilePath.c_str());
-			}
-		}
-	});
-}
-
-void SPhysicsAssetEditorWindow::CheckUnsavedChangesAndExecute(std::function<void()> Action)
-{
-	PhysicsAssetEditorState* State = GetActivePhysicsState();
-	if (!State || !State->bIsDirty)
-	{
-		// 변경사항 없으면 바로 실행
-		if (Action) Action();
-		return;
-	}
-
-	// 모달 다이얼로그 표시
-	PendingAction = Action;
-	FModalDialog::Get().Show(
-		"저장 확인",
-		"저장되지 않은 변경사항이 있습니다.\n저장하시겠습니까?",
-		EModalType::YesNoCancel,
-		[this](EModalResult Result)
-		{
-			if (Result == EModalResult::Yes)
-			{
-				SavePhysicsAsset();
-				if (PendingAction) PendingAction();
-			}
-			else if (Result == EModalResult::No)
-			{
-				if (PendingAction) PendingAction();
-			}
-			// Cancel이면 아무것도 안 함
-			PendingAction = nullptr;
-		}
-	);
-}
-
-void SPhysicsAssetEditorWindow::LoadMeshAndResetPhysics(PhysicsAssetEditorState* State, const FString& MeshPath)
-{
-	if (!State) return;
-
-	// SkeletalMesh 로드
-	USkeletalMesh* Mesh = UResourceManager::GetInstance().Load<USkeletalMesh>(MeshPath);
-	if (Mesh && State->PreviewActor)
-	{
-		State->PreviewActor->SetSkeletalMesh(MeshPath);
-		State->CurrentMesh = Mesh;
-		State->LoadedMeshPath = MeshPath;
-
-		// 새 Physics Asset 생성 (기존 캐시된 에셋 수정하지 않음)
-		State->EditingAsset = NewObject<UPhysicsAsset>();
-		State->EditingAsset->SkeletalMeshPath = MeshPath;
-		State->CurrentFilePath.clear();  // 새 에셋이므로 파일 경로 초기화
-		State->bIsDirty = false;  // 새 에셋이므로 수정되지 않은 상태
-
-		// 상태 초기화
-		State->ClearSelection();
-		State->RequestLinesRebuild();
-		State->HideGizmo();
-
-		OnSkeletalMeshLoaded(State, MeshPath);
-
-		UE_LOG("[SPhysicsAssetEditorWindow] Mesh loaded and physics reset: %s", MeshPath.c_str());
-	}
-}
-
-FString SPhysicsAssetEditorWindow::ExtractFileName(const FString& Path)
-{
-	size_t lastSlash = Path.find_last_of("/\\");
-	FString FileName = (lastSlash != FString::npos) ? Path.substr(lastSlash + 1) : Path;
-
-	// 확장자 제거
-	size_t dotPos = FileName.find_last_of('.');
-	if (dotPos != FString::npos)
-	{
-		FileName = FileName.substr(0, dotPos);
-	}
-
-	return FileName;
-}
-
-// ────────────────────────────────────────────────────────────────
-// 바디/제약 조건 작업
-// ────────────────────────────────────────────────────────────────
-
-void SPhysicsAssetEditorWindow::AutoGenerateBodies(EAggCollisionShape PrimitiveType, float MinBoneSize)
-{
-	PhysicsAssetEditorState* State = GetActivePhysicsState();
-	if (!State || !State->EditingAsset || !State->CurrentMesh) return;
-
-	const FSkeletalMeshData* MeshData = State->CurrentMesh->GetSkeletalMeshData();
-	if (!MeshData) return;
-
-	const FSkeleton* Skeleton = &MeshData->Skeleton;
-	if (!Skeleton || Skeleton->Bones.IsEmpty()) return;
-
-	USkeletalMeshComponent* MeshComp = State->GetPreviewMeshComponent();
-	if (!MeshComp) return;
-
-	UPhysicsAsset* Asset = State->EditingAsset;
-	const int32 BoneCount = static_cast<int32>(Skeleton->Bones.size());
-
-	// 기존 상태 완전 초기화
-	Asset->ClearAll();
-	State->BodyLinesBatch.Clear();
-	State->BodyLineRanges.Empty();
-	State->CachedSelectedBodyIndex = -1;
-	State->CachedSelectedConstraintIndex = -1;
-
-	// ────────────────────────────────────────────────
-	// 본별 Body 생성 (FBodyShapeCalculator 사용)
-	// ────────────────────────────────────────────────
-	int32 GeneratedBodies = 0;
-
-	for (int32 BoneIdx = 0; BoneIdx < BoneCount; ++BoneIdx)
-	{
-		const FBone& Bone = Skeleton->Bones[BoneIdx];
-
-		// 바디 먼저 생성 (빈 상태)
-		int32 BodyIndex = Asset->AddBody(Bone.Name, BoneIdx);
-		if (BodyIndex < 0) continue;
-
-		UBodySetup* Body = Asset->BodySetups[BodyIndex];
-		if (!Body) continue;
-
-		// FBodyShapeCalculator를 사용하여 Shape 생성
-		bool bSuccess = FBodyShapeCalculator::GenerateBodyShapeFromVertices(
-			Body,
-			BoneIdx,
-			State->CurrentMesh,
-			MeshComp,
-			PrimitiveType,
-			MinBoneSize
-		);
-
-		if (bSuccess)
-		{
-			++GeneratedBodies;
-		}
-		// Shape 생성 실패해도 body 유지 (PhysX에서 mass=0으로 kinematic 취급)
-		// Constraint anchor point로 사용 가능
-	}
-
-	// ────────────────────────────────────────────────
-	// Leaf body pruning (위상 정렬 방식)
-	// Shape가 없는 leaf body를 제거하고, 새로운 leaf가 되면 반복
-	// ────────────────────────────────────────────────
-	{
-		// 각 bone의 "body가 있는 자식" 수 계산
-		TArray<int32> ChildBodyCount;
-		ChildBodyCount.SetNum(BoneCount);
-		for (int32 i = 0; i < BoneCount; ++i)
-		{
-			ChildBodyCount[i] = 0;
-		}
-
-		// 자식 bone이 body를 가지고 있으면 부모의 count 증가
-		for (int32 i = 0; i < BoneCount; ++i)
-		{
-			int32 ParentBoneIdx = Skeleton->Bones[i].ParentIndex;
-			if (ParentBoneIdx >= 0 && Asset->FindBodyIndexByBone(i) >= 0)
-			{
-				ChildBodyCount[ParentBoneIdx]++;
-			}
-		}
-
-		// 제거할 bone index들을 추적
-		TArray<bool> BodiesToRemove;
-		BodiesToRemove.SetNum(BoneCount);
-		for (int32 i = 0; i < BoneCount; ++i)
-		{
-			BodiesToRemove[i] = false;
-		}
-
-		// Leaf body (자식 body가 없는)를 queue에 추가
-		TArray<int32> Queue;
-		for (int32 i = 0; i < BoneCount; ++i)
-		{
-			int32 BodyIdx = Asset->FindBodyIndexByBone(i);
-			if (BodyIdx >= 0 && ChildBodyCount[i] == 0)
-			{
-				Queue.Add(i);  // Bone index를 queue에 추가
-			}
-		}
-
-		int32 PrunedCount = 0;
-
-		// 위상 정렬 방식으로 처리
-		while (!Queue.IsEmpty())
-		{
-			int32 BoneIdx = Queue[0];
-			Queue.RemoveAt(0);
-
-			int32 BodyIdx = Asset->FindBodyIndexByBone(BoneIdx);
-			if (BodyIdx < 0) continue;
-			if (BodiesToRemove[BoneIdx]) continue;  // 이미 제거 대상
-
-			UBodySetup* Body = Asset->BodySetups[BodyIdx];
-			if (!Body) continue;
-
-			// Shape가 없으면 제거 대상
-			if (Body->AggGeom.GetElementCount() == 0)
-			{
-				BodiesToRemove[BoneIdx] = true;
-				PrunedCount++;
-
-				// 부모 bone의 자식 count 감소
-				int32 ParentBoneIdx = Skeleton->Bones[BoneIdx].ParentIndex;
-				if (ParentBoneIdx >= 0)
-				{
-					ChildBodyCount[ParentBoneIdx]--;
-
-					// 부모가 새로운 leaf가 되면 queue에 추가
-					if (ChildBodyCount[ParentBoneIdx] == 0)
-					{
-						int32 ParentBodyIdx = Asset->FindBodyIndexByBone(ParentBoneIdx);
-						if (ParentBodyIdx >= 0 && !BodiesToRemove[ParentBoneIdx])
-						{
-							Queue.Add(ParentBoneIdx);
-						}
-					}
-				}
-			}
-			// Shape가 있으면 제거하지 않음 (chain 유지)
-		}
-
-		// 제거 대상 body들을 역순으로 제거 (index 변경 방지)
-		for (int32 i = BoneCount - 1; i >= 0; --i)
-		{
-			if (BodiesToRemove[i])
-			{
-				int32 BodyIdx = Asset->FindBodyIndexByBone(i);
-				if (BodyIdx >= 0)
-				{
-					Asset->RemoveBody(BodyIdx);
-				}
-			}
-		}
-
-		if (PrunedCount > 0)
-		{
-			UE_LOG("[SPhysicsAssetEditorWindow] Pruned %d empty leaf bodies", PrunedCount);
-		}
-	}
-
-	// ────────────────────────────────────────────────
-	// 부모-자식 본 사이에 제약 조건 생성
-	// Pruning 후 중간 empty body는 유지되므로 직접 부모-자식 연결
-	// ────────────────────────────────────────────────
-	for (int32 i = 0; i < BoneCount; ++i)
-	{
-		int32 ParentBoneIdx = Skeleton->Bones[i].ParentIndex;
-		if (ParentBoneIdx < 0) continue;
-
-		int32 ChildBodyIdx = Asset->FindBodyIndexByBone(i);
-		int32 ParentBodyIdx = Asset->FindBodyIndexByBone(ParentBoneIdx);
-
-		if (ChildBodyIdx >= 0 && ParentBodyIdx >= 0)
-		{
-			char JointName[128];
-			sprintf_s(JointName, "Joint_%s", Skeleton->Bones[i].Name.c_str());
-			int32 ConstraintIndex = Asset->AddConstraint(FName(JointName), ParentBodyIdx, ChildBodyIdx);
-
-			// Constraint Frame 자동 계산
-			if (ConstraintIndex >= 0)
-			{
-				FTransform ParentBoneTransform = MeshComp->GetBoneWorldTransform(ParentBoneIdx);
-				FTransform ChildBoneTransform = MeshComp->GetBoneWorldTransform(i);
-				CalculateConstraintFramesFromBones(
-					Asset->ConstraintSetups[ConstraintIndex],
-					ParentBoneTransform,
-					ChildBoneTransform
-				);
-			}
-		}
-	}
-
-	State->bIsDirty = true;
-	State->RequestLinesRebuild();
-	State->ClearSelection();
-	State->HideGizmo();
-
-	int32 TotalBodies = static_cast<int32>(Asset->BodySetups.size());
-	int32 EmptyBodies = TotalBodies - GeneratedBodies;
-	UE_LOG("[SPhysicsAssetEditorWindow] Auto-generated %d bodies (%d with shape, %d empty) and %d constraints",
-		TotalBodies, GeneratedBodies, EmptyBodies, (int)Asset->ConstraintSetups.size());
-}
-
-void SPhysicsAssetEditorWindow::AddBodyToBone(int32 BoneIndex, EAggCollisionShape PrimitiveType)
-{
-	PhysicsAssetEditorState* State = GetActivePhysicsState();
-	if (!State || !State->EditingAsset || !State->CurrentMesh) return;
-	if (BoneIndex < 0) return;
-
-	const FSkeleton* Skeleton = State->CurrentMesh->GetSkeleton();
-	if (!Skeleton || BoneIndex >= static_cast<int32>(Skeleton->Bones.size())) return;
-
-	// 이미 바디가 있는지 확인
-	if (State->EditingAsset->FindBodyIndexByBone(BoneIndex) >= 0)
-	{
-		UE_LOG("[SPhysicsAssetEditorWindow] Bone already has a body");
-		return;
-	}
-
-	USkeletalMeshComponent* MeshComp = State->GetPreviewMeshComponent();
-	if (!MeshComp) return;
-
-	FName BoneName = Skeleton->Bones[BoneIndex].Name;
-	int32 NewBodyIndex = State->EditingAsset->AddBody(BoneName, BoneIndex);
-
-	if (NewBodyIndex >= 0)
-	{
-		UBodySetup* Body = State->EditingAsset->BodySetups[NewBodyIndex];
-		if (Body)
-		{
-			// FBodyShapeCalculator를 사용하여 자동으로 primitive 생성
-			bool bSuccess = FBodyShapeCalculator::GenerateBodyShapeFromVertices(
-				Body,
-				BoneIndex,
-				State->CurrentMesh,
-				MeshComp,
-				PrimitiveType,
-				0.0f  // MinBoneSize = 0 (항상 생성)
-			);
-
-			if (!bSuccess)
-			{
-				UE_LOG("[SPhysicsAssetEditorWindow] Failed to generate shape for new body");
-				// 실패해도 바디는 유지 (빈 상태)
-			}
-		}
-
-		// 부모 본의 바디 찾기
-		int32 ParentBoneIndex = Skeleton->Bones[BoneIndex].ParentIndex;
-		if (ParentBoneIndex >= 0)
-		{
-			int32 ParentBodyIndex = State->EditingAsset->FindBodyIndexByBone(ParentBoneIndex);
-			if (ParentBodyIndex >= 0)
-			{
-				// 자동으로 제약 조건 생성
-				char JointNameBuf[128];
-				sprintf_s(JointNameBuf, "Joint_%s", BoneName.ToString().c_str());
-				int32 ConstraintIndex = State->EditingAsset->AddConstraint(FName(JointNameBuf), ParentBodyIndex, NewBodyIndex);
-
-				// Constraint Frame 자동 계산
-				if (ConstraintIndex >= 0)
-				{
-					FTransform ParentBoneTransform = MeshComp->GetBoneWorldTransform(ParentBoneIndex);
-					FTransform ChildBoneTransform = MeshComp->GetBoneWorldTransform(BoneIndex);
-					CalculateConstraintFramesFromBones(
-						State->EditingAsset->ConstraintSetups[ConstraintIndex],
-						ParentBoneTransform,
-						ChildBoneTransform
-					);
-				}
-			}
-		}
-
-		State->SelectBody(NewBodyIndex);
-		State->bIsDirty = true;
-		State->RequestLinesRebuild();
-	}
-}
-
-void SPhysicsAssetEditorWindow::RemoveSelectedBody()
-{
-	PhysicsAssetEditorState* State = GetActivePhysicsState();
-	if (!State || !State->EditingAsset) return;
-	if (State->SelectedBodyIndex < 0) return;
-
-	if (State->EditingAsset->RemoveBody(State->SelectedBodyIndex))
-	{
-		State->ClearSelection();
-		State->bIsDirty = true;
-		State->RequestLinesRebuild();
-		State->HideGizmo();
-	}
-}
-
-void SPhysicsAssetEditorWindow::AddConstraintBetweenBodies(int32 ParentBodyIndex, int32 ChildBodyIndex)
-{
-	PhysicsAssetEditorState* State = GetActivePhysicsState();
-	if (!State || !State->EditingAsset) return;
-
-	char JointNameBuf[64];
-	sprintf_s(JointNameBuf, "Constraint_%d_%d", ParentBodyIndex, ChildBodyIndex);
-	int32 NewIndex = State->EditingAsset->AddConstraint(FName(JointNameBuf), ParentBodyIndex, ChildBodyIndex);
-
-	if (NewIndex >= 0)
-	{
-		// Constraint Frame 자동 계산
-		USkeletalMeshComponent* MeshComp = State->GetPreviewMeshComponent();
-		if (MeshComp &&
-		    ParentBodyIndex >= 0 && ParentBodyIndex < static_cast<int32>(State->EditingAsset->BodySetups.size()) &&
-		    ChildBodyIndex >= 0 && ChildBodyIndex < static_cast<int32>(State->EditingAsset->BodySetups.size()))
-		{
-			UBodySetup* ParentBody = State->EditingAsset->BodySetups[ParentBodyIndex];
-			UBodySetup* ChildBody = State->EditingAsset->BodySetups[ChildBodyIndex];
-
-			if (ParentBody && ChildBody)
-			{
-				FTransform ParentBoneTransform = MeshComp->GetBoneWorldTransform(ParentBody->BoneIndex);
-				FTransform ChildBoneTransform = MeshComp->GetBoneWorldTransform(ChildBody->BoneIndex);
-				CalculateConstraintFramesFromBones(
-					State->EditingAsset->ConstraintSetups[NewIndex],
-					ParentBoneTransform,
-					ChildBoneTransform
-				);
-			}
-		}
-
-		State->SelectConstraint(NewIndex);
-		State->bIsDirty = true;
-		State->RequestLinesRebuild();
-	}
-}
-
-void SPhysicsAssetEditorWindow::RemoveSelectedConstraint()
-{
-	PhysicsAssetEditorState* State = GetActivePhysicsState();
-	if (!State || !State->EditingAsset) return;
-	if (State->SelectedConstraintIndex < 0) return;
-
-	if (State->EditingAsset->RemoveConstraint(State->SelectedConstraintIndex))
-	{
-		State->ClearSelection();
-		State->bIsDirty = true;
-		State->RequestLinesRebuild();
-		State->HideGizmo();
-	}
-}
-
-void SPhysicsAssetEditorWindow::RegenerateSelectedBody(EAggCollisionShape PrimitiveType)
-{
-	PhysicsAssetEditorState* State = GetActivePhysicsState();
-	if (!State || State->SelectedBodyIndex < 0) return;
-	if (!State->EditingAsset || !State->CurrentMesh) return;
-
-	UBodySetup* Body = State->EditingAsset->BodySetups[State->SelectedBodyIndex];
-	if (!Body) return;
-
-	int32 BoneIndex = Body->BoneIndex;
-
-	USkeletalMeshComponent* MeshComp = State->GetPreviewMeshComponent();
-	if (!MeshComp) return;
-
-	// FBodyShapeCalculator를 사용하여 정점 분석 기반으로 재생성
-	// MinBoneSize는 0으로 설정하여 모든 바디 재생성 허용 (이미 존재하는 바디)
-	bool bSuccess = FBodyShapeCalculator::GenerateBodyShapeFromVertices(
-		Body,
-		BoneIndex,
-		State->CurrentMesh,
-		MeshComp,
-		PrimitiveType,
-		0.0f  // MinBoneSize = 0 (이미 존재하는 바디이므로 재생성 허용)
-	);
-
-	if (!bSuccess)
-	{
-		UE_LOG("[SPhysicsAssetEditorWindow] Failed to regenerate body for bone index %d", BoneIndex);
-		// 실패해도 기존 바디는 유지 (빈 상태가 됨)
-	}
-
-	State->bIsDirty = true;
-	State->RequestLinesRebuild();
-}
-
-void SPhysicsAssetEditorWindow::AddPrimitiveToBody(int32 BodyIndex, int32 PrimitiveType)
-{
-	PhysicsAssetEditorState* State = GetActivePhysicsState();
-	if (!State || !State->EditingAsset) return;
-	if (BodyIndex < 0 || BodyIndex >= static_cast<int32>(State->EditingAsset->BodySetups.size())) return;
-
-	UBodySetup* Body = State->EditingAsset->BodySetups[BodyIndex];
-	if (!Body) return;
-
-	switch (PrimitiveType)
-	{
-	case 0:  // Box
-	{
-		FKBoxElem NewBox(0.3f, 0.3f, 0.3f);
-		Body->AggGeom.BoxElems.Add(NewBox);
-		State->SelectPrimitive(BodyIndex, EAggCollisionShape::Box, Body->AggGeom.BoxElems.Num() - 1);
-		break;
-	}
-	case 1:  // Sphere
-	{
-		FKSphereElem NewSphere;
-		NewSphere.Radius = 0.15f;
-		Body->AggGeom.SphereElems.Add(NewSphere);
-		State->SelectPrimitive(BodyIndex, EAggCollisionShape::Sphere, Body->AggGeom.SphereElems.Num() - 1);
-		break;
-	}
-	case 2:  // Capsule
-	{
-		FKSphylElem NewCapsule(0.15f, 0.5f);
-		Body->AggGeom.SphylElems.Add(NewCapsule);
-		State->SelectPrimitive(BodyIndex, EAggCollisionShape::Sphyl, Body->AggGeom.SphylElems.Num() - 1);
-		break;
-	}
-	}
-
-	State->bIsDirty = true;
-	State->RequestLinesRebuild();
-}
-
-// ────────────────────────────────────────────────────────────────
-// 마우스 입력 (베이스 클래스의 bone picking 제거)
-// ────────────────────────────────────────────────────────────────
-
-void SPhysicsAssetEditorWindow::OnMouseDown(FVector2D MousePos, uint32 Button)
-{
-	if (!ActiveState || !ActiveState->Viewport) return;
-
-	// 현재 뷰포트가 호버되어 있어야 마우스 다운 처리 (Z-order 고려)
-	if (!ActiveState->Viewport->IsViewportHovered()) return;
-
-	if (CenterRect.Contains(MousePos))
-	{
-		FVector2D LocalPos = MousePos - FVector2D(CenterRect.Left, CenterRect.Top);
-
-		// 시뮬레이션 중에는 피킹 비활성화 (기즈모 피킹 포함)
-		PhysicsAssetEditorState* State = GetActivePhysicsState();
-		if (State && State->bSimulating)
-		{
-			// 우클릭(카메라 조작)만 허용
-			if (Button == 1)
-			{
-				UInputManager::GetInstance().SetCursorVisible(false);
-				UInputManager::GetInstance().LockCursor();
-				bRightMousePressed = true;
-			}
-			return;
-		}
-
-		// ─────────────────────────────────────────────
-		// 타이밍 측정 시작
-		// ─────────────────────────────────────────────
-		auto T0 = std::chrono::high_resolution_clock::now();
-
-		// 기즈모 피킹 수행
-		ActiveState->Viewport->ProcessMouseButtonDown((int32)LocalPos.X, (int32)LocalPos.Y, (int32)Button);
-
-		auto T1 = std::chrono::high_resolution_clock::now();
-
-		// 좌클릭: 바디 피킹
-		if (Button == 0)
-		{
-			if (State && State->EditingAsset && State->PreviewActor && State->Client && State->World)
-			{
-				// 기즈모가 선택되었는지 확인
-				UActorComponent* SelectedComp = State->World->GetSelectionManager()->GetSelectedComponent();
-				bool bGizmoSelected = SelectedComp && Cast<UBoneAnchorComponent>(SelectedComp);
-
-				// 기즈모가 선택되지 않은 경우에만 바디 피킹
-				if (!bGizmoSelected)
-				{
-					ACameraActor* Camera = State->Client->GetCamera();
-					if (Camera)
-					{
-						// 카메라 벡터
-						FVector CameraPos = Camera->GetActorLocation();
-						FVector CameraRight = Camera->GetRight();
-						FVector CameraUp = Camera->GetUp();
-						FVector CameraForward = Camera->GetForward();
-
-						// 뷰포트 마우스 위치
-						FVector2D ViewportMousePos(MousePos.X - CenterRect.Left, MousePos.Y - CenterRect.Top);
-						FVector2D ViewportSize(CenterRect.GetWidth(), CenterRect.GetHeight());
-
-						// 레이 생성
-						FRay Ray = MakeRayFromViewport(
-							Camera->GetViewMatrix(),
-							Camera->GetProjectionMatrix(CenterRect.GetWidth() / CenterRect.GetHeight(), State->Viewport),
-							CameraPos,
-							CameraRight,
-							CameraUp,
-							CameraForward,
-							ViewportMousePos,
-							ViewportSize
-						);
-
-						auto T2 = std::chrono::high_resolution_clock::now();
-
-						// 모든 바디에 대해 레이캐스트 (Primitive 레벨)
-						int32 ClosestBodyIndex = -1;
-						FPrimitiveHitResult ClosestPrimitiveHit;
-
-						USkeletalMeshComponent* SkelComp = State->GetPreviewMeshComponent();
-
-						if (SkelComp)
-						{
-							for (int32 i = 0; i < static_cast<int32>(State->EditingAsset->BodySetups.size()); ++i)
-							{
-								UBodySetup* Body = State->EditingAsset->BodySetups[i];
-								if (!Body || Body->BoneIndex < 0) continue;
-
-								// 본 월드 트랜스폼
-								FTransform BoneWorldTransform = SkelComp->GetBoneWorldTransform(Body->BoneIndex);
-
-								FPrimitiveHitResult HitResult;
-								if (PhysicsPickingHelper::IntersectRayBodyWithPrimitive(Ray, Body, BoneWorldTransform, HitResult))
-								{
-									if (HitResult.HitT < ClosestPrimitiveHit.HitT)
-									{
-										ClosestPrimitiveHit = HitResult;
-										ClosestBodyIndex = i;
-									}
-								}
-							}
-						}
-
-						auto T3 = std::chrono::high_resolution_clock::now();
-
-						if (ClosestBodyIndex >= 0 && ClosestPrimitiveHit.IsValid())
-						{
-							// Primitive 선택 (정확히 클릭된 primitive)
-							State->SelectPrimitive(ClosestBodyIndex, ClosestPrimitiveHit.PrimitiveType, ClosestPrimitiveHit.PrimitiveIndex);
-
-							// 선택된 바디의 본 인덱스도 업데이트 (그래프 동기화)
-							UBodySetup* SelectedBody = State->EditingAsset->BodySetups[ClosestBodyIndex];
-							if (SelectedBody)
-							{
-								State->SelectedBoneIndex = SelectedBody->BoneIndex;
-							}
-
-							// 그래프 기준도 선택된 바디로 업데이트
-							State->GraphPivotBodyIndex = ClosestBodyIndex;
-
-							// 기즈모 위치 업데이트 (선택된 primitive 기준)
-							RepositionAnchorToPrimitive();
-						}
-						else
-						{
-							// 빈 공간 클릭: 선택 해제 및 기즈모 숨기기
-							State->ClearSelection();
-							State->HideGizmo();
-						}
-
-						auto T4 = std::chrono::high_resolution_clock::now();
-
-						// ─────────────────────────────────────────────
-						// 타이밍 출력
-						// ─────────────────────────────────────────────
-						double Ms1 = std::chrono::duration<double, std::milli>(T1 - T0).count();
-						double Ms2 = std::chrono::duration<double, std::milli>(T2 - T1).count();
-						double Ms3 = std::chrono::duration<double, std::milli>(T3 - T2).count();
-						double Ms4 = std::chrono::duration<double, std::milli>(T4 - T3).count();
-						double MsTotal = std::chrono::duration<double, std::milli>(T4 - T0).count();
-
-						char buf[256];
-						sprintf_s(buf, "[PhysicsAssetEditor Pick] ProcessMouseButtonDown: %.2f ms | RaySetup: %.2f ms | BodyPicking: %.2f ms | Selection: %.2f ms | Total: %.2f ms",
-							Ms1, Ms2, Ms3, Ms4, MsTotal);
-						UE_LOG(buf);
-					}
-				}
-			}
-
-			bLeftMousePressed = true;
-		}
-
-		// 우클릭: 카메라 조작 시작
-		if (Button == 1)
-		{
-			UInputManager::GetInstance().SetCursorVisible(false);
-			UInputManager::GetInstance().LockCursor();
-			bRightMousePressed = true;
-		}
-	}
+    PhysicsAssetEditorState* PhysState = GetPhysicsState();
+    if (!PhysState)
+    {
+        UE_LOG("[PhysicsAssetEditor] LoadPhysicsAsset: 활성 상태가 없습니다");
+        return;
+    }
+
+    // 불러오기 파일 다이얼로그 열기
+    std::filesystem::path LoadPath = FPlatformProcess::OpenLoadFileDialog(
+        L"Data/Physics",           // 기본 디렉토리
+        L"physicsasset",           // 확장자 필터
+        L"Physics Asset Files"     // 파일 타입 설명
+    );
+
+    // 사용자가 취소한 경우
+    if (LoadPath.empty())
+    {
+        UE_LOG("[PhysicsAssetEditor] LoadPhysicsAsset: 사용자가 취소했습니다");
+        return;
+    }
+
+    // std::filesystem::path를 FString으로 변환
+    FString LoadPathStr = WideToUTF8(LoadPath.wstring());
+
+    // 파일에서 Physics Asset 로드 (FBX 경로도 함께 반환)
+    FString SourceFbxPath;
+    UPhysicsAsset* LoadedAsset = PhysicsAssetEditorBootstrap::LoadPhysicsAsset(LoadPathStr, &SourceFbxPath);
+    if (!LoadedAsset)
+    {
+        UE_LOG("[PhysicsAssetEditor] 로드 실패: %s", LoadPathStr.c_str());
+        return;
+    }
+
+    // 기존 에셋 교체
+    PhysState->EditingAsset = LoadedAsset;
+
+    // SkeletalMeshComponent에 EditingAsset 설정 (디버그 렌더링을 위해)
+    if (PhysState->PreviewActor)
+    {
+        if (USkeletalMeshComponent* SkelComp = PhysState->PreviewActor->GetSkeletalMeshComponent())
+        {
+            SkelComp->SetPhysicsAsset(LoadedAsset);
+        }
+    }
+
+    // 파일 경로 설정 및 Dirty 플래그 해제
+    PhysState->CurrentFilePath = LoadPathStr;
+    PhysState->bIsDirty = false;
+
+    // 선택 상태 초기화
+    PhysState->SelectedBodyIndex = -1;
+    PhysState->SelectedConstraintIndex = -1;
+    PhysState->SelectedShapeIndex = -1;
+    PhysState->SelectedShapeType = EShapeType::None;
+
+    // 소스 FBX 파일이 있으면 자동으로 로드
+    if (!SourceFbxPath.empty() && ActiveState)
+    {
+        USkeletalMesh* Mesh = UResourceManager::GetInstance().Load<USkeletalMesh>(SourceFbxPath);
+        if (Mesh && ActiveState->PreviewActor)
+        {
+            ActiveState->PreviewActor->SetSkeletalMesh(SourceFbxPath);
+            ActiveState->CurrentMesh = Mesh;
+
+            // MeshPathBuffer 업데이트 (Asset Browser UI에 표시)
+            size_t copyLen = std::min(SourceFbxPath.size(), sizeof(ActiveState->MeshPathBuffer) - 1);
+            memcpy(ActiveState->MeshPathBuffer, SourceFbxPath.c_str(), copyLen);
+            ActiveState->MeshPathBuffer[copyLen] = '\0';
+
+            // Physics Asset 로드 시에는 OnSkeletalMeshLoaded를 호출하지 않음
+            // (이미 로드된 Body/Constraint 데이터를 유지하기 위해)
+
+            ActiveState->LoadedMeshPath = SourceFbxPath;
+            if (auto* Skeletal = ActiveState->PreviewActor->GetSkeletalMeshComponent())
+            {
+                Skeletal->SetVisibility(ActiveState->bShowMesh);
+            }
+            ActiveState->bBoneLinesDirty = true;
+            if (auto* LineComp = ActiveState->PreviewActor->GetBoneLineComponent())
+            {
+                LineComp->ClearLines();
+                LineComp->SetLineVisible(ActiveState->bShowBones);
+            }
+            // 본 라인 캐시 초기화 (다른 메시의 캐시가 남아있으면 본 모양이 이상해짐)
+            // TODO: ResetBoneLinesCache는 Week_Final_5에 없음 - bBoneLinesDirty로 대체
+
+            // 본 선택 상태 초기화 (이전 메시의 선택이 남아있으면 하이라이트가 이상해짐)
+            ActiveState->SelectedBoneIndex = -1;
+
+            // Shape 라인 재구성 필요
+            PhysState->bShapesDirty = true;
+
+            UE_LOG("[PhysicsAssetEditor] 로드 완료: %s (FBX: %s)", LoadPathStr.c_str(), SourceFbxPath.c_str());
+        }
+        else
+        {
+            UE_LOG("[PhysicsAssetEditor] 로드 완료: %s (FBX 로드 실패: %s)", LoadPathStr.c_str(), SourceFbxPath.c_str());
+        }
+    }
+    else
+    {
+        UE_LOG("[PhysicsAssetEditor] 로드 완료: %s (FBX 경로 없음)", LoadPathStr.c_str());
+    }
 }
 
 void SPhysicsAssetEditorWindow::OnMouseUp(FVector2D MousePos, uint32 Button)
 {
-	if (!ActiveState || !ActiveState->Viewport) return;
+    // 부모 클래스 호출 (기즈모 마우스업 처리)
+    SViewerWindow::OnMouseUp(MousePos, Button);
 
-	FVector2D LocalPos = MousePos - FVector2D(CenterRect.Left, CenterRect.Top);
-	ActiveState->Viewport->ProcessMouseButtonUp((int32)LocalPos.X, (int32)LocalPos.Y, (int32)Button);
-
-	// 좌클릭 해제
-	if (Button == 0)
-	{
-		bLeftMousePressed = false;
-	}
-
-	// 우클릭 해제: 카메라 조작 종료
-	if (Button == 1)
-	{
-		UInputManager::GetInstance().SetCursorVisible(true);
-		UInputManager::GetInstance().ReleaseCursor();
-		bRightMousePressed = false;
-	}
+    // 마우스 업 시 기즈모가 드래그 중이 아니면 플래그 리셋
+    PhysicsAssetEditorState* PhysState = GetPhysicsState();
+    AGizmoActor* Gizmo = GetGizmoActor();
+    if (PhysState && PhysState->ShapeGizmoAnchor && (!Gizmo || !Gizmo->GetbIsDragging()))
+    {
+        PhysState->ShapeGizmoAnchor->bIsBeingManipulated = false;
+    }
 }
 
-// ────────────────────────────────────────────────────────────────
-// Sub Widget 관리
-// ────────────────────────────────────────────────────────────────
-
-void SPhysicsAssetEditorWindow::CreateSubWidgets()
+void SPhysicsAssetEditorWindow::OnMouseDown(FVector2D MousePos, uint32 Button)
 {
-	SkeletonTreeWidget = NewObject<USkeletonTreeWidget>();
-	SkeletonTreeWidget->Initialize();
+    PhysicsAssetEditorState* PhysState = GetPhysicsState();
+    if (!PhysState || !PhysState->Viewport) return;
+    if (!PhysState->Viewport->IsViewportHovered()) return;
 
-	// SkeletonTreeWidget 콜백 연결
-	SkeletonTreeWidget->OnAddBody.Add([this](int32 BoneIndex) {
-		// 기본값으로 Capsule 사용
-		AddBodyToBone(BoneIndex, EAggCollisionShape::Sphyl);
-	});
+    if (!CenterRect.Contains(MousePos)) return;
 
-	SkeletonTreeWidget->OnRemoveBody.Add([this](int32 BodyIndex) {
-		PhysicsAssetEditorState* State = GetActivePhysicsState();
-		if (State)
-		{
-			State->SelectBody(BodyIndex);
-			RemoveSelectedBody();
-		}
-	});
+    FVector2D LocalPos = MousePos - FVector2D(CenterRect.Left, CenterRect.Top);
 
-	SkeletonTreeWidget->OnAddPrimitive.Add([this](int32 BodyIndex, int32 PrimitiveType) {
-		AddPrimitiveToBody(BodyIndex, PrimitiveType);
-	});
+    // 기즈모 피킹 먼저 시도
+    PhysState->Viewport->ProcessMouseButtonDown((int32)LocalPos.X, (int32)LocalPos.Y, (int32)Button);
 
-	SkeletonTreeWidget->OnAddConstraint.Add([this](int32 BodyIndex1, int32 BodyIndex2) {
-		AddConstraintBetweenBodies(BodyIndex1, BodyIndex2);
-	});
+    // 드래그 상태 추적 (뷰포트 밖에서도 드래그가 동작하도록)
+    if (Button == 0)
+    {
+        bLeftMousePressed = true;
+    }
+    if (Button == 1)
+    {
+        INPUT.SetCursorVisible(false);
+        INPUT.LockCursor();
+        bRightMousePressed = true;
+    }
 
-	SkeletonTreeWidget->OnRemoveConstraint.Add([this](int32 ConstraintIndex) {
-		PhysicsAssetEditorState* State = GetActivePhysicsState();
-		if (State)
-		{
-			State->SelectConstraint(ConstraintIndex);
-			RemoveSelectedConstraint();
-		}
-	});
+    // 좌클릭일 때만 Shape/Constraint 피킹 시도
+    if (Button != 0) return;
 
-	BodyPropertiesWidget = NewObject<UBodyPropertiesWidget>();
-	BodyPropertiesWidget->Initialize();
+    // 기즈모가 선택되었는지 확인 - 선택됐으면 Shape/Constraint 피킹 스킵
+    if (PhysState->World)
+    {
+        UActorComponent* SelectedComp = PhysState->World->GetSelectionManager()->GetSelectedComponent();
+        if (SelectedComp)
+        {
+            // ShapeAnchorComponent, ConstraintAnchorComponent, 또는 BoneAnchorComponent가 선택됐으면 피킹 스킵
+            if (Cast<UShapeAnchorComponent>(SelectedComp) ||
+                Cast<UConstraintAnchorComponent>(SelectedComp) ||
+                Cast<UBoneAnchorComponent>(SelectedComp))
+            {
+                return;
+            }
+        }
+    }
 
-	ConstraintPropertiesWidget = NewObject<UConstraintPropertiesWidget>();
-	ConstraintPropertiesWidget->Initialize();
+    if (!PhysState->EditingAsset) return;
+    if (!PhysState->CurrentMesh) return;
+    if (!PhysState->Client) return;
 
-	ToolsWidget = NewObject<UToolsWidget>();
-	ToolsWidget->Initialize();
-	ToolsWidget->SetEditorWindow(this);
+    const FSkeleton* Skeleton = PhysState->CurrentMesh->GetSkeleton();
+    if (!Skeleton) return;
+
+    ASkeletalMeshActor* PreviewActor = static_cast<ASkeletalMeshActor*>(PhysState->PreviewActor);
+    if (!PreviewActor) return;
+    USkeletalMeshComponent* MeshComp = PreviewActor->GetSkeletalMeshComponent();
+    if (!MeshComp) return;
+
+    ACameraActor* Camera = PhysState->Client->GetCamera();
+    if (!Camera) return;
+
+    // 레이 생성
+    FVector CameraPos = Camera->GetActorLocation();
+    FVector CameraRight = Camera->GetRight();
+    FVector CameraUp = Camera->GetUp();
+    FVector CameraForward = Camera->GetForward();
+
+    FVector2D ViewportMousePos(MousePos.X - CenterRect.Left, MousePos.Y - CenterRect.Top);
+    FVector2D ViewportSize(CenterRect.GetWidth(), CenterRect.GetHeight());
+
+    FRay Ray = MakeRayFromViewport(
+        Camera->GetViewMatrix(),
+        Camera->GetProjectionMatrix(CenterRect.GetWidth() / CenterRect.GetHeight(), PhysState->Viewport),
+        CameraPos,
+        CameraRight,
+        CameraUp,
+        CameraForward,
+        ViewportMousePos,
+        ViewportSize
+    );
+
+    // 모든 Body의 Shape들과 레이캐스트
+    int32 ClosestBodyIndex = -1;
+    int32 ClosestShapeIndex = -1;
+    EShapeType ClosestShapeType = EShapeType::None;
+    float ClosestDistance = FLT_MAX;
+
+    for (int32 BodyIndex = 0; BodyIndex < PhysState->EditingAsset->Bodies.Num(); ++BodyIndex)
+    {
+        UBodySetup* Body = PhysState->EditingAsset->Bodies[BodyIndex];
+        if (!Body) continue;
+
+        // 본 인덱스 찾기
+        int32 BoneIndex = -1;
+        for (int32 i = 0; i < (int32)Skeleton->Bones.size(); ++i)
+        {
+            if (Skeleton->Bones[i].Name == Body->BoneName.ToString())
+            {
+                BoneIndex = i;
+                break;
+            }
+        }
+        if (BoneIndex < 0) continue;
+
+        FTransform BoneWorldTransform = MeshComp->GetBoneWorldTransform(BoneIndex);
+
+        // Sphere Shape 피킹
+        for (int32 i = 0; i < Body->AggGeom.SphereElems.Num(); ++i)
+        {
+            const FKSphereElem& Sphere = Body->AggGeom.SphereElems[i];
+            FVector ShapeCenter = BoneWorldTransform.Translation +
+                BoneWorldTransform.Rotation.RotateVector(Sphere.Center);
+
+            float HitT;
+            if (IntersectRaySphere(Ray, ShapeCenter, Sphere.Radius, HitT))
+            {
+                if (HitT < ClosestDistance)
+                {
+                    ClosestDistance = HitT;
+                    ClosestBodyIndex = BodyIndex;
+                    ClosestShapeIndex = i;
+                    ClosestShapeType = EShapeType::Sphere;
+                }
+            }
+        }
+
+        // Box Shape 피킹 (OBB 충돌 검사)
+        for (int32 i = 0; i < Body->AggGeom.BoxElems.Num(); ++i)
+        {
+            const FKBoxElem& Box = Body->AggGeom.BoxElems[i];
+            FVector ShapeCenter = BoneWorldTransform.Translation +
+                BoneWorldTransform.Rotation.RotateVector(Box.Center);
+
+            // Box.Rotation은 이미 FQuat
+            FQuat FinalRotation = BoneWorldTransform.Rotation * Box.Rotation;
+
+            // Box.X/Y/Z는 half extent
+            FVector HalfExtent(Box.X, Box.Y, Box.Z);
+
+            float HitT;
+            if (IntersectRayOBB(Ray, ShapeCenter, HalfExtent, FinalRotation, HitT))
+            {
+                if (HitT < ClosestDistance)
+                {
+                    ClosestDistance = HitT;
+                    ClosestBodyIndex = BodyIndex;
+                    ClosestShapeIndex = i;
+                    ClosestShapeType = EShapeType::Box;
+                }
+            }
+        }
+
+        // Capsule Shape 피킹 (정확한 캡슐 충돌 검사)
+        for (int32 i = 0; i < Body->AggGeom.SphylElems.Num(); ++i)
+        {
+            const FKSphylElem& Capsule = Body->AggGeom.SphylElems[i];
+            FVector ShapeCenter = BoneWorldTransform.Translation +
+                BoneWorldTransform.Rotation.RotateVector(Capsule.Center);
+
+            // 기본 축 회전: 엔진 캡슐(Z축) → PhysX 캡슐(X축) - BodyInstance/RagdollDebugRenderer와 동일
+            FQuat BaseRotation = FQuat::MakeFromEulerZYX(FVector(-90.0f, 0.0f, 0.0f));
+            // Capsule.Rotation은 이미 FQuat
+            FQuat UserRotation = Capsule.Rotation;
+            FQuat FinalLocalRotation = UserRotation * BaseRotation;
+            FQuat FinalRotation = BoneWorldTransform.Rotation * FinalLocalRotation;
+
+            // Week_Final_5 IntersectRayCapsule: (Ray, CapsuleStart, CapsuleEnd, Radius, OutT)
+            // CapsuleStart/End는 반구 중심 (cylinder 양 끝)
+            float CylinderHalfLength = Capsule.Length * 0.5f;
+            FVector CapsuleAxis = FinalRotation.RotateVector(FVector(0, 1, 0));  // Y축이 캡슐 길이 방향
+            FVector CapsuleStart = ShapeCenter - CapsuleAxis * CylinderHalfLength;
+            FVector CapsuleEnd = ShapeCenter + CapsuleAxis * CylinderHalfLength;
+
+            float HitT;
+            if (IntersectRayCapsule(Ray, CapsuleStart, CapsuleEnd, Capsule.Radius, HitT))
+            {
+                if (HitT < ClosestDistance)
+                {
+                    ClosestDistance = HitT;
+                    ClosestBodyIndex = BodyIndex;
+                    ClosestShapeIndex = i;
+                    ClosestShapeType = EShapeType::Capsule;
+                }
+            }
+        }
+    }
+
+    // Constraint 피킹 (Shape보다 우선순위 낮음)
+    int32 ClosestConstraintIndex = -1;
+    float ClosestConstraintDistance = FLT_MAX;
+    const float ConstraintPickRadius = 0.15f;  // 피킹 반경 (월드 스페이스)
+
+    for (int32 i = 0; i < PhysState->EditingAsset->Constraints.Num(); ++i)
+    {
+        FConstraintInstance& Constraint = PhysState->EditingAsset->Constraints[i];
+
+        // Bone2 (Parent 본) 인덱스 찾기 - Constraint 위치는 Position2 기준 (Parent 본)
+        int32 Bone2Index = -1;
+        for (int32 j = 0; j < (int32)Skeleton->Bones.size(); ++j)
+        {
+            if (Skeleton->Bones[j].Name == Constraint.ConstraintBone2.ToString())
+            {
+                Bone2Index = j;
+                break;
+            }
+        }
+        if (Bone2Index < 0) continue;
+
+        // Constraint 월드 위치 계산 (Bone2/Parent 본 기준, Position2 사용)
+        // ConstraintAnchorComponent::UpdateAnchorFromConstraint()와 동일한 계산
+        FTransform Bone2WorldTransform = MeshComp->GetBoneWorldTransform(Bone2Index);
+        FVector ConstraintWorldPos = Bone2WorldTransform.Translation +
+            Bone2WorldTransform.Rotation.RotateVector(Constraint.Position2);
+
+        // Ray와 점 사이의 최단 거리 계산
+        FVector RayToPoint = ConstraintWorldPos - Ray.Origin;
+        float ProjectedLength = FVector::Dot(RayToPoint, Ray.Direction);
+
+        // 카메라 뒤에 있으면 스킵
+        if (ProjectedLength < 0) continue;
+
+        FVector ClosestPointOnRay = Ray.Origin + Ray.Direction * ProjectedLength;
+        float DistanceToRay = (ConstraintWorldPos - ClosestPointOnRay).Size();
+
+        // 피킹 반경 내에 있고 Shape보다 가까우면 선택
+        if (DistanceToRay < ConstraintPickRadius && ProjectedLength < ClosestConstraintDistance)
+        {
+            // Shape가 더 가까우면 Shape 우선
+            if (ClosestBodyIndex >= 0 && ClosestDistance < ProjectedLength)
+                continue;
+
+            ClosestConstraintDistance = ProjectedLength;
+            ClosestConstraintIndex = i;
+        }
+    }
+
+    // 피킹 결과 적용 (Shape 우선, 그 다음 Constraint)
+    if (ClosestBodyIndex >= 0 && (ClosestConstraintIndex < 0 || ClosestDistance <= ClosestConstraintDistance))
+    {
+        SelectBody(ClosestBodyIndex, PhysicsAssetEditorState::ESelectionSource::TreeOrViewport);
+        PhysState->SelectedShapeIndex = ClosestShapeIndex;
+        PhysState->SelectedShapeType = ClosestShapeType;
+        UpdateShapeGizmo();
+    }
+    else if (ClosestConstraintIndex >= 0)
+    {
+        SelectConstraint(ClosestConstraintIndex, PhysicsAssetEditorState::ESelectionSource::TreeOrViewport);
+    }
+    else
+    {
+        // 아무것도 피킹되지 않으면 선택 해제
+        ClearSelection();
+    }
 }
 
-void SPhysicsAssetEditorWindow::DestroySubWidgets()
+ViewerState* SPhysicsAssetEditorWindow::CreateViewerState(const char* Name, UEditorAssetPreviewContext* Context)
 {
-	if (SkeletonTreeWidget)
-	{
-		// 콜백 정리
-		SkeletonTreeWidget->OnAddBody.Clear();
-		SkeletonTreeWidget->OnRemoveBody.Clear();
-		SkeletonTreeWidget->OnAddPrimitive.Clear();
-		SkeletonTreeWidget->OnAddConstraint.Clear();
-		SkeletonTreeWidget->OnRemoveConstraint.Clear();
-
-		DeleteObject(SkeletonTreeWidget);
-		SkeletonTreeWidget = nullptr;
-	}
-	if (BodyPropertiesWidget)
-	{
-		DeleteObject(BodyPropertiesWidget);
-		BodyPropertiesWidget = nullptr;
-	}
-	if (ConstraintPropertiesWidget)
-	{
-		DeleteObject(ConstraintPropertiesWidget);
-		ConstraintPropertiesWidget = nullptr;
-	}
-	if (ToolsWidget)
-	{
-		DeleteObject(ToolsWidget);
-		ToolsWidget = nullptr;
-	}
+    return PhysicsAssetEditorBootstrap::CreateViewerState(Name, World, Device, Context);
 }
 
-void SPhysicsAssetEditorWindow::UpdateSubWidgetEditorState()
+void SPhysicsAssetEditorWindow::DestroyViewerState(ViewerState*& State)
 {
-	PhysicsAssetEditorState* State = GetActivePhysicsState();
-	if (SkeletonTreeWidget)
-	{
-		SkeletonTreeWidget->SetEditorState(State);
-	}
-	if (BodyPropertiesWidget)
-	{
-		BodyPropertiesWidget->SetEditorState(State);
-	}
-	if (ConstraintPropertiesWidget)
-	{
-		ConstraintPropertiesWidget->SetEditorState(State);
-	}
-	if (ToolsWidget)
-	{
-		ToolsWidget->SetEditorState(State);
-	}
+    PhysicsAssetEditorBootstrap::DestroyViewerState(State);
 }
 
-// ────────────────────────────────────────────────────────────────
-// 기즈모 연동
-// ────────────────────────────────────────────────────────────────
-
-void SPhysicsAssetEditorWindow::RepositionAnchorToPrimitive()
+void SPhysicsAssetEditorWindow::OnSkeletalMeshLoaded(ViewerState* State, const FString& Path)
 {
-	PhysicsAssetEditorState* State = GetActivePhysicsState();
-	if (!State || !State->EditingAsset || !State->PreviewActor || !State->World)
-		return;
+    if (!State || !State->CurrentMesh) return;
 
-	if (!State->HasPrimitiveSelection())
-		return;
+    PhysicsAssetEditorState* PhysState = static_cast<PhysicsAssetEditorState*>(State);
 
-	int32 BodyIndex = State->SelectedBodyIndex;
-	if (BodyIndex < 0 || BodyIndex >= static_cast<int32>(State->EditingAsset->BodySetups.size()))
-		return;
+    // 선택 상태 초기화 (Bodies/Constraints가 비워지기 전에 먼저 초기화)
+    PhysState->SelectedBodyIndex = -1;
+    PhysState->SelectedConstraintIndex = -1;
+    PhysState->SelectedShapeIndex = -1;
+    PhysState->SelectedShapeType = EShapeType::None;
+    PhysState->ConstraintStartBodyIndex = -1;
+    PhysState->GraphFocusBodyIndex = -1;
+    State->SelectedBoneIndex = -1;  // 본 선택 초기화
+    PhysState->bShapesDirty = true;
+    PhysState->bConstraintsDirty = true;
+    State->bBoneLinesDirty = true;
 
-	ASkeletalMeshActor* SkelActor = State->GetPreviewSkeletalActor();
-	if (!SkelActor) return;
+    // 기즈모 숨김
+    UpdateShapeGizmo();
+    UpdateConstraintGizmo();
 
-	// BoneAnchor 컴포넌트가 없으면 생성
-	SkelActor->EnsureViewerComponents();
+    if (PhysState->EditingAsset)
+    {
+        PhysState->EditingAsset->Bodies.Empty();
+        PhysState->EditingAsset->Constraints.Empty();
+    }
 
-	USkeletalMeshComponent* MeshComp = State->GetPreviewMeshComponent();
-	USceneComponent* Anchor = SkelActor->GetBoneGizmoAnchor();
+    // SkeletalMeshComponent에 EditingAsset 설정 (디버그 렌더링을 위해)
+    if (PhysState->PreviewActor)
+    {
+        if (USkeletalMeshComponent* SkelComp = PhysState->PreviewActor->GetSkeletalMeshComponent())
+        {
+            SkelComp->SetPhysicsAsset(PhysState->EditingAsset);
+        }
+    }
 
-	if (!MeshComp || !Anchor)
-		return;
-
-	UBodySetup* Body = State->EditingAsset->BodySetups[BodyIndex];
-	if (!Body) return;
-
-	// 바디의 월드 트랜스폼 계산: 본 월드 트랜스폼 기준
-	FTransform BoneWorldTransform;
-	if (Body->BoneIndex >= 0)
-	{
-		BoneWorldTransform = MeshComp->GetBoneWorldTransform(Body->BoneIndex);
-	}
-	else
-	{
-		BoneWorldTransform = MeshComp->GetWorldTransform();
-	}
-
-	// 선택된 Primitive의 Center/Rotation 가져오기
-	FVector ShapeCenter = FVector(0.0f, 0.0f, 0.0f);
-	FQuat ShapeRotation = FQuat::Identity();
-
-	EAggCollisionShape PrimType = State->SelectedPrimitive.PrimitiveType;
-	int32 PrimIndex = State->SelectedPrimitive.PrimitiveIndex;
-
-	switch (PrimType)
-	{
-	case EAggCollisionShape::Sphere:
-		if (PrimIndex >= 0 && PrimIndex < Body->AggGeom.SphereElems.Num())
-		{
-			ShapeCenter = Body->AggGeom.SphereElems[PrimIndex].Center;
-			// Sphere has no rotation
-		}
-		break;
-	case EAggCollisionShape::Box:
-		if (PrimIndex >= 0 && PrimIndex < Body->AggGeom.BoxElems.Num())
-		{
-			ShapeCenter = Body->AggGeom.BoxElems[PrimIndex].Center;
-			ShapeRotation = Body->AggGeom.BoxElems[PrimIndex].Rotation;
-		}
-		break;
-	case EAggCollisionShape::Sphyl:
-		if (PrimIndex >= 0 && PrimIndex < Body->AggGeom.SphylElems.Num())
-		{
-			ShapeCenter = Body->AggGeom.SphylElems[PrimIndex].Center;
-			ShapeRotation = Body->AggGeom.SphylElems[PrimIndex].Rotation;
-		}
-		break;
-	default:
-		return;
-	}
-
-	// Shape의 로컬 트랜스폼을 본의 월드 트랜스폼으로 변환
-	FVector WorldCenter = BoneWorldTransform.Translation + BoneWorldTransform.Rotation.RotateVector(ShapeCenter);
-	FQuat WorldRotation = BoneWorldTransform.Rotation * ShapeRotation;
-
-	// 앵커를 primitive의 월드 위치로 이동
-	Anchor->SetWorldLocation(WorldCenter);
-	Anchor->SetWorldRotation(WorldRotation);
-
-	// 앵커 편집 가능 상태로 설정
-	if (UBoneAnchorComponent* BoneAnchor = Cast<UBoneAnchorComponent>(Anchor))
-	{
-		BoneAnchor->SetSuppressWriteback(true);  // 본 수정 방지
-		BoneAnchor->SetEditability(true);
-		BoneAnchor->SetVisibility(true);
-	}
-
-	// SelectionManager를 통해 앵커 선택 (기즈모가 앵커에 연결됨)
-	USelectionManager* SelectionManager = State->World->GetSelectionManager();
-	if (SelectionManager)
-	{
-		SelectionManager->SelectActor(State->PreviewActor);
-		SelectionManager->SelectComponent(Anchor);
-	}
+    UE_LOG("SPhysicsAssetEditorWindow: Loaded skeletal mesh from %s", Path.c_str());
 }
 
-void SPhysicsAssetEditorWindow::UpdatePrimitiveTransformFromGizmo()
+void SPhysicsAssetEditorWindow::RenderLeftPanel(float PanelWidth)
 {
-	PhysicsAssetEditorState* State = GetActivePhysicsState();
-	if (!State || !State->EditingAsset || !State->PreviewActor || !State->World)
-		return;
+    if (!ActiveState) return;
 
-	if (!State->HasPrimitiveSelection())
-		return;
+    // Asset Browser 섹션 (부모 클래스에서 가져옴)
+    // RenderAssetBrowser(PanelWidth);  // Week_Final_5에 없음
 
-	int32 BodyIndex = State->SelectedBodyIndex;
-	if (BodyIndex < 0 || BodyIndex >= static_cast<int32>(State->EditingAsset->BodySetups.size()))
-		return;
+    // Display Options 섹션
+    RenderDisplayOptions(PanelWidth);
 
-	ASkeletalMeshActor* SkelActor = State->GetPreviewSkeletalActor();
-	if (!SkelActor) return;
+    float totalHeight = ImGui::GetContentRegionAvail().y;
+    float splitterHeight = 4.0f;
+    float treeHeight = (totalHeight - splitterHeight) * LeftPanelSplitRatio;
+    float graphHeight = (totalHeight - splitterHeight) * (1.0f - LeftPanelSplitRatio);
 
-	// BoneAnchor 컴포넌트가 없으면 생성
-	SkelActor->EnsureViewerComponents();
+    RenderSkeletonTreePanel(PanelWidth, treeHeight);
 
-	USkeletalMeshComponent* MeshComp = State->GetPreviewMeshComponent();
-	USceneComponent* Anchor = SkelActor->GetBoneGizmoAnchor();
-	AGizmoActor* Gizmo = State->World->GetGizmoActor();
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.3f, 0.3f, 0.5f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.4f, 0.4f, 0.4f, 0.7f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.5f, 0.5f, 0.5f, 0.9f));
+    ImGui::Button("##LeftPanelSplitter", ImVec2(PanelWidth - 16, splitterHeight));
+    ImGui::PopStyleColor(3);
 
-	if (!MeshComp || !Anchor || !Gizmo)
-		return;
+    if (ImGui::IsItemHovered()) ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeNS);
+    if (ImGui::IsItemActive())
+    {
+        float delta = ImGui::GetIO().MouseDelta.y;
+        if (delta != 0.0f)
+        {
+            float newRatio = LeftPanelSplitRatio + delta / totalHeight;
+            LeftPanelSplitRatio = std::clamp(newRatio, 0.2f, 0.8f);
+        }
+    }
 
-	UBodySetup* Body = State->EditingAsset->BodySetups[BodyIndex];
-	if (!Body) return;
-
-	// 기즈모 모드 확인
-	EGizmoMode CurrentGizmoMode = Gizmo->GetGizmoMode();
-
-	// 앵커의 현재 월드 트랜스폼 (기즈모로 이동됨)
-	const FTransform& AnchorWorldTransform = Anchor->GetWorldTransform();
-
-	// 본의 월드 트랜스폼 가져오기 (바디의 부모)
-	FTransform BoneWorldTransform;
-	if (Body->BoneIndex >= 0)
-	{
-		BoneWorldTransform = MeshComp->GetBoneWorldTransform(Body->BoneIndex);
-	}
-	else
-	{
-		BoneWorldTransform = MeshComp->GetWorldTransform();
-	}
-
-	// 원하는 로컬 트랜스폼 계산: 본 월드 기준 앵커의 상대 트랜스폼
-	FQuat InvBoneRotation = BoneWorldTransform.Rotation.Inverse();
-	FVector DesiredLocalCenter = InvBoneRotation.RotateVector(AnchorWorldTransform.Translation - BoneWorldTransform.Translation);
-	FQuat DesiredLocalRotation = InvBoneRotation * AnchorWorldTransform.Rotation;
-
-	// 벡터 비교 헬퍼 람다
-	auto VectorEquals = [](const FVector& A, const FVector& B, float Tolerance) -> bool
-	{
-		return std::abs(A.X - B.X) <= Tolerance &&
-		       std::abs(A.Y - B.Y) <= Tolerance &&
-		       std::abs(A.Z - B.Z) <= Tolerance;
-	};
-
-	bool bChanged = false;
-
-	EAggCollisionShape PrimType = State->SelectedPrimitive.PrimitiveType;
-	int32 PrimIndex = State->SelectedPrimitive.PrimitiveIndex;
-
-	// 선택된 Primitive의 Center/Rotation 업데이트
-	switch (CurrentGizmoMode)
-	{
-	case EGizmoMode::Translate:
-		{
-			FVector NewCenter = DesiredLocalCenter;
-			switch (PrimType)
-			{
-			case EAggCollisionShape::Sphere:
-				if (PrimIndex >= 0 && PrimIndex < Body->AggGeom.SphereElems.Num())
-				{
-					if (!VectorEquals(NewCenter, Body->AggGeom.SphereElems[PrimIndex].Center, 0.001f))
-					{
-						Body->AggGeom.SphereElems[PrimIndex].Center = NewCenter;
-						bChanged = true;
-					}
-				}
-				break;
-			case EAggCollisionShape::Box:
-				if (PrimIndex >= 0 && PrimIndex < Body->AggGeom.BoxElems.Num())
-				{
-					if (!VectorEquals(NewCenter, Body->AggGeom.BoxElems[PrimIndex].Center, 0.001f))
-					{
-						Body->AggGeom.BoxElems[PrimIndex].Center = NewCenter;
-						bChanged = true;
-					}
-				}
-				break;
-			case EAggCollisionShape::Sphyl:
-				if (PrimIndex >= 0 && PrimIndex < Body->AggGeom.SphylElems.Num())
-				{
-					if (!VectorEquals(NewCenter, Body->AggGeom.SphylElems[PrimIndex].Center, 0.001f))
-					{
-						Body->AggGeom.SphylElems[PrimIndex].Center = NewCenter;
-						bChanged = true;
-					}
-				}
-				break;
-			}
-		}
-		break;
-
-	case EGizmoMode::Rotate:
-		{
-			FQuat NewRotation = DesiredLocalRotation;
-			// Box와 Capsule만 회전을 가짐 (Sphere는 회전 무의미)
-			switch (PrimType)
-			{
-			case EAggCollisionShape::Box:
-				if (PrimIndex >= 0 && PrimIndex < Body->AggGeom.BoxElems.Num())
-				{
-					float Dot = std::abs(FQuat::Dot(Body->AggGeom.BoxElems[PrimIndex].Rotation, NewRotation));
-					if (Dot < 0.9999f)
-					{
-						Body->AggGeom.BoxElems[PrimIndex].Rotation = NewRotation;
-						bChanged = true;
-					}
-				}
-				break;
-			case EAggCollisionShape::Sphyl:
-				if (PrimIndex >= 0 && PrimIndex < Body->AggGeom.SphylElems.Num())
-				{
-					float Dot = std::abs(FQuat::Dot(Body->AggGeom.SphylElems[PrimIndex].Rotation, NewRotation));
-					if (Dot < 0.9999f)
-					{
-						Body->AggGeom.SphylElems[PrimIndex].Rotation = NewRotation;
-						bChanged = true;
-					}
-				}
-				break;
-			}
-		}
-		break;
-
-	case EGizmoMode::Scale:
-		// Scale 모드: Shape 크기 조절 (향후 구현 가능)
-		break;
-
-	default:
-		// Select 모드 등에서는 아무것도 하지 않음
-		return;
-	}
-
-	if (bChanged)
-	{
-		State->bIsDirty = true;
-		State->RequestSelectedBodyLinesUpdate();  // 라인 좌표 업데이트 (색상/개수 유지)
-	}
+    RenderGraphViewPanel(PanelWidth, graphHeight);
 }
 
-void SPhysicsAssetEditorWindow::RepositionAnchorToConstraint()
+void SPhysicsAssetEditorWindow::RenderRightPanel()
 {
-	PhysicsAssetEditorState* State = GetActivePhysicsState();
-	if (!State || !State->EditingAsset || !State->PreviewActor || !State->World)
-		return;
+    PhysicsAssetEditorState* PhysState = GetPhysicsState();
+    if (!PhysState) return;
 
-	int32 ConstraintIndex = State->SelectedConstraintIndex;
-	if (ConstraintIndex < 0 || ConstraintIndex >= static_cast<int32>(State->EditingAsset->ConstraintSetups.size()))
-		return;
+    ImGui::Text("Details");
+    ImGui::Separator();
+    ImGui::Spacing();
 
-	const FConstraintSetup& Constraint = State->EditingAsset->ConstraintSetups[ConstraintIndex];
-	if (Constraint.ParentBodyIndex < 0 || Constraint.ParentBodyIndex >= static_cast<int32>(State->EditingAsset->BodySetups.size()))
-		return;
-	if (Constraint.ChildBodyIndex < 0 || Constraint.ChildBodyIndex >= static_cast<int32>(State->EditingAsset->BodySetups.size()))
-		return;
+    if (PhysState->SelectedBodyIndex >= 0 && PhysState->EditingAsset)
+    {
+        if (PhysState->SelectedBodyIndex < PhysState->EditingAsset->Bodies.Num())
+        {
+            UBodySetup* Body = PhysState->EditingAsset->Bodies[PhysState->SelectedBodyIndex];
+            if (Body) RenderBodyDetails(Body);
+        }
+    }
+    else if (PhysState->SelectedConstraintIndex >= 0 && PhysState->EditingAsset)
+    {
+        if (PhysState->SelectedConstraintIndex < PhysState->EditingAsset->Constraints.Num())
+        {
+            FConstraintInstance* Constraint = &PhysState->EditingAsset->Constraints[PhysState->SelectedConstraintIndex];
+            RenderConstraintDetails(Constraint);
+        }
+    }
+    else
+    {
+        ImGui::TextDisabled("Select a body or constraint to edit");
+    }
 
-	ASkeletalMeshActor* SkelActor = State->GetPreviewSkeletalActor();
-	if (!SkelActor) return;
-
-	SkelActor->EnsureViewerComponents();
-
-	USkeletalMeshComponent* MeshComp = State->GetPreviewMeshComponent();
-	USceneComponent* Anchor = SkelActor->GetBoneGizmoAnchor();
-
-	if (!MeshComp || !Anchor) return;
-
-	UBodySetup* ParentBody = State->EditingAsset->BodySetups[Constraint.ParentBodyIndex];
-	UBodySetup* ChildBody = State->EditingAsset->BodySetups[Constraint.ChildBodyIndex];
-	if (!ParentBody || !ChildBody) return;
-
-	// Modifier 키 확인: Shift+Alt = Child 기준, 그 외 = Parent 기준
-	ImGuiIO& io = ImGui::GetIO();
-	bool bAltPressed = io.KeyAlt;
-	bool bShiftPressed = io.KeyShift;
-	bool bUseChildFrame = (bAltPressed && bShiftPressed);  // Shift+Alt만 Child 기준
-
-	FVector JointWorldPos;
-	FQuat JointWorldRot;
-
-	if (bUseChildFrame)
-	{
-		// Child 기준
-		FTransform ChildBoneTransform = MeshComp->GetBoneWorldTransform(ChildBody->BoneIndex);
-		JointWorldPos = ChildBoneTransform.TransformPosition(Constraint.ChildPosition);
-		FQuat ChildRotQuat = FQuat::MakeFromEulerZYX(Constraint.ChildRotation);
-		JointWorldRot = ChildBoneTransform.Rotation * ChildRotQuat;
-	}
-	else
-	{
-		// Parent 기준 (기본)
-		FTransform ParentBoneTransform = MeshComp->GetBoneWorldTransform(ParentBody->BoneIndex);
-		JointWorldPos = ParentBoneTransform.TransformPosition(Constraint.ParentPosition);
-		FQuat ParentRotQuat = FQuat::MakeFromEulerZYX(Constraint.ParentRotation);
-		JointWorldRot = ParentBoneTransform.Rotation * ParentRotQuat;
-	}
-
-	JointWorldRot.Normalize();
-
-	// NaN 체크 - 잘못된 값이면 본 회전 사용
-	if (std::isnan(JointWorldRot.W) || std::isnan(JointWorldRot.X) ||
-	    std::isnan(JointWorldRot.Y) || std::isnan(JointWorldRot.Z))
-	{
-		FTransform FallbackTransform = MeshComp->GetBoneWorldTransform(ParentBody->BoneIndex);
-		JointWorldRot = FallbackTransform.Rotation;
-	}
-
-	// 앵커를 constraint의 월드 위치로 이동
-	Anchor->SetWorldLocation(JointWorldPos);
-	Anchor->SetWorldRotation(JointWorldRot);
-
-	// 앵커 편집 가능 상태로 설정
-	if (UBoneAnchorComponent* BoneAnchor = Cast<UBoneAnchorComponent>(Anchor))
-	{
-		BoneAnchor->SetSuppressWriteback(true);  // 본 수정 방지
-		BoneAnchor->SetEditability(true);
-		BoneAnchor->SetVisibility(true);
-	}
-
-	// SelectionManager에 앵커 등록 (기즈모가 앵커에 연결됨)
-	USelectionManager* SelectionManager = State->World->GetSelectionManager();
-	if (SelectionManager)
-	{
-		SelectionManager->SelectActor(State->PreviewActor);
-		SelectionManager->SelectComponent(Anchor);
-	}
+    // === Tools 패널 (하단) ===
+    ImGui::Spacing();
+    ImGui::Spacing();
+    RenderToolsPanel();
 }
 
-void SPhysicsAssetEditorWindow::UpdateConstraintFrameFromGizmo()
+void SPhysicsAssetEditorWindow::RenderBottomPanel()
 {
-	PhysicsAssetEditorState* State = GetActivePhysicsState();
-	if (!State || !State->EditingAsset || !State->PreviewActor || !State->World)
-		return;
-
-	int32 ConstraintIndex = State->SelectedConstraintIndex;
-	if (ConstraintIndex < 0 || ConstraintIndex >= static_cast<int32>(State->EditingAsset->ConstraintSetups.size()))
-		return;
-
-	FConstraintSetup& Constraint = State->EditingAsset->ConstraintSetups[ConstraintIndex];
-	if (Constraint.ParentBodyIndex < 0 || Constraint.ChildBodyIndex < 0)
-		return;
-	if (Constraint.ParentBodyIndex >= static_cast<int32>(State->EditingAsset->BodySetups.size()))
-		return;
-	if (Constraint.ChildBodyIndex >= static_cast<int32>(State->EditingAsset->BodySetups.size()))
-		return;
-
-	ASkeletalMeshActor* SkelActor = State->GetPreviewSkeletalActor();
-	if (!SkelActor) return;
-
-	USkeletalMeshComponent* MeshComp = State->GetPreviewMeshComponent();
-	USceneComponent* Anchor = SkelActor->GetBoneGizmoAnchor();
-	AGizmoActor* Gizmo = State->World->GetGizmoActor();
-
-	if (!MeshComp || !Anchor || !Gizmo) return;
-
-	UBodySetup* ParentBody = State->EditingAsset->BodySetups[Constraint.ParentBodyIndex];
-	UBodySetup* ChildBody = State->EditingAsset->BodySetups[Constraint.ChildBodyIndex];
-	if (!ParentBody || !ChildBody) return;
-
-	// 기즈모 모드 확인
-	EGizmoMode CurrentGizmoMode = Gizmo->GetGizmoMode();
-
-	// 앵커의 현재 월드 트랜스폼 (기즈모로 이동됨)
-	const FTransform& AnchorWorldTransform = Anchor->GetWorldTransform();
-
-	// 본 트랜스폼 가져오기
-	FTransform ParentBoneTransform = MeshComp->GetBoneWorldTransform(ParentBody->BoneIndex);
-	FTransform ChildBoneTransform = MeshComp->GetBoneWorldTransform(ChildBody->BoneIndex);
-
-	// Modifier 키 확인: Alt = Parent, Shift+Alt = Child, 없음 = 둘 다
-	ImGuiIO& io = ImGui::GetIO();
-	bool bAltPressed = io.KeyAlt;
-	bool bShiftPressed = io.KeyShift;
-
-	bool bUpdateParent = !bShiftPressed || !bAltPressed;  // Alt만 눌리면 Parent만, 아니면 둘다
-	bool bUpdateChild = bShiftPressed || !bAltPressed;    // Shift+Alt면 Child만, 아니면 둘다
-
-	// Alt만 누름 -> Parent만
-	// Shift+Alt 누름 -> Child만
-	// 아무것도 안누름 -> 둘 다
-	if (bAltPressed && !bShiftPressed)
-	{
-		bUpdateParent = true;
-		bUpdateChild = false;
-	}
-	else if (bAltPressed && bShiftPressed)
-	{
-		bUpdateParent = false;
-		bUpdateChild = true;
-	}
-	else
-	{
-		bUpdateParent = true;
-		bUpdateChild = true;
-	}
-
-	bool bChanged = false;
-
-	switch (CurrentGizmoMode)
-	{
-	case EGizmoMode::Translate:
-		{
-			// 새 조인트 월드 위치 (앵커는 항상 Parent 기준)
-			FVector NewJointWorldPos = AnchorWorldTransform.Translation;
-
-			// 기존 Parent 월드 위치 계산 (델타 계산용)
-			FVector OldParentWorldPos = ParentBoneTransform.TransformPosition(Constraint.ParentPosition);
-			FVector WorldDelta = NewJointWorldPos - OldParentWorldPos;
-
-			if (bUpdateParent && bUpdateChild)
-			{
-				// 일반 모드: 델타를 양쪽에 적용 (상대 위치 유지)
-				if (WorldDelta.SizeSquared() > 0.0001f)
-				{
-					// Parent 업데이트
-					FTransform ParentInverse = ParentBoneTransform.Inverse();
-					FVector NewParentPos = ParentInverse.TransformPosition(NewJointWorldPos);
-					Constraint.ParentPosition = NewParentPos;
-
-					// Child도 같은 월드 델타만큼 이동
-					FVector OldChildWorldPos = ChildBoneTransform.TransformPosition(Constraint.ChildPosition);
-					FVector NewChildWorldPos = OldChildWorldPos + WorldDelta;
-					FTransform ChildInverse = ChildBoneTransform.Inverse();
-					FVector NewChildPos = ChildInverse.TransformPosition(NewChildWorldPos);
-					Constraint.ChildPosition = NewChildPos;
-
-					bChanged = true;
-				}
-			}
-			else if (bUpdateChild)
-			{
-				// Child만 업데이트 (Shift+Alt)
-				FTransform ChildInverse = ChildBoneTransform.Inverse();
-				FVector NewChildPos = ChildInverse.TransformPosition(NewJointWorldPos);
-				if ((NewChildPos - Constraint.ChildPosition).SizeSquared() > 0.0001f)
-				{
-					Constraint.ChildPosition = NewChildPos;
-					bChanged = true;
-				}
-			}
-			else if (bUpdateParent)
-			{
-				// Parent만 업데이트 (Alt)
-				FTransform ParentInverse = ParentBoneTransform.Inverse();
-				FVector NewParentPos = ParentInverse.TransformPosition(NewJointWorldPos);
-				if ((NewParentPos - Constraint.ParentPosition).SizeSquared() > 0.0001f)
-				{
-					Constraint.ParentPosition = NewParentPos;
-					bChanged = true;
-				}
-			}
-		}
-		break;
-
-	case EGizmoMode::Rotate:
-		{
-			// 새 조인트 월드 회전 (앵커는 항상 Parent 기준)
-			FQuat NewJointWorldRot = AnchorWorldTransform.Rotation;
-
-			// 기존 Parent 월드 회전 계산 (델타 계산용)
-			FQuat OldParentLocalRot = FQuat::MakeFromEulerZYX(Constraint.ParentRotation);
-			FQuat OldParentWorldRot = ParentBoneTransform.Rotation * OldParentLocalRot;
-			OldParentWorldRot.Normalize();
-
-			// 회전 델타: NewWorldRot = Delta * OldWorldRot -> Delta = NewWorldRot * OldWorldRot^-1
-			FQuat WorldRotDelta = NewJointWorldRot * OldParentWorldRot.Conjugate();
-			WorldRotDelta.Normalize();
-
-			if (bUpdateParent && bUpdateChild)
-			{
-				// 일반 모드: 델타를 양쪽에 적용 (상대 회전 유지)
-				// 델타가 의미 있는지 체크 (거의 identity가 아닌 경우)
-				float AngleDiff = 2.0f * std::acos(std::abs(WorldRotDelta.W)) * 57.2958f; // degrees
-				if (AngleDiff > 0.1f)
-				{
-					// Parent 업데이트
-					FQuat ParentBoneRotInv = ParentBoneTransform.Rotation.Conjugate();
-					FQuat NewParentRot = ParentBoneRotInv * NewJointWorldRot;
-					NewParentRot.Normalize();
-					Constraint.ParentRotation = NewParentRot.ToEulerZYXDeg();
-					Constraint.UpdateParentAxesFromEuler();  // 축 벡터 동기화
-
-					// Child도 같은 월드 델타만큼 회전
-					FQuat OldChildLocalRot = FQuat::MakeFromEulerZYX(Constraint.ChildRotation);
-					FQuat OldChildWorldRot = ChildBoneTransform.Rotation * OldChildLocalRot;
-					FQuat NewChildWorldRot = WorldRotDelta * OldChildWorldRot;
-					NewChildWorldRot.Normalize();
-
-					FQuat ChildBoneRotInv = ChildBoneTransform.Rotation.Conjugate();
-					FQuat NewChildRot = ChildBoneRotInv * NewChildWorldRot;
-					NewChildRot.Normalize();
-					Constraint.ChildRotation = NewChildRot.ToEulerZYXDeg();
-					Constraint.UpdateChildAxesFromEuler();  // 축 벡터 동기화
-
-					bChanged = true;
-				}
-			}
-			else if (bUpdateChild)
-			{
-				// Child만 업데이트 (Shift+Alt)
-				FQuat ChildBoneRotInv = ChildBoneTransform.Rotation.Conjugate();
-				FQuat NewChildRot = ChildBoneRotInv * NewJointWorldRot;
-				NewChildRot.Normalize();
-				FVector NewChildEuler = NewChildRot.ToEulerZYXDeg();
-
-				if ((NewChildEuler - Constraint.ChildRotation).SizeSquared() > 0.01f)
-				{
-					Constraint.ChildRotation = NewChildEuler;
-					Constraint.UpdateChildAxesFromEuler();  // 축 벡터 동기화
-					bChanged = true;
-				}
-			}
-			else if (bUpdateParent)
-			{
-				// Parent만 업데이트 (Alt)
-				FQuat ParentBoneRotInv = ParentBoneTransform.Rotation.Conjugate();
-				FQuat NewParentRot = ParentBoneRotInv * NewJointWorldRot;
-				NewParentRot.Normalize();
-				FVector NewParentEuler = NewParentRot.ToEulerZYXDeg();
-
-				if ((NewParentEuler - Constraint.ParentRotation).SizeSquared() > 0.01f)
-				{
-					Constraint.ParentRotation = NewParentEuler;
-					Constraint.UpdateParentAxesFromEuler();  // 축 벡터 동기화
-					bChanged = true;
-				}
-			}
-		}
-		break;
-
-	case EGizmoMode::Scale:
-		// Scale은 Constraint에서 사용하지 않음
-		break;
-
-	default:
-		return;
-	}
-
-	if (bChanged)
-	{
-		State->bIsDirty = true;
-		State->RequestLinesRebuild();  // Constraint 시각화 재구성
-	}
 }
 
-// ────────────────────────────────────────────────────────────────
-// 시뮬레이션
-// ────────────────────────────────────────────────────────────────
-
-void SPhysicsAssetEditorWindow::StartSimulation()
+void SPhysicsAssetEditorWindow::RenderTabsAndToolbar(EViewerType CurrentViewerType)
 {
-	PhysicsAssetEditorState* State = GetActivePhysicsState();
-	if (!State || !State->EditingAsset || State->bSimulating) return;
+    // ============================================
+    // 1. 탭바 렌더링 (뷰어 전환 버튼 제외)
+    // ============================================
+    if (!ImGui::BeginTabBar("PhysicsAssetEditorTabs",
+        ImGuiTabBarFlags_AutoSelectNewTabs | ImGuiTabBarFlags_Reorderable))
+        return;
 
-	UWorld* World = State->World;
-	if (!World) return;
+    // 탭 렌더링
+    for (int i = 0; i < Tabs.Num(); ++i)
+    {
+        ViewerState* State = Tabs[i];
+        PhysicsAssetEditorState* PState = static_cast<PhysicsAssetEditorState*>(State);
+        bool open = true;
 
-	// 1. 에디터 전용 PhysScene 생성
-	if (!State->SimulationPhysScene)
-	{
-		State->SimulationPhysScene = std::make_unique<FPhysScene>(World);
-		State->SimulationPhysScene->InitPhysScene();
-		UE_LOG("[PhysicsAssetEditor] 시뮬레이션용 PhysScene 생성");
-	}
+        // 동적 탭 이름 생성
+        FString TabDisplayName;
+        if (PState->CurrentFilePath.empty())
+        {
+            TabDisplayName = "Untitled";
+        }
+        else
+        {
+            // 파일 경로에서 파일명만 추출 (확장자 제외)
+            size_t lastSlash = PState->CurrentFilePath.find_last_of("/\\");
+            FString filename = (lastSlash != FString::npos)
+                ? PState->CurrentFilePath.substr(lastSlash + 1)
+                : PState->CurrentFilePath;
 
-	FPhysScene* PhysScene = State->SimulationPhysScene.get();
+            // 확장자 제거
+            size_t dotPos = filename.find_last_of('.');
+            if (dotPos != FString::npos)
+                filename = filename.substr(0, dotPos);
 
-	// 2. 바닥 박스 액터 생성 (10000 x 10000)
-	if (!State->FloorActor)
-	{
-		State->FloorActor = World->SpawnActor<ABoxActor>();
-		if (State->FloorActor)
-		{
-			// BoxComponent 설정
-			UBoxComponent* BoxComp = State->FloorActor->GetBoxComponent();
-			if (BoxComp)
-			{
-				// BoxExtent는 반 크기이므로 5000으로 설정 (실제 크기 10000)
-				BoxComp->SetBoxExtent(FVector(5000.0f, 5000.0f, 1.0f));
-				BoxComp->SetSimulatePhysics(false);  // 바닥은 Static
+            TabDisplayName = filename;
+        }
 
-				// 바닥을 시뮬레이션 PhysScene에 등록
-				BoxComp->GetBodyInstance()->InitBody(BoxComp->GetBodySetup(), BoxComp->GetWorldTransform(), BoxComp, PhysScene);
+        // 수정됨 표시 추가
+        if (PState->bIsDirty)
+        {
+            TabDisplayName += "*";
+        }
 
-				// Deferred Add 시스템 사용으로 인해 즉시 flush 필요
-				PhysScene->FlushDeferredAdds();
-			}
+        // ImGui ID 충돌 방지
+        TabDisplayName += "##";
+        TabDisplayName += State->Name.ToString();
 
-			// 위치: 캐릭터 아래
-			FTransform FloorTransform;
-			FloorTransform.Translation = FVector(0.0f, 0.0f, -1.0f);
-			FloorTransform.Rotation = FQuat::Identity();
-			FloorTransform.Scale3D = FVector(1.0f, 1.0f, 1.0f);
-			State->FloorActor->SetActorTransform(FloorTransform);
+        if (ImGui::BeginTabItem(TabDisplayName.c_str(), &open))
+        {
+            ActiveTabIndex = i;
+            ActiveState = State;
+            ImGui::EndTabItem();
+        }
+        if (!open)
+        {
+            CloseTab(i);
+            ImGui::EndTabBar();
+            return;
+        }
+    }
 
-			UE_LOG("[PhysicsAssetEditor] 시뮬레이션 바닥 생성 완료 (10000 x 10000)");
-		}
-	}
+    // + 버튼 (새 탭 추가)
+    if (ImGui::TabItemButton("+", ImGuiTabItemFlags_Trailing))
+    {
+        int maxViewerNum = 0;
+        for (int i = 0; i < Tabs.Num(); ++i)
+        {
+            const FString& tabName = Tabs[i]->Name.ToString();
+            const char* prefix = "PhysicsTab";
+            if (strncmp(tabName.c_str(), prefix, strlen(prefix)) == 0)
+            {
+                const char* numberPart = tabName.c_str() + strlen(prefix);
+                int num = atoi(numberPart);
+                if (num > maxViewerNum)
+                {
+                    maxViewerNum = num;
+                }
+            }
+        }
 
-	// 3. SkeletalMeshComponent에 랙돌 초기화 (시뮬레이션 PhysScene 사용)
-	USkeletalMeshComponent* MeshComp = State->GetPreviewMeshComponent();
-	if (MeshComp && State->EditingAsset)
-	{
-		// PhysicsAsset 연결
-		MeshComp->SetPhysicsAsset(State->EditingAsset);
+        char label[64];
+        sprintf_s(label, "PhysicsTab%d", maxViewerNum + 1);
+        OpenNewTab(label);
+    }
+    ImGui::EndTabBar();
 
-		// 랙돌 초기화 (에디터 전용 PhysScene 사용)
-		MeshComp->InitRagdoll(PhysScene);
+    // ============================================
+    // 2. 툴바 렌더링 (Save, SaveAs, Load 버튼)
+    // ============================================
+    ImGui::BeginChild("PhysicsToolbar", ImVec2(0, 30.0f), false, ImGuiWindowFlags_NoScrollbar);
 
-		// Deferred Add 시스템 사용으로 인해 즉시 flush 필요
-		PhysScene->FlushDeferredAdds();
+    const ImGuiStyle& style = ImGui::GetStyle();
+    const ImVec2 IconSizeVec(22, 22);
+    float BtnHeight = IconSizeVec.y + style.FramePadding.y * 2.0f;
+    float availableHeight = ImGui::GetContentRegionAvail().y;
+    ImGui::SetCursorPosY(ImGui::GetCursorPosY() + (availableHeight - BtnHeight) * 0.5f);
 
-		// 시뮬레이션 시작
-		MeshComp->SetPhysicsMode(EPhysicsMode::Ragdoll);
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
 
-		UE_LOG("[PhysicsAssetEditor] 랙돌 시뮬레이션 시작");
-	}
+    // Save 버튼
+    if (IconSave && IconSave->GetShaderResourceView())
+    {
+        if (ImGui::ImageButton("##SavePhysics", (void*)IconSave->GetShaderResourceView(), IconSizeVec))
+        {
+            SavePhysicsAsset();
+        }
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Physics Asset 저장 (Ctrl+S)");
+    }
+    ImGui::SameLine();
 
-	// 4. 기즈모 숨기기
-	State->HideGizmo();
+    // SaveAs 버튼
+    if (IconSaveAs && IconSaveAs->GetShaderResourceView())
+    {
+        if (ImGui::ImageButton("##SaveAsPhysics", (void*)IconSaveAs->GetShaderResourceView(), IconSizeVec))
+        {
+            SavePhysicsAssetAs();
+        }
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("다른 이름으로 저장");
+    }
+    ImGui::SameLine();
 
-	// 5. 시각 디버그 끄기 (바디/제약조건 라인 및 메시 숨기기)
-	State->bShowBodies = false;
-	State->bShowConstraints = false;
-	if (State->BodyPreviewLineComponent)
-		State->BodyPreviewLineComponent->SetLineVisible(false);
-	if (State->ConstraintPreviewLineComponent)
-		State->ConstraintPreviewLineComponent->SetLineVisible(false);
-	// 메시 컴포넌트도 숨기기
-	for (UTriangleMeshComponent* MeshComp : State->BodyMeshComponents)
-	{
-		if (MeshComp) MeshComp->SetMeshVisible(false);
-	}
-	if (State->ConstraintMeshComponent)
-		State->ConstraintMeshComponent->SetMeshVisible(false);
+    // Load 버튼
+    if (IconLoad && IconLoad->GetShaderResourceView())
+    {
+        if (ImGui::ImageButton("##LoadPhysics", (void*)IconLoad->GetShaderResourceView(), IconSizeVec))
+        {
+            LoadPhysicsAsset();
+        }
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Physics Asset 불러오기");
+    }
 
-	State->bSimulating = true;
+    ImGui::PopStyleColor();
+    ImGui::EndChild();
 }
 
-void SPhysicsAssetEditorWindow::StopSimulation()
+PhysicsAssetEditorState* SPhysicsAssetEditorWindow::GetPhysicsState() const
 {
-	PhysicsAssetEditorState* State = GetActivePhysicsState();
-	if (!State || !State->bSimulating) return;
-
-	// 1. 랙돌 종료 (PhysScene 해제 전에)
-	USkeletalMeshComponent* MeshComp = State->GetPreviewMeshComponent();
-	if (MeshComp)
-	{
-		MeshComp->SetSimulatePhysics(false);
-		MeshComp->TermRagdoll();
-
-		// PhysicsAsset 연결 해제 (RenderDebugVolume에서 그리지 않도록)
-		MeshComp->SetPhysicsAsset(nullptr);
-
-		// RefPose로 리셋
-		MeshComp->ResetToRefPose();
-
-		UE_LOG("[PhysicsAssetEditor] 랙돌 시뮬레이션 종료");
-	}
-
-	// 2. 바닥 액터의 물리 바디 정리 (PhysScene 해제 전에)
-	if (State->FloorActor)
-	{
-		UBoxComponent* BoxComp = State->FloorActor->GetBoxComponent();
-		if (BoxComp)
-		{
-			BoxComp->GetBodyInstance()->TermBody();
-		}
-
-		State->FloorActor->Destroy();
-		State->FloorActor = nullptr;
-
-		UE_LOG("[PhysicsAssetEditor] 시뮬레이션 바닥 제거");
-	}
-
-	// 3. 시뮬레이션 PhysScene 해제
-	if (State->SimulationPhysScene)
-	{
-		State->SimulationPhysScene.reset();
-		UE_LOG("[PhysicsAssetEditor] 시뮬레이션용 PhysScene 해제");
-	}
-
-	// 4. Shape 라인 재구성 (포즈가 리셋되었으므로)
-	State->RequestLinesRebuild();
-
-	// 5. 시각 디버그 다시 켜기 (라인 및 메시)
-	State->bShowBodies = true;
-	State->bShowConstraints = true;
-	if (State->BodyPreviewLineComponent)
-		State->BodyPreviewLineComponent->SetLineVisible(true);
-	if (State->ConstraintPreviewLineComponent)
-		State->ConstraintPreviewLineComponent->SetLineVisible(true);
-	// 메시 컴포넌트도 다시 보이기
-	for (UTriangleMeshComponent* MeshComp : State->BodyMeshComponents)
-	{
-		if (MeshComp) MeshComp->SetMeshVisible(true);
-	}
-	if (State->ConstraintMeshComponent)
-		State->ConstraintMeshComponent->SetMeshVisible(true);
-
-	State->bSimulating = false;
+    return static_cast<PhysicsAssetEditorState*>(ActiveState);
 }
 
+void SPhysicsAssetEditorWindow::RenderSkeletonTreePanel(float Width, float Height)
+{
+    ImGui::BeginChild("SkeletonTree", ImVec2(Width - 16, Height), false);
+
+    // 헤더: Skeleton 텍스트 + 톱니바퀴 설정 버튼
+    float headerWidth = ImGui::GetContentRegionAvail().x;
+    ImGui::Text("Skeleton");
+    ImGui::SameLine(headerWidth - 20);
+
+    // 톱니바퀴 버튼
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.3f, 0.3f, 0.5f));
+    if (ImGui::Button("##TreeSettings", ImVec2(20, 20)))
+    {
+        ImGui::OpenPopup("SkeletonTreeSettingsPopup");
+    }
+    ImGui::PopStyleColor(2);
+
+    // 톱니바퀴 아이콘 그리기 (간단한 텍스트로 대체)
+    ImVec2 btnMin = ImGui::GetItemRectMin();
+    ImVec2 btnMax = ImGui::GetItemRectMax();
+    ImDrawList* drawList = ImGui::GetWindowDrawList();
+    ImVec2 center((btnMin.x + btnMax.x) * 0.5f, (btnMin.y + btnMax.y) * 0.5f);
+    drawList->AddText(ImVec2(center.x - 4, center.y - 7), IM_COL32(200, 200, 200, 255), "*");
+
+    // 설정 팝업 메뉴
+    RenderSkeletonTreeSettings();
+
+    ImGui::Separator();
+
+    if (!ActiveState || !ActiveState->CurrentMesh)
+    {
+        ImGui::TextDisabled("Load a skeletal mesh first");
+        ImGui::EndChild();
+        return;
+    }
+
+    const FSkeleton* Skeleton = ActiveState->CurrentMesh->GetSkeleton();
+    if (!Skeleton || Skeleton->Bones.empty())
+    {
+        ImGui::TextDisabled("No skeleton data");
+        ImGui::EndChild();
+        return;
+    }
+
+    // 본 숨김 모드: Body만 트리 구조로 표시
+    if (TreeSettings.BoneDisplayMode == EBoneDisplayMode::HideBones)
+    {
+        PhysicsAssetEditorState* PhysState = GetPhysicsState();
+        if (PhysState && PhysState->EditingAsset)
+        {
+            // 루트 Body 찾기 (부모 본에 Body가 없는 Body들)
+            for (int32 i = 0; i < PhysState->EditingAsset->Bodies.Num(); ++i)
+            {
+                UBodySetup* Body = PhysState->EditingAsset->Bodies[i];
+                if (!Body) continue;
+
+                // 이 Body의 본 인덱스 찾기
+                int32 BoneIndex = -1;
+                for (int32 j = 0; j < (int32)Skeleton->Bones.size(); ++j)
+                {
+                    if (Skeleton->Bones[j].Name == Body->BoneName.ToString())
+                    {
+                        BoneIndex = j;
+                        break;
+                    }
+                }
+
+                if (BoneIndex < 0) continue;
+
+                // 부모 본 체인에서 Body가 있는지 확인
+                bool bHasParentBody = false;
+                int32 ParentBoneIndex = Skeleton->Bones[BoneIndex].ParentIndex;
+                while (ParentBoneIndex >= 0)
+                {
+                    const FString& ParentBoneName = Skeleton->Bones[ParentBoneIndex].Name;
+                    for (int32 k = 0; k < PhysState->EditingAsset->Bodies.Num(); ++k)
+                    {
+                        if (PhysState->EditingAsset->Bodies[k] &&
+                            PhysState->EditingAsset->Bodies[k]->BoneName.ToString() == ParentBoneName)
+                        {
+                            bHasParentBody = true;
+                            break;
+                        }
+                    }
+                    if (bHasParentBody) break;
+                    ParentBoneIndex = Skeleton->Bones[ParentBoneIndex].ParentIndex;
+                }
+
+                // 부모 Body가 없으면 루트로서 렌더링
+                if (!bHasParentBody)
+                {
+                    RenderBodyTreeNode(i, Skeleton);
+                }
+            }
+        }
+    }
+    else
+    {
+        // 일반 모드: 스켈레톤 트리 표시
+        for (int32 i = 0; i < (int32)Skeleton->Bones.size(); ++i)
+        {
+            if (Skeleton->Bones[i].ParentIndex == -1)
+            {
+                RenderBoneTreeNode(i, 0);
+            }
+        }
+    }
+
+    ImGui::EndChild();
+}
+
+void SPhysicsAssetEditorWindow::RenderSkeletonTreeSettings()
+{
+    if (ImGui::BeginPopup("SkeletonTreeSettingsPopup"))
+    {
+        // 라디오 버튼 스타일: 하나만 선택 가능
+        bool bAllBones = (TreeSettings.BoneDisplayMode == EBoneDisplayMode::AllBones);
+        bool bMeshBones = (TreeSettings.BoneDisplayMode == EBoneDisplayMode::MeshBones);
+        bool bHideBones = (TreeSettings.BoneDisplayMode == EBoneDisplayMode::HideBones);
+
+        if (ImGui::RadioButton("Show All Bones", bAllBones))
+        {
+            TreeSettings.BoneDisplayMode = EBoneDisplayMode::AllBones;
+        }
+
+        if (ImGui::RadioButton("Show Mesh Bones", bMeshBones))
+        {
+            TreeSettings.BoneDisplayMode = EBoneDisplayMode::MeshBones;
+        }
+
+        if (ImGui::RadioButton("Hide Bones", bHideBones))
+        {
+            TreeSettings.BoneDisplayMode = EBoneDisplayMode::HideBones;
+        }
+
+        ImGui::Separator();
+
+        // 컨스트레인트 표시 체크박스
+        ImGui::Checkbox("Show Constraints", &TreeSettings.bShowConstraintsInTree);
+
+        ImGui::EndPopup();
+    }
+}
+
+void SPhysicsAssetEditorWindow::RenderDisplayOptions(float PanelWidth)
+{
+    if (!ActiveState) return;
+
+    ImGui::Text(reinterpret_cast<const char*>(u8"디스플레이 옵션"));
+    ImGui::Dummy(ImVec2(0, 2));
+
+    ImGui::BeginGroup();
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(1.5f, 1.5f));
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.23f, 0.25f, 0.27f, 0.80f));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.28f, 0.30f, 0.33f, 0.90f));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.20f, 0.22f, 0.25f, 1.00f));
+    ImGui::PushStyleColor(ImGuiCol_CheckMark, ImVec4(0.75f, 0.80f, 0.90f, 1.00f));
+
+    // 메쉬 체크박스
+    if (ImGui::Checkbox(reinterpret_cast<const char*>(u8"메쉬"), &ActiveState->bShowMesh))
+    {
+        if (ActiveState->PreviewActor)
+        {
+            if (auto* comp = ActiveState->PreviewActor->GetSkeletalMeshComponent())
+                comp->SetVisibility(ActiveState->bShowMesh);
+        }
+    }
+
+    ImGui::SameLine(0.0f, 12.0f);
+
+    // 스켈레탈 체크박스
+    if (ImGui::Checkbox(reinterpret_cast<const char*>(u8"스켈레탈"), &ActiveState->bShowBones))
+    {
+        if (ActiveState->PreviewActor)
+        {
+            if (auto* lineComp = ActiveState->PreviewActor->GetBoneLineComponent())
+                lineComp->SetLineVisible(ActiveState->bShowBones);
+        }
+        if (ActiveState->bShowBones)
+            ActiveState->bBoneLinesDirty = true;
+    }
+
+    ImGui::SameLine(0.0f, 12.0f);
+
+    // 래그돌 체크박스
+    PhysicsAssetEditorState* PhysState = GetPhysicsState();
+    if (PhysState && PhysState->World)
+    {
+        bool bShowRagdoll = PhysState->World->GetRenderSettings().IsShowFlagEnabled(EEngineShowFlags::SF_Ragdoll);
+        if (ImGui::Checkbox(reinterpret_cast<const char*>(u8"래그돌"), &bShowRagdoll))
+        {
+            if (bShowRagdoll)
+                PhysState->World->GetRenderSettings().EnableShowFlag(EEngineShowFlags::SF_Ragdoll);
+            else
+                PhysState->World->GetRenderSettings().DisableShowFlag(EEngineShowFlags::SF_Ragdoll);
+        }
+    }
+
+    ImGui::PopStyleColor(4);
+    ImGui::PopStyleVar();
+    ImGui::EndGroup();
+
+    // 두 번째 줄: 바디, 컨스트레인트
+    ImGui::BeginGroup();
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(1.5f, 1.5f));
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.23f, 0.25f, 0.27f, 0.80f));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.28f, 0.30f, 0.33f, 0.90f));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.20f, 0.22f, 0.25f, 1.00f));
+    ImGui::PushStyleColor(ImGuiCol_CheckMark, ImVec4(0.75f, 0.80f, 0.90f, 1.00f));
+
+    // 바디 체크박스
+    if (PhysState)
+    {
+        if (ImGui::Checkbox(reinterpret_cast<const char*>(u8"바디"), &PhysState->bShowBodies))
+        {
+            // 체크 상태 변경 시 추가 처리 필요 없음 (RenderPhysicsBodies에서 체크)
+        }
+    }
+
+    ImGui::SameLine(0.0f, 12.0f);
+
+    // 컨스트레인트 체크박스
+    if (PhysState)
+    {
+        if (ImGui::Checkbox(reinterpret_cast<const char*>(u8"컨스트레인트"), &PhysState->bShowConstraints))
+        {
+            // 체크 상태 변경 시 추가 처리 필요 없음 (RenderConstraintVisuals에서 체크)
+        }
+    }
+
+    ImGui::PopStyleColor(4);
+    ImGui::PopStyleVar();
+    ImGui::EndGroup();
+
+    ImGui::Dummy(ImVec2(0, 4));
+    ImGui::Separator();
+    ImGui::Dummy(ImVec2(0, 4));
+}
+
+void SPhysicsAssetEditorWindow::SelectBone(int32 BoneIndex)
+{
+    PhysicsAssetEditorState* PhysState = GetPhysicsState();
+    if (!PhysState || !PhysState->World) return;
+    if (!ActiveState || !ActiveState->CurrentMesh) return;
+
+    const FSkeleton* Skeleton = ActiveState->CurrentMesh->GetSkeleton();
+    if (!Skeleton || BoneIndex < 0 || BoneIndex >= (int32)Skeleton->Bones.size()) return;
+
+    ASkeletalMeshActor* PreviewActor = static_cast<ASkeletalMeshActor*>(ActiveState->PreviewActor);
+    if (!PreviewActor) return;
+
+    // 본 인덱스 저장
+    ActiveState->SelectedBoneIndex = BoneIndex;
+
+    // Body/Shape/Constraint 선택 해제
+    PhysState->SelectedBodyIndex = -1;
+    PhysState->SelectedShapeType = EShapeType::None;
+    PhysState->SelectedShapeIndex = -1;
+    PhysState->SelectedConstraintIndex = -1;
+
+    // Shape 기즈모 숨기기
+    if (PhysState->ShapeGizmoAnchor)
+    {
+        PhysState->ShapeGizmoAnchor->ClearTarget();
+        PhysState->ShapeGizmoAnchor->SetVisibility(false);
+        PhysState->ShapeGizmoAnchor->SetEditability(false);
+    }
+
+    // Constraint 기즈모 숨기기
+    if (PhysState->ConstraintGizmoAnchor)
+    {
+        PhysState->ConstraintGizmoAnchor->ClearTarget();
+        PhysState->ConstraintGizmoAnchor->SetVisibility(false);
+        PhysState->ConstraintGizmoAnchor->SetEditability(false);
+    }
+
+    // 본 라인 하이라이트 업데이트
+    ActiveState->bBoneLinesDirty = true;
+
+    // BlendSpaceEditor 패턴 사용: RepositionAnchorToBone + GetBoneGizmoAnchor
+    PreviewActor->RepositionAnchorToBone(BoneIndex);
+    if (USceneComponent* Anchor = PreviewActor->GetBoneGizmoAnchor())
+    {
+        PhysState->World->GetSelectionManager()->SelectActor(PreviewActor);
+        PhysState->World->GetSelectionManager()->SelectComponent(Anchor);
+    }
+}
+
+void SPhysicsAssetEditorWindow::RenderBoneTreeNode(int32 BoneIndex, int32 Depth)
+{
+    if (!ActiveState || !ActiveState->CurrentMesh) return;
+
+    const FSkeleton* Skeleton = ActiveState->CurrentMesh->GetSkeleton();
+    if (!Skeleton || BoneIndex < 0 || BoneIndex >= (int32)Skeleton->Bones.size()) return;
+
+    PhysicsAssetEditorState* PhysState = GetPhysicsState();
+    const FBone& Bone = Skeleton->Bones[BoneIndex];
+
+    TArray<int32> ChildIndices;
+    for (int32 i = 0; i < (int32)Skeleton->Bones.size(); ++i)
+    {
+        if (Skeleton->Bones[i].ParentIndex == BoneIndex)
+            ChildIndices.Add(i);
+    }
+
+    bool bHasBody = false;
+    int32 BodyIndex = -1;
+    UBodySetup* BodySetup = nullptr;
+    if (PhysState && PhysState->EditingAsset)
+    {
+        for (int32 i = 0; i < PhysState->EditingAsset->Bodies.Num(); ++i)
+        {
+            if (PhysState->EditingAsset->Bodies[i] &&
+                PhysState->EditingAsset->Bodies[i]->BoneName == Bone.Name)
+            {
+                bHasBody = true;
+                BodyIndex = i;
+                BodySetup = PhysState->EditingAsset->Bodies[i];
+                break;
+            }
+        }
+    }
+
+    // Body가 있거나 자식이 있으면 Leaf가 아님
+    ImGuiTreeNodeFlags nodeFlags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_DefaultOpen;
+    if (ChildIndices.Num() == 0 && !bHasBody)
+        nodeFlags |= ImGuiTreeNodeFlags_Leaf;
+
+    // Bone.Name is already FString
+    const FString& BoneName = Bone.Name;
+
+    bool bOpen = ImGui::TreeNodeEx((void*)(intptr_t)BoneIndex, nodeFlags, "%s", BoneName.c_str());
+
+    if (ImGui::IsItemClicked())
+    {
+        // 본 클릭 시 기즈모 표시
+        SelectBone(BoneIndex);
+    }
+
+    // 우클릭 컨텍스트 메뉴
+    if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
+    {
+        ContextMenuBoneIndex = BoneIndex;
+        ImGui::OpenPopup("BoneContextMenu");
+    }
+
+    // 컨텍스트 메뉴 렌더링 (이 노드에서 열린 경우에만)
+    if (ContextMenuBoneIndex == BoneIndex)
+    {
+        RenderBoneContextMenu(BoneIndex, bHasBody, BodyIndex);
+    }
+
+    if (bOpen)
+    {
+        // Body가 있으면 하위에 BodySetup 노드 표시
+        if (bHasBody && BodySetup)
+        {
+            // 이 Body에 연결된 Constraint 개수 확인
+            int32 ConstraintCount = 0;
+            if (TreeSettings.bShowConstraintsInTree && PhysState && PhysState->EditingAsset)
+            {
+                for (int32 i = 0; i < PhysState->EditingAsset->Constraints.Num(); ++i)
+                {
+                    if (PhysState->EditingAsset->Constraints[i].ConstraintBone2 == BodySetup->BoneName)
+                        ConstraintCount++;
+                }
+            }
+
+            bool bBodySelected = (PhysState && PhysState->SelectedBodyIndex == BodyIndex);
+            ImGuiTreeNodeFlags bodyFlags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_DefaultOpen;
+            // Constraint가 없으면 Leaf 노드
+            if (ConstraintCount == 0)
+                bodyFlags |= ImGuiTreeNodeFlags_Leaf;
+            if (bBodySelected)
+                bodyFlags |= ImGuiTreeNodeFlags_Selected;
+
+            // 아이콘 + 본 이름으로 BodySetup 표시
+            FString bodyLabel = FString("[Body] ") + BoneName;
+
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.6f, 0.8f, 1.0f, 1.0f)); // 파란색 텍스트
+            bool bBodyOpen = ImGui::TreeNodeEx((void*)(intptr_t)(10000 + BodyIndex), bodyFlags, "%s", bodyLabel.c_str());
+            ImGui::PopStyleColor();
+
+            if (ImGui::IsItemClicked())
+            {
+                SelectBody(BodyIndex, PhysicsAssetEditorState::ESelectionSource::TreeOrViewport);
+            }
+
+            // Body 노드가 열려있으면 Constraint를 자식으로 표시
+            if (bBodyOpen)
+            {
+                // 이 Body에 연결된 Constraint 표시 (설정에서 활성화된 경우)
+                // 언리얼 스타일: Bone2(자식) 아래에 Constraint 표시
+                if (TreeSettings.bShowConstraintsInTree && PhysState && PhysState->EditingAsset)
+                {
+                    for (int32 i = 0; i < PhysState->EditingAsset->Constraints.Num(); ++i)
+                    {
+                        FConstraintInstance& Constraint = PhysState->EditingAsset->Constraints[i];
+                        // Bone2(자식)가 현재 Body인 Constraint만 표시
+                        if (Constraint.ConstraintBone2 == BodySetup->BoneName)
+                        {
+                            RenderConstraintTreeNode(i, BodySetup->BoneName);
+                        }
+                    }
+                }
+                ImGui::TreePop();
+            }
+        }
+
+        // 자식 본 렌더링
+        for (int32 ChildIndex : ChildIndices)
+            RenderBoneTreeNode(ChildIndex, Depth + 1);
+
+        ImGui::TreePop();
+    }
+}
+
+void SPhysicsAssetEditorWindow::RenderBodyTreeNode(int32 BodyIndex, const FSkeleton* Skeleton)
+{
+    PhysicsAssetEditorState* PhysState = GetPhysicsState();
+    if (!PhysState || !PhysState->EditingAsset || !Skeleton) return;
+    if (BodyIndex < 0 || BodyIndex >= PhysState->EditingAsset->Bodies.Num()) return;
+
+    UBodySetup* Body = PhysState->EditingAsset->Bodies[BodyIndex];
+    if (!Body) return;
+
+    // 이 Body의 본 인덱스 찾기
+    int32 BoneIndex = -1;
+    for (int32 i = 0; i < (int32)Skeleton->Bones.size(); ++i)
+    {
+        if (Skeleton->Bones[i].Name == Body->BoneName.ToString())
+        {
+            BoneIndex = i;
+            break;
+        }
+    }
+
+    if (BoneIndex < 0) return;
+
+    // 자식 Body 찾기 (이 본의 자손 본들 중 Body가 있는 것)
+    TArray<int32> ChildBodyIndices;
+    for (int32 i = 0; i < PhysState->EditingAsset->Bodies.Num(); ++i)
+    {
+        if (i == BodyIndex) continue;
+        UBodySetup* OtherBody = PhysState->EditingAsset->Bodies[i];
+        if (!OtherBody) continue;
+
+        // OtherBody의 본 인덱스 찾기
+        int32 OtherBoneIndex = -1;
+        for (int32 j = 0; j < (int32)Skeleton->Bones.size(); ++j)
+        {
+            if (Skeleton->Bones[j].Name == OtherBody->BoneName.ToString())
+            {
+                OtherBoneIndex = j;
+                break;
+            }
+        }
+
+        if (OtherBoneIndex < 0) continue;
+
+        // OtherBody의 부모 체인에서 이 Body가 바로 위 Body인지 확인
+        int32 ParentIdx = Skeleton->Bones[OtherBoneIndex].ParentIndex;
+        bool bIsDirectChild = false;
+        while (ParentIdx >= 0)
+        {
+            // 이 부모 본에 Body가 있는지 확인
+            for (int32 k = 0; k < PhysState->EditingAsset->Bodies.Num(); ++k)
+            {
+                if (PhysState->EditingAsset->Bodies[k] &&
+                    PhysState->EditingAsset->Bodies[k]->BoneName.ToString() == Skeleton->Bones[ParentIdx].Name)
+                {
+                    // 찾은 Body가 현재 Body면 직접 자식
+                    if (k == BodyIndex)
+                    {
+                        bIsDirectChild = true;
+                    }
+                    // 다른 Body면 직접 자식이 아님 (중간에 다른 Body가 있음)
+                    goto done_search;
+                }
+            }
+            ParentIdx = Skeleton->Bones[ParentIdx].ParentIndex;
+        }
+    done_search:
+        if (bIsDirectChild)
+        {
+            ChildBodyIndices.Add(i);
+        }
+    }
+
+    // 이 Body에 연결된 Constraint 개수 확인
+    int32 ConstraintCount = 0;
+    if (TreeSettings.bShowConstraintsInTree)
+    {
+        for (int32 i = 0; i < PhysState->EditingAsset->Constraints.Num(); ++i)
+        {
+            if (PhysState->EditingAsset->Constraints[i].ConstraintBone2 == Body->BoneName)
+                ConstraintCount++;
+        }
+    }
+
+    // 트리 노드 렌더링
+    bool bSelected = (PhysState->SelectedBodyIndex == BodyIndex);
+    ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_DefaultOpen;
+    // 자식 Body도 없고 Constraint도 없으면 Leaf
+    if (ChildBodyIndices.Num() == 0 && ConstraintCount == 0)
+        flags |= ImGuiTreeNodeFlags_Leaf;
+    if (bSelected)
+        flags |= ImGuiTreeNodeFlags_Selected;
+
+    FString label = Body->BoneName.ToString();
+
+    bool bOpen = ImGui::TreeNodeEx((void*)(intptr_t)(20000 + BodyIndex), flags, "%s", label.c_str());
+
+    if (ImGui::IsItemClicked())
+    {
+        SelectBody(BodyIndex, PhysicsAssetEditorState::ESelectionSource::TreeOrViewport);
+    }
+
+    if (bOpen)
+    {
+        // 이 Body에 연결된 Constraint 표시 (설정에서 활성화된 경우)
+        // 언리얼 스타일: Bone2(자식) 아래에 Constraint 표시
+        if (TreeSettings.bShowConstraintsInTree)
+        {
+            for (int32 i = 0; i < PhysState->EditingAsset->Constraints.Num(); ++i)
+            {
+                FConstraintInstance& Constraint = PhysState->EditingAsset->Constraints[i];
+                // Bone2(자식)가 현재 Body인 Constraint만 표시
+                if (Constraint.ConstraintBone2 == Body->BoneName)
+                {
+                    RenderConstraintTreeNode(i, Body->BoneName);
+                }
+            }
+        }
+
+        // 자식 Body 렌더링
+        for (int32 ChildBodyIndex : ChildBodyIndices)
+        {
+            RenderBodyTreeNode(ChildBodyIndex, Skeleton);
+        }
+        ImGui::TreePop();
+    }
+}
+
+void SPhysicsAssetEditorWindow::RenderGraphViewPanel(float Width, float Height)
+{
+    ImGui::BeginChild("GraphView", ImVec2(Width - 16, Height), false);
+    ImGui::Text("Graph");
+    ImGui::Separator();
+
+    PhysicsAssetEditorState* PhysState = GetPhysicsState();
+    if (!PhysState || !PhysState->EditingAsset)
+    {
+        ImGui::TextDisabled("No physics asset");
+        ImGui::EndChild();
+        return;
+    }
+
+    if (!ActiveState || !ActiveState->CurrentMesh)
+    {
+        ImGui::TextDisabled("No mesh loaded");
+        ImGui::EndChild();
+        return;
+    }
+
+    const FSkeleton* Skeleton = ActiveState->CurrentMesh->GetSkeleton();
+    if (!Skeleton)
+    {
+        ImGui::TextDisabled("No skeleton");
+        ImGui::EndChild();
+        return;
+    }
+
+    ImDrawList* DrawList = ImGui::GetWindowDrawList();
+    ImVec2 canvasPos = ImGui::GetCursorScreenPos();
+    ImVec2 canvasSize = ImGui::GetContentRegionAvail();
+
+    // 폰트 스케일을 줌에 맞게 조절 (언리얼 스타일: 노드와 텍스트가 함께 스케일링)
+    const float fontScale = PhysState->GraphZoom;
+    ImGui::SetWindowFontScale(fontScale);
+
+    // 배경
+    DrawList->AddRectFilled(canvasPos,
+        ImVec2(canvasPos.x + canvasSize.x, canvasPos.y + canvasSize.y),
+        IM_COL32(30, 30, 30, 255));
+
+    // 그리드
+    float gridSize = 80.0f * PhysState->GraphZoom;
+    for (float x = fmodf(PhysState->GraphOffset.X, gridSize); x < canvasSize.x; x += gridSize)
+    {
+        DrawList->AddLine(ImVec2(canvasPos.x + x, canvasPos.y),
+            ImVec2(canvasPos.x + x, canvasPos.y + canvasSize.y), IM_COL32(50, 50, 50, 255));
+    }
+    for (float y = fmodf(PhysState->GraphOffset.Y, gridSize); y < canvasSize.y; y += gridSize)
+    {
+        DrawList->AddLine(ImVec2(canvasPos.x, canvasPos.y + y),
+            ImVec2(canvasPos.x + canvasSize.x, canvasPos.y + y), IM_COL32(50, 50, 50, 255));
+    }
+
+    // 본 깊이 계산 헬퍼 (스켈레톤 계층에서 루트로부터의 거리)
+    auto GetBoneDepth = [Skeleton](const FName& BoneName) -> int32
+    {
+        auto it = Skeleton->BoneNameToIndex.find(BoneName.ToString());
+        if (it == Skeleton->BoneNameToIndex.end()) return -1;
+
+        int32 boneIdx = it->second;
+        int32 depth = 0;
+        while (boneIdx >= 0)
+        {
+            boneIdx = Skeleton->Bones[boneIdx].ParentIndex;
+            depth++;
+        }
+        return depth;
+    };
+
+    // GraphFocusBodyIndex 갱신: 트리/뷰포트에서 선택한 경우에만 갱신
+    // 그래프에서 노드 클릭 시에는 갱신하지 않음 (SelectionSource로 구분)
+    if (PhysState->SelectionSource == PhysicsAssetEditorState::ESelectionSource::TreeOrViewport)
+    {
+        if (PhysState->SelectedBodyIndex >= 0 && PhysState->SelectedBodyIndex < PhysState->EditingAsset->Bodies.Num())
+        {
+            // Body 선택 시: 해당 Body를 그래프 포커스로
+            PhysState->GraphFocusBodyIndex = PhysState->SelectedBodyIndex;
+        }
+        else if (PhysState->SelectedConstraintIndex >= 0 && PhysState->SelectedConstraintIndex < PhysState->EditingAsset->Constraints.Num())
+        {
+            // Constraint 선택 시: 스켈레톤 계층에서 더 상위(Root에 가까운) Body를 그래프 포커스로
+            FConstraintInstance& Constraint = PhysState->EditingAsset->Constraints[PhysState->SelectedConstraintIndex];
+
+            // Bone1, Bone2에 해당하는 Body 인덱스 찾기
+            int32 Body1Idx = -1, Body2Idx = -1;
+            for (int32 j = 0; j < PhysState->EditingAsset->Bodies.Num(); ++j)
+            {
+                if (PhysState->EditingAsset->Bodies[j]->BoneName == Constraint.ConstraintBone1)
+                    Body1Idx = j;
+                if (PhysState->EditingAsset->Bodies[j]->BoneName == Constraint.ConstraintBone2)
+                    Body2Idx = j;
+            }
+
+            // 스켈레톤 계층에서 더 상위(깊이가 작은)인 Body 선택
+            if (Body1Idx >= 0 && Body2Idx >= 0)
+            {
+                int32 depth1 = GetBoneDepth(Constraint.ConstraintBone1);
+                int32 depth2 = GetBoneDepth(Constraint.ConstraintBone2);
+
+                // 깊이가 작을수록 Root에 가까움 (상위)
+                PhysState->GraphFocusBodyIndex = (depth1 <= depth2) ? Body1Idx : Body2Idx;
+            }
+            else if (Body1Idx >= 0)
+            {
+                PhysState->GraphFocusBodyIndex = Body1Idx;
+            }
+            else if (Body2Idx >= 0)
+            {
+                PhysState->GraphFocusBodyIndex = Body2Idx;
+            }
+        }
+    }
+
+    // GraphFocusBodyIndex가 유효하지 않으면 메시지 표시
+    if (PhysState->GraphFocusBodyIndex < 0 || PhysState->GraphFocusBodyIndex >= PhysState->EditingAsset->Bodies.Num())
+    {
+        ImGui::Dummy(ImVec2(10, 30));
+        ImGui::TextDisabled("Select a body or constraint from tree");
+        ImGui::EndChild();
+        return;
+    }
+
+    // 그래프는 항상 GraphFocusBodyIndex 기준으로 렌더링
+    UBodySetup* FocusBody = PhysState->EditingAsset->Bodies[PhysState->GraphFocusBodyIndex];
+    FName FocusBoneName = FocusBody->BoneName;
+
+    // 포커스 Body와 연결된 모든 Constraint 및 이웃 Body 찾기
+    struct FNeighborInfo
+    {
+        int32 ConstraintIndex;
+        int32 NeighborBodyIndex;  // Constraint 건너편 Body
+    };
+    TArray<FNeighborInfo> Neighbors;
+
+    for (int32 i = 0; i < PhysState->EditingAsset->Constraints.Num(); ++i)
+    {
+        FConstraintInstance& Constraint = PhysState->EditingAsset->Constraints[i];
+
+        // 포커스 Body가 이 Constraint의 Bone1 또는 Bone2인지 확인
+        bool bIsBone1 = (Constraint.ConstraintBone1 == FocusBoneName);
+        bool bIsBone2 = (Constraint.ConstraintBone2 == FocusBoneName);
+
+        if (bIsBone1 || bIsBone2)
+        {
+            // 건너편 본 이름 찾기
+            FName NeighborBoneName = bIsBone1 ? Constraint.ConstraintBone2 : Constraint.ConstraintBone1;
+
+            // 건너편 Body 인덱스 찾기
+            int32 NeighborBodyIdx = -1;
+            for (int32 j = 0; j < PhysState->EditingAsset->Bodies.Num(); ++j)
+            {
+                if (PhysState->EditingAsset->Bodies[j]->BoneName == NeighborBoneName)
+                {
+                    NeighborBodyIdx = j;
+                    break;
+                }
+            }
+
+            if (NeighborBodyIdx >= 0)
+            {
+                FNeighborInfo Info;
+                Info.ConstraintIndex = i;
+                Info.NeighborBodyIndex = NeighborBodyIdx;
+                Neighbors.Add(Info);
+            }
+        }
+    }
+
+    if (Neighbors.Num() == 0)
+    {
+        ImGui::Dummy(ImVec2(10, 30));
+        ImGui::TextDisabled("No constraints connected");
+        ImGui::EndChild();
+        return;
+    }
+
+    // 본 이름에서 prefix 제거 헬퍼 (예: "mixamorig6:Hips" -> "Hips")
+    auto StripBonePrefix = [](const FString& boneName) -> FString
+    {
+        size_t colonPos = boneName.find(':');
+        if (colonPos != std::string::npos && colonPos + 1 < boneName.length())
+            return boneName.substr(colonPos + 1);
+        return boneName;
+    };
+
+    // 노드 크기와 간격 모두 줌에 비례 (언리얼 스타일: 비율 유지)
+    const float NodeWidth = 100.0f * PhysState->GraphZoom;
+    const float NodeHeight = 65.0f * PhysState->GraphZoom;
+    const float ConstraintNodeWidth = 160.0f * PhysState->GraphZoom;
+    const float ConstraintNodeHeight = 45.0f * PhysState->GraphZoom;
+    const float HorizontalSpacing = 170.0f * PhysState->GraphZoom;
+    const float VerticalSpacing = 85.0f * PhysState->GraphZoom;
+
+    // 색상 정의 (언리얼 스타일)
+    const ImU32 BodyColor = IM_COL32(160, 200, 130, 255);           // 연두색 (Body)
+    const ImU32 BodySelectedColor = IM_COL32(180, 220, 150, 255);   // 밝은 연두색 (선택된 Body)
+    const ImU32 ConstraintColor = IM_COL32(220, 180, 100, 255);     // 노란색/주황색 (Constraint)
+    const ImU32 ConstraintSelectedColor = IM_COL32(240, 200, 120, 255); // 밝은 노란색 (선택된 Constraint)
+    const ImU32 LineColor = IM_COL32(150, 150, 150, 255);           // 연결선
+    const ImU32 TextColor = IM_COL32(40, 40, 40, 255);              // 검은색 글씨 (통일)
+
+    // 레이아웃: 왼쪽(선택된 Body 1개) - 가운데(Constraint들) - 오른쪽(이웃 Body들)
+    int32 numNeighbors = Neighbors.Num();
+    float totalHeight = (numNeighbors - 1) * VerticalSpacing;
+    float centerY = canvasPos.y + canvasSize.y * 0.5f + PhysState->GraphOffset.Y;
+    float startY = centerY - totalHeight * 0.5f;
+
+    // X 위치
+    float leftX = canvasPos.x + canvasSize.x * 0.5f + PhysState->GraphOffset.X - HorizontalSpacing;
+    float centerX = canvasPos.x + canvasSize.x * 0.5f + PhysState->GraphOffset.X;
+    float rightX = canvasPos.x + canvasSize.x * 0.5f + PhysState->GraphOffset.X + HorizontalSpacing;
+
+    // 선택된 Body Y 위치 (세로 중앙)
+    float selectedBodyY = centerY;
+
+    // ========== 연결선 그리기 (노드 뒤에) ==========
+    for (int32 i = 0; i < numNeighbors; ++i)
+    {
+        float rowY = startY + i * VerticalSpacing;
+
+        ImVec2 selectedPos(leftX, selectedBodyY);
+        ImVec2 constraintPos(centerX, rowY);
+        ImVec2 neighborPos(rightX, rowY);
+
+        // 선택된 Body → Constraint
+        DrawList->AddLine(
+            ImVec2(selectedPos.x + NodeWidth * 0.5f, selectedPos.y),
+            ImVec2(constraintPos.x - ConstraintNodeWidth * 0.5f, constraintPos.y),
+            LineColor, 2.0f);
+
+        // Constraint → 이웃 Body
+        DrawList->AddLine(
+            ImVec2(constraintPos.x + ConstraintNodeWidth * 0.5f, constraintPos.y),
+            ImVec2(neighborPos.x - NodeWidth * 0.5f, neighborPos.y),
+            LineColor, 2.0f);
+    }
+
+    // ========== 노드 그리기 ==========
+
+    // 헬퍼 람다: Body 노드 그리기 (언리얼 스타일 - 폰트도 함께 스케일링)
+    auto DrawBodyNode = [&](ImVec2 pos, const FString& boneName, int32 bodyIdx, int32 shapeCount, bool bSelected)
+    {
+        ImVec2 nodeMin(pos.x - NodeWidth * 0.5f, pos.y - NodeHeight * 0.5f);
+        ImVec2 nodeMax(pos.x + NodeWidth * 0.5f, pos.y + NodeHeight * 0.5f);
+
+        // 배경색 (연두색)
+        ImU32 bgColor = bSelected ? BodySelectedColor : BodyColor;
+        DrawList->AddRectFilled(nodeMin, nodeMax, bgColor, 4.0f * PhysState->GraphZoom);
+        if (bSelected)
+            DrawList->AddRect(nodeMin, nodeMax, IM_COL32(255, 255, 255, 255), 4.0f * PhysState->GraphZoom, 0, 2.0f);
+
+        // 텍스트 (폰트 스케일이 적용되어 노드와 비례함)
+        FString displayName = StripBonePrefix(boneName);
+
+        // "바디" 라벨
+        const char* bodyLabel = "바디";
+        ImVec2 labelSize = ImGui::CalcTextSize(bodyLabel);
+        DrawList->AddText(ImVec2(pos.x - labelSize.x * 0.5f, nodeMin.y + 6 * PhysState->GraphZoom), TextColor, bodyLabel);
+
+        // 본 이름
+        ImVec2 nameSize = ImGui::CalcTextSize(displayName.c_str());
+        DrawList->AddText(ImVec2(pos.x - nameSize.x * 0.5f, pos.y - 5 * PhysState->GraphZoom), TextColor, displayName.c_str());
+
+        // "셰이프 N개"
+        char shapeText[32];
+        sprintf_s(shapeText, "셰이프 %d개", shapeCount);
+        ImVec2 shapeSize = ImGui::CalcTextSize(shapeText);
+        DrawList->AddText(ImVec2(pos.x - shapeSize.x * 0.5f, nodeMax.y - 18 * PhysState->GraphZoom), TextColor, shapeText);
+
+        // 클릭 감지
+        if (ImGui::IsMouseHoveringRect(nodeMin, nodeMax) && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+        {
+            SelectBody(bodyIdx, PhysicsAssetEditorState::ESelectionSource::Graph);
+        }
+    };
+
+    // 헬퍼 람다: Constraint 노드 그리기 (언리얼 스타일 - 폰트도 함께 스케일링)
+    // 표시 형식: 자식본:부모본 (스켈레톤 계층 구조 기준, Bone1/Bone2 순서 무관)
+    auto DrawConstraintNode = [&](ImVec2 pos, const FString& bone1, const FString& bone2, int32 constraintIdx, bool bSelected)
+    {
+        ImVec2 nodeMin(pos.x - ConstraintNodeWidth * 0.5f, pos.y - ConstraintNodeHeight * 0.5f);
+        ImVec2 nodeMax(pos.x + ConstraintNodeWidth * 0.5f, pos.y + ConstraintNodeHeight * 0.5f);
+
+        // 배경색 (노란색/주황색)
+        ImU32 bgColor = bSelected ? ConstraintSelectedColor : ConstraintColor;
+        DrawList->AddRectFilled(nodeMin, nodeMax, bgColor, 4.0f * PhysState->GraphZoom);
+        if (bSelected)
+            DrawList->AddRect(nodeMin, nodeMax, IM_COL32(255, 255, 255, 255), 4.0f * PhysState->GraphZoom, 0, 2.0f);
+
+        // 텍스트 (폰트 스케일이 적용되어 노드와 비례함)
+        //FString shortBone1 = StripBonePrefix(bone1);
+        //FString shortBone2 = StripBonePrefix(bone2);
+        //FString connectionText = shortBone2 + " : " + shortBone1;
+
+        // "컨스트레인트" 라벨
+        const char* constraintLabel = "컨스트레인트";
+        ImVec2 labelSize = ImGui::CalcTextSize(constraintLabel);
+        DrawList->AddText(ImVec2(pos.x - labelSize.x * 0.5f, nodeMin.y + 6 * PhysState->GraphZoom), TextColor, constraintLabel);
+
+        // Child : Parent 표시 (언리얼 규칙: ConstraintBone1=Child, ConstraintBone2=Parent)
+        // prefix 제거 후 표시
+        FString shortBone1 = StripBonePrefix(bone1);  // Child (ConstraintBone1)
+        FString shortBone2 = StripBonePrefix(bone2);  // Parent (ConstraintBone2)
+        FString connectionText = shortBone1 + " : " + shortBone2;  // Child : Parent
+        ImVec2 connSize = ImGui::CalcTextSize(connectionText.c_str());
+        DrawList->AddText(ImVec2(pos.x - connSize.x * 0.5f, nodeMax.y - 18 * PhysState->GraphZoom), TextColor, connectionText.c_str());
+
+        // 클릭 감지
+        if (ImGui::IsMouseHoveringRect(nodeMin, nodeMax) && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+        {
+            SelectConstraint(constraintIdx, PhysicsAssetEditorState::ESelectionSource::Graph);
+        }
+    };
+
+    // Shape 개수 계산 헬퍼
+    auto GetBodyShapeCount = [](UBodySetup* body) -> int32
+    {
+        if (!body) return 0;
+        return body->AggGeom.SphereElems.Num() + body->AggGeom.BoxElems.Num() + body->AggGeom.SphylElems.Num();
+    };
+
+    // ========== 포커스 Body 노드 그리기 (왼쪽, 하나만) ==========
+    ImVec2 focusPos(leftX, selectedBodyY);
+    bool bFocusBodyHighlight = (PhysState->SelectedBodyIndex == PhysState->GraphFocusBodyIndex);
+    DrawBodyNode(focusPos, FocusBody->BoneName.ToString(), PhysState->GraphFocusBodyIndex,
+        GetBodyShapeCount(FocusBody), bFocusBodyHighlight);
+
+    // ========== Constraint 및 이웃 Body 노드 그리기 ==========
+    for (int32 i = 0; i < numNeighbors; ++i)
+    {
+        const FNeighborInfo& Info = Neighbors[i];
+        float rowY = startY + i * VerticalSpacing;
+
+        // Constraint (가운데)
+        FConstraintInstance& Constraint = PhysState->EditingAsset->Constraints[Info.ConstraintIndex];
+        ImVec2 constraintPos(centerX, rowY);
+        bool bConstraintSelected = (PhysState->SelectedConstraintIndex == Info.ConstraintIndex);
+        DrawConstraintNode(constraintPos, Constraint.ConstraintBone1.ToString(),
+            Constraint.ConstraintBone2.ToString(), Info.ConstraintIndex, bConstraintSelected);
+
+        // 이웃 Body (오른쪽)
+        UBodySetup* NeighborBody = PhysState->EditingAsset->Bodies[Info.NeighborBodyIndex];
+        ImVec2 neighborPos(rightX, rowY);
+        bool bNeighborSelected = (PhysState->SelectedBodyIndex == Info.NeighborBodyIndex);
+        DrawBodyNode(neighborPos, NeighborBody->BoneName.ToString(), Info.NeighborBodyIndex,
+            GetBodyShapeCount(NeighborBody), bNeighborSelected);
+    }
+
+    // Ensure valid size for InvisibleButton (패닝/줌용)
+    if (canvasSize.x > 1 && canvasSize.y > 1)
+    {
+        ImGui::SetCursorScreenPos(canvasPos);
+        ImGui::InvisibleButton("GraphCanvas", canvasSize, ImGuiButtonFlags_MouseButtonMiddle | ImGuiButtonFlags_MouseButtonRight);
+
+        bool bIsHovered = ImGui::IsItemHovered();
+        bool bIsActive = ImGui::IsItemActive();
+
+        // 패닝: 마우스 휠 버튼 또는 우클릭 드래그
+        if (bIsHovered || bIsActive)
+        {
+            if (ImGui::IsMouseDragging(ImGuiMouseButton_Middle) || ImGui::IsMouseDragging(ImGuiMouseButton_Right))
+            {
+                PhysState->GraphOffset.X += ImGui::GetIO().MouseDelta.x;
+                PhysState->GraphOffset.Y += ImGui::GetIO().MouseDelta.y;
+            }
+        }
+
+        // 줌: 마우스 휠
+        if (bIsHovered)
+        {
+            float wheel = ImGui::GetIO().MouseWheel;
+            if (wheel != 0.0f)
+                PhysState->GraphZoom = std::clamp(PhysState->GraphZoom + wheel * 0.1f, 0.1f, 2.0f);
+        }
+    }
+
+    // 폰트 스케일 복원
+    ImGui::SetWindowFontScale(1.0f);
+
+    ImGui::EndChild();
+}
+
+void SPhysicsAssetEditorWindow::RenderGraphNode(const FVector2D& Position, const FString& Label, bool bIsBody, bool bSelected, uint32 Color)
+{
+    ImDrawList* DrawList = ImGui::GetWindowDrawList();
+    ImVec2 canvasPos = ImGui::GetCursorScreenPos();
+
+    float nodeWidth = 120.0f;
+    float nodeHeight = 40.0f;
+
+    ImVec2 nodeMin(canvasPos.x + Position.X - nodeWidth * 0.5f, canvasPos.y + Position.Y - nodeHeight * 0.5f);
+    ImVec2 nodeMax(nodeMin.x + nodeWidth, nodeMin.y + nodeHeight);
+
+    DrawList->AddRectFilled(nodeMin, nodeMax, Color, 4.0f);
+    if (bSelected)
+        DrawList->AddRect(nodeMin, nodeMax, IM_COL32(255, 255, 255, 255), 4.0f, 0, 2.0f);
+
+    ImVec2 textSize = ImGui::CalcTextSize(Label.c_str());
+    ImVec2 textPos(nodeMin.x + (nodeWidth - textSize.x) * 0.5f, nodeMin.y + (nodeHeight - textSize.y) * 0.5f);
+    DrawList->AddText(textPos, IM_COL32(255, 255, 255, 255), Label.c_str());
+}
+
+void SPhysicsAssetEditorWindow::RenderBodyDetails(UBodySetup* Body)
+{
+    if (!Body) return;
+
+    PhysicsAssetEditorState* PhysState = GetPhysicsState();
+
+    ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.3f, 0.3f, 0.3f, 0.8f));
+
+    if (ImGui::CollapsingHeader("Physics", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        ImGui::Indent();
+
+        float mass = Body->MassInKg;
+        ImGui::Text("Mass (kg)");
+        ImGui::SetNextItemWidth(-1);
+        if (ImGui::DragFloat("##Mass", &mass, 0.1f, 0.0f, 10000.0f, "%.2f"))
+        {
+            Body->MassInKg = mass;
+            if (PhysState) PhysState->bIsDirty = true;
+        }
+
+        float linearDamping = Body->LinearDamping;
+        ImGui::Text("Linear Damping");
+        ImGui::SetNextItemWidth(-1);
+        if (ImGui::DragFloat("##LinearDamping", &linearDamping, 0.01f, 0.0f, 100.0f, "%.3f"))
+        {
+            Body->LinearDamping = linearDamping;
+            if (PhysState) PhysState->bIsDirty = true;
+        }
+
+        float angularDamping = Body->AngularDamping;
+        ImGui::Text("Angular Damping");
+        ImGui::SetNextItemWidth(-1);
+        if (ImGui::DragFloat("##AngularDamping", &angularDamping, 0.01f, 0.0f, 100.0f, "%.3f"))
+        {
+            Body->AngularDamping = angularDamping;
+            if (PhysState) PhysState->bIsDirty = true;
+        }
+
+        ImGui::Unindent();
+    }
+
+    // Physical Material 섹션
+    if (ImGui::CollapsingHeader("Physical Material", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        ImGui::Indent();
+
+        // Physical Material 에셋 드롭다운
+        ImGui::Text("Physical Material Asset");
+
+        // 에셋 목록 가져오기
+        TArray<FString> PhysMatPaths, PhysMatNames;
+        PhysicsAssetEditorBootstrap::GetAllPhysicalMaterialPaths(PhysMatPaths, PhysMatNames);
+
+        // 드롭다운 표시용 문자열 배열
+        std::vector<const char*> PhysMatItems;
+        for (const FString& Name : PhysMatNames)
+        {
+            PhysMatItems.push_back(Name.c_str());
+        }
+
+        // 현재 Body의 PhysMaterial 경로와 매칭되는 인덱스 찾기
+        int CurrentPhysMatIndex = 0;  // 기본값: None
+        if (Body->PhysMaterial && !Body->PhysMaterialPath.empty())
+        {
+            for (int32 i = 0; i < PhysMatPaths.Num(); ++i)
+            {
+                if (PhysMatPaths[i] == Body->PhysMaterialPath)
+                {
+                    CurrentPhysMatIndex = i;
+                    break;
+                }
+            }
+        }
+
+        // Body별 고유 ID를 위해 PushID 사용
+        ImGui::PushID(Body);
+        ImGui::SetNextItemWidth(-1);
+        if (ImGui::Combo("##PhysMatAsset", &CurrentPhysMatIndex, PhysMatItems.data(), (int)PhysMatItems.size()))
+        {
+            if (CurrentPhysMatIndex > 0 && CurrentPhysMatIndex < PhysMatPaths.Num())
+            {
+                // 에셋 로드하여 적용
+                UPhysicalMaterial* LoadedMat = PhysicsAssetEditorBootstrap::LoadPhysicalMaterial(PhysMatPaths[CurrentPhysMatIndex]);
+                if (LoadedMat)
+                {
+                    Body->PhysMaterial = LoadedMat;
+                    Body->PhysMaterialPath = PhysMatPaths[CurrentPhysMatIndex];  // 경로 저장
+                    if (PhysState) PhysState->bIsDirty = true;
+                }
+            }
+            else
+            {
+                // None 선택 시 PhysMaterial을 nullptr로 설정
+                Body->PhysMaterial = nullptr;
+                Body->PhysMaterialPath = "";
+                if (PhysState) PhysState->bIsDirty = true;
+            }
+        }
+        ImGui::PopID();
+
+        ImGui::Separator();
+
+        // None 선택 시 Friction/Restitution을 0으로 표시 (읽기 전용)
+        // 에셋 선택 시 해당 값 표시 (Edit 모드에 따라 활성/비활성)
+        bool bHasPhysMaterial = (Body->PhysMaterial != nullptr);
+        float friction = bHasPhysMaterial ? Body->PhysMaterial->Friction : 0.0f;
+        float restitution = bHasPhysMaterial ? Body->PhysMaterial->Restitution : 0.0f;
+
+        // Edit 모드 상태 관리 (Body 포인터를 키로 사용)
+        static std::unordered_map<void*, bool> EditModeMap;
+        bool& bEditMode = EditModeMap[Body];
+
+        // Friction (마찰 계수)
+        ImGui::Text("Friction");
+        ImGui::SetNextItemWidth(-1);
+        if (!bHasPhysMaterial)
+        {
+            ImGui::BeginDisabled();
+            ImGui::DragFloat("##Friction", &friction, 0.01f, 0.0f, 1.0f, "%.2f");
+            ImGui::EndDisabled();
+        }
+        else
+        {
+            // Edit 모드가 아니면 비활성화
+            if (!bEditMode) ImGui::BeginDisabled();
+            if (ImGui::DragFloat("##Friction", &friction, 0.01f, 0.0f, 1.0f, "%.2f"))
+            {
+                Body->PhysMaterial->Friction = friction;
+            }
+            if (!bEditMode) ImGui::EndDisabled();
+        }
+
+        // Restitution (반발 계수)
+        ImGui::Text("Restitution");
+        ImGui::SetNextItemWidth(-1);
+        if (!bHasPhysMaterial)
+        {
+            ImGui::BeginDisabled();
+            ImGui::DragFloat("##Restitution", &restitution, 0.01f, 0.0f, 1.0f, "%.2f");
+            ImGui::EndDisabled();
+        }
+        else
+        {
+            // Edit 모드가 아니면 비활성화
+            if (!bEditMode) ImGui::BeginDisabled();
+            if (ImGui::DragFloat("##Restitution", &restitution, 0.01f, 0.0f, 1.0f, "%.2f"))
+            {
+                Body->PhysMaterial->Restitution = restitution;
+            }
+            if (!bEditMode) ImGui::EndDisabled();
+        }
+
+        // Edit/Save 토글 버튼 (에셋이 선택된 경우만)
+        if (bHasPhysMaterial)
+        {
+            const char* ButtonLabel = bEditMode ? "Save" : "Edit";
+            if (ImGui::Button(ButtonLabel, ImVec2(-1, 0)))
+            {
+                if (bEditMode)
+                {
+                    // Save 버튼 클릭: 에셋 파일에 저장
+                    if (!Body->PhysMaterialPath.empty())
+                    {
+                        if (PhysicsAssetEditorBootstrap::SavePhysicalMaterial(Body->PhysMaterial, Body->PhysMaterialPath))
+                        {
+                            UE_LOG("[PhysicsAssetEditor] Physical Material 저장: %s", Body->PhysMaterialPath.c_str());
+                        }
+                    }
+                    bEditMode = false;
+                }
+                else
+                {
+                    // Edit 버튼 클릭: 편집 모드 활성화
+                    bEditMode = true;
+                }
+            }
+        }
+
+        if (!bHasPhysMaterial)
+        {
+            ImGui::TextDisabled("Select a Physical Material asset");
+
+            ImGui::Separator();
+
+            // 새 Physical Material 에셋 생성 UI
+            ImGui::Text("Create New Asset");
+
+            static char NewPhysMatNameBuffer[256] = "NewPhysicalMaterial";
+            static float NewFriction = 0.5f;
+            static float NewRestitution = 0.3f;
+
+            ImGui::Text("Name");
+            ImGui::SetNextItemWidth(-1);
+            ImGui::InputText("##NewPhysMatName", NewPhysMatNameBuffer, sizeof(NewPhysMatNameBuffer));
+
+            ImGui::Text("Friction");
+            ImGui::SetNextItemWidth(-1);
+            ImGui::DragFloat("##NewFriction", &NewFriction, 0.01f, 0.0f, 1.0f, "%.2f");
+
+            ImGui::Text("Restitution");
+            ImGui::SetNextItemWidth(-1);
+            ImGui::DragFloat("##NewRestitution", &NewRestitution, 0.01f, 0.0f, 1.0f, "%.2f");
+
+            if (ImGui::Button("Create & Apply", ImVec2(-1, 0)))
+            {
+                // 새 PhysMaterial 생성
+                UPhysicalMaterial* NewMat = NewObject<UPhysicalMaterial>();
+                if (NewMat)
+                {
+                    NewMat->Friction = NewFriction;
+                    NewMat->Restitution = NewRestitution;
+
+                    // 에셋으로 저장
+                    FString MaterialsDir = GDataDir + "/Physics/Materials";
+                    // 폴더가 없으면 생성
+                    std::filesystem::path DirPath(UTF8ToWide(MaterialsDir));
+                    if (!std::filesystem::exists(DirPath))
+                    {
+                        std::filesystem::create_directories(DirPath);
+                    }
+                    FString SavePath = NormalizePath(MaterialsDir + "/" + NewPhysMatNameBuffer + ".physmat");
+                    if (PhysicsAssetEditorBootstrap::SavePhysicalMaterial(NewMat, SavePath))
+                    {
+                        // Body에 적용
+                        Body->PhysMaterial = NewMat;
+                        Body->PhysMaterialPath = SavePath;
+                        if (PhysState) PhysState->bIsDirty = true;
+                        UE_LOG("[PhysicsAssetEditor] Physical Material 생성 및 적용: %s", SavePath.c_str());
+                    }
+                }
+            }
+        }
+
+        ImGui::Unindent();
+    }
+
+    if (ImGui::CollapsingHeader("Body Setup", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        ImGui::Indent();
+
+        // Bone Name
+        ImGui::Text("Bone Name");
+        ImGui::TextDisabled("%s", Body->BoneName.ToString().c_str());
+
+        ImGui::Separator();
+
+        // ===== Primitives (트리 구조) =====
+        // CollisionEnabled 옵션 배열
+        const char* collisionModes[] = { "No Collision", "Query Only", "Physics Only", "Collision Enabled" };
+
+        // ===== Sphere 섹션 =====
+        int32 sphereCount = Body->AggGeom.SphereElems.Num();
+        ImGui::PushID("Spheres");
+        if (ImGui::TreeNode("Sphere"))
+        {
+            ImGui::SameLine(200);
+            ImGui::TextDisabled("Elements: %d", sphereCount);
+
+            for (int32 i = 0; i < sphereCount; ++i)
+            {
+                FKSphereElem& Sphere = Body->AggGeom.SphereElems[i];
+                ImGui::PushID(i);
+                if (ImGui::TreeNode("##SphereElem", "Index [%d]", i))
+                {
+                    ImGui::SameLine(200);
+                    ImGui::TextDisabled("%s", Sphere.Name.ToString().c_str());
+
+                    // Center
+                    float center[3] = { Sphere.Center.X, Sphere.Center.Y, Sphere.Center.Z };
+                    ImGui::Text("Center");
+                    ImGui::SetNextItemWidth(-1);
+                    if (ImGui::DragFloat3("##Center", center, 0.1f))
+                    {
+                        Sphere.Center = FVector(center[0], center[1], center[2]);
+                        if (PhysState)
+                        {
+                            PhysState->bIsDirty = true;
+                            PhysState->bShapesDirty = true;
+                            if (PhysState->ShapeGizmoAnchor) PhysState->ShapeGizmoAnchor->UpdateAnchorFromShape();
+                        }
+                    }
+
+                    // Radius
+                    ImGui::Text("Radius");
+                    ImGui::SetNextItemWidth(-1);
+                    if (ImGui::DragFloat("##Radius", &Sphere.Radius, 0.1f, 0.1f, 1000.0f, "%.2f"))
+                    {
+                        if (PhysState)
+                        {
+                            PhysState->bIsDirty = true;
+                            PhysState->bShapesDirty = true;
+                            if (PhysState->ShapeGizmoAnchor) PhysState->ShapeGizmoAnchor->UpdateAnchorFromShape();
+                            // Shape 크기 변경 시 부피 기반 질량 재계산
+                            UpdateBodyMassFromVolume(Body);
+                        }
+                    }
+
+                    // Name
+                    char nameBuffer[256];
+                    strcpy_s(nameBuffer, Sphere.Name.ToString().c_str());
+                    ImGui::Text("Name");
+                    ImGui::SetNextItemWidth(-1);
+                    if (ImGui::InputText("##Name", nameBuffer, sizeof(nameBuffer)))
+                    {
+                        Sphere.Name = FName(nameBuffer);
+                        if (PhysState) PhysState->bIsDirty = true;
+                    }
+
+                    // CollisionEnabled
+                    int collisionMode = static_cast<int>(Sphere.CollisionEnabled);
+                    ImGui::Text("Collision Enabled");
+                    ImGui::SetNextItemWidth(-1);
+                    if (ImGui::Combo("##Collision", &collisionMode, collisionModes, 4))
+                    {
+                        Sphere.CollisionEnabled = static_cast<ECollisionEnabled>(collisionMode);
+                        if (PhysState) PhysState->bIsDirty = true;
+                    }
+
+                    ImGui::TreePop();
+                }
+                else
+                {
+                    ImGui::SameLine(200);
+                    ImGui::TextDisabled("%s", Sphere.Name.ToString().c_str());
+                }
+                ImGui::PopID();
+            }
+            ImGui::TreePop();
+        }
+        else
+        {
+            ImGui::SameLine(200);
+            ImGui::TextDisabled("Elements: %d", sphereCount);
+        }
+        ImGui::PopID();
+
+        // ===== Box 섹션 =====
+        int32 boxCount = Body->AggGeom.BoxElems.Num();
+        ImGui::PushID("Boxes");
+        if (ImGui::TreeNode("Box"))
+        {
+            ImGui::SameLine(200);
+            ImGui::TextDisabled("Elements: %d", boxCount);
+
+            for (int32 i = 0; i < boxCount; ++i)
+            {
+                FKBoxElem& Box = Body->AggGeom.BoxElems[i];
+                ImGui::PushID(i);
+                if (ImGui::TreeNode("##BoxElem", "Index [%d]", i))
+                {
+                    ImGui::SameLine(200);
+                    ImGui::TextDisabled("%s", Box.Name.ToString().c_str());
+
+                    // Center
+                    float center[3] = { Box.Center.X, Box.Center.Y, Box.Center.Z };
+                    ImGui::Text("Center");
+                    ImGui::SetNextItemWidth(-1);
+                    if (ImGui::DragFloat3("##Center", center, 0.1f))
+                    {
+                        Box.Center = FVector(center[0], center[1], center[2]);
+                        if (PhysState)
+                        {
+                            PhysState->bIsDirty = true;
+                            PhysState->bShapesDirty = true;
+                            if (PhysState->ShapeGizmoAnchor) PhysState->ShapeGizmoAnchor->UpdateAnchorFromShape();
+                        }
+                    }
+
+                    // Rotation (FQuat -> Euler for UI display)
+                    FVector EulerRot = Box.Rotation.ToEulerZYXDeg();
+                    float rotation[3] = { EulerRot.X, EulerRot.Y, EulerRot.Z };
+                    ImGui::Text("Rotation");
+                    ImGui::SetNextItemWidth(-1);
+                    if (ImGui::DragFloat3("##Rotation", rotation, 0.5f, -180.0f, 180.0f, "%.1f"))
+                    {
+                        Box.Rotation = FQuat::MakeFromEulerZYX(FVector(rotation[0], rotation[1], rotation[2]));
+                        if (PhysState)
+                        {
+                            PhysState->bIsDirty = true;
+                            PhysState->bShapesDirty = true;
+                            if (PhysState->ShapeGizmoAnchor) PhysState->ShapeGizmoAnchor->UpdateAnchorFromShape();
+                        }
+                    }
+
+                    // X Size
+                    ImGui::Text("X");
+                    ImGui::SetNextItemWidth(-1);
+                    if (ImGui::DragFloat("##X", &Box.X, 0.1f, 0.1f, 1000.0f, "%.2f"))
+                    {
+                        if (PhysState)
+                        {
+                            PhysState->bIsDirty = true;
+                            PhysState->bShapesDirty = true;
+                            if (PhysState->ShapeGizmoAnchor) PhysState->ShapeGizmoAnchor->UpdateAnchorFromShape();
+                            UpdateBodyMassFromVolume(Body);
+                        }
+                    }
+
+                    // Y Size
+                    ImGui::Text("Y");
+                    ImGui::SetNextItemWidth(-1);
+                    if (ImGui::DragFloat("##Y", &Box.Y, 0.1f, 0.1f, 1000.0f, "%.2f"))
+                    {
+                        if (PhysState)
+                        {
+                            PhysState->bIsDirty = true;
+                            PhysState->bShapesDirty = true;
+                            if (PhysState->ShapeGizmoAnchor) PhysState->ShapeGizmoAnchor->UpdateAnchorFromShape();
+                            UpdateBodyMassFromVolume(Body);
+                        }
+                    }
+
+                    // Z Size
+                    ImGui::Text("Z");
+                    ImGui::SetNextItemWidth(-1);
+                    if (ImGui::DragFloat("##Z", &Box.Z, 0.1f, 0.1f, 1000.0f, "%.2f"))
+                    {
+                        if (PhysState)
+                        {
+                            PhysState->bIsDirty = true;
+                            PhysState->bShapesDirty = true;
+                            if (PhysState->ShapeGizmoAnchor) PhysState->ShapeGizmoAnchor->UpdateAnchorFromShape();
+                            UpdateBodyMassFromVolume(Body);
+                        }
+                    }
+
+                    // Name
+                    char nameBuffer[256];
+                    strcpy_s(nameBuffer, Box.Name.ToString().c_str());
+                    ImGui::Text("Name");
+                    ImGui::SetNextItemWidth(-1);
+                    if (ImGui::InputText("##Name", nameBuffer, sizeof(nameBuffer)))
+                    {
+                        Box.Name = FName(nameBuffer);
+                        if (PhysState) PhysState->bIsDirty = true;
+                    }
+
+                    // CollisionEnabled
+                    int collisionMode = static_cast<int>(Box.CollisionEnabled);
+                    ImGui::Text("Collision Enabled");
+                    ImGui::SetNextItemWidth(-1);
+                    if (ImGui::Combo("##Collision", &collisionMode, collisionModes, 4))
+                    {
+                        Box.CollisionEnabled = static_cast<ECollisionEnabled>(collisionMode);
+                        if (PhysState) PhysState->bIsDirty = true;
+                    }
+
+                    ImGui::TreePop();
+                }
+                else
+                {
+                    ImGui::SameLine(200);
+                    ImGui::TextDisabled("%s", Box.Name.ToString().c_str());
+                }
+                ImGui::PopID();
+            }
+            ImGui::TreePop();
+        }
+        else
+        {
+            ImGui::SameLine(200);
+            ImGui::TextDisabled("Elements: %d", boxCount);
+        }
+        ImGui::PopID();
+
+        // ===== Capsule 섹션 =====
+        int32 capsuleCount = Body->AggGeom.SphylElems.Num();
+        ImGui::PushID("Capsules");
+        if (ImGui::TreeNode("Capsule"))
+        {
+            ImGui::SameLine(200);
+            ImGui::TextDisabled("Elements: %d", capsuleCount);
+
+            for (int32 i = 0; i < capsuleCount; ++i)
+            {
+                FKSphylElem& Capsule = Body->AggGeom.SphylElems[i];
+                ImGui::PushID(i);
+                if (ImGui::TreeNode("##CapsuleElem", "Index [%d]", i))
+                {
+                    ImGui::SameLine(200);
+                    ImGui::TextDisabled("%s", Capsule.Name.ToString().c_str());
+
+                    // Center
+                    float center[3] = { Capsule.Center.X, Capsule.Center.Y, Capsule.Center.Z };
+                    ImGui::Text("Center");
+                    ImGui::SetNextItemWidth(-1);
+                    if (ImGui::DragFloat3("##Center", center, 0.1f))
+                    {
+                        Capsule.Center = FVector(center[0], center[1], center[2]);
+                        if (PhysState)
+                        {
+                            PhysState->bIsDirty = true;
+                            PhysState->bShapesDirty = true;
+                            if (PhysState->ShapeGizmoAnchor) PhysState->ShapeGizmoAnchor->UpdateAnchorFromShape();
+                        }
+                    }
+
+                    // Rotation (FQuat -> Euler for UI display)
+                    FVector CapsuleEuler = Capsule.Rotation.ToEulerZYXDeg();
+                    float rotation[3] = { CapsuleEuler.X, CapsuleEuler.Y, CapsuleEuler.Z };
+                    ImGui::Text("Rotation");
+                    ImGui::SetNextItemWidth(-1);
+                    if (ImGui::DragFloat3("##Rotation", rotation, 0.5f, -180.0f, 180.0f, "%.1f"))
+                    {
+                        Capsule.Rotation = FQuat::MakeFromEulerZYX(FVector(rotation[0], rotation[1], rotation[2]));
+                        if (PhysState)
+                        {
+                            PhysState->bIsDirty = true;
+                            PhysState->bShapesDirty = true;
+                            if (PhysState->ShapeGizmoAnchor) PhysState->ShapeGizmoAnchor->UpdateAnchorFromShape();
+                        }
+                    }
+
+                    // Radius
+                    ImGui::Text("Radius");
+                    ImGui::SetNextItemWidth(-1);
+                    if (ImGui::DragFloat("##Radius", &Capsule.Radius, 0.1f, 0.1f, 1000.0f, "%.2f"))
+                    {
+                        if (PhysState)
+                        {
+                            PhysState->bIsDirty = true;
+                            PhysState->bShapesDirty = true;
+                            if (PhysState->ShapeGizmoAnchor) PhysState->ShapeGizmoAnchor->UpdateAnchorFromShape();
+                            UpdateBodyMassFromVolume(Body);
+                        }
+                    }
+
+                    // Length
+                    ImGui::Text("Length");
+                    ImGui::SetNextItemWidth(-1);
+                    if (ImGui::DragFloat("##Length", &Capsule.Length, 0.1f, 0.1f, 1000.0f, "%.2f"))
+                    {
+                        if (PhysState)
+                        {
+                            PhysState->bIsDirty = true;
+                            PhysState->bShapesDirty = true;
+                            if (PhysState->ShapeGizmoAnchor) PhysState->ShapeGizmoAnchor->UpdateAnchorFromShape();
+                            UpdateBodyMassFromVolume(Body);
+                        }
+                    }
+
+                    // Name
+                    char nameBuffer[256];
+                    strcpy_s(nameBuffer, Capsule.Name.ToString().c_str());
+                    ImGui::Text("Name");
+                    ImGui::SetNextItemWidth(-1);
+                    if (ImGui::InputText("##Name", nameBuffer, sizeof(nameBuffer)))
+                    {
+                        Capsule.Name = FName(nameBuffer);
+                        if (PhysState) PhysState->bIsDirty = true;
+                    }
+
+                    // CollisionEnabled
+                    int collisionMode = static_cast<int>(Capsule.CollisionEnabled);
+                    ImGui::Text("Collision Enabled");
+                    ImGui::SetNextItemWidth(-1);
+                    if (ImGui::Combo("##Collision", &collisionMode, collisionModes, 4))
+                    {
+                        Capsule.CollisionEnabled = static_cast<ECollisionEnabled>(collisionMode);
+                        if (PhysState) PhysState->bIsDirty = true;
+                    }
+
+                    ImGui::TreePop();
+                }
+                else
+                {
+                    ImGui::SameLine(200);
+                    ImGui::TextDisabled("%s", Capsule.Name.ToString().c_str());
+                }
+                ImGui::PopID();
+            }
+            ImGui::TreePop();
+        }
+        else
+        {
+            ImGui::SameLine(200);
+            ImGui::TextDisabled("Elements: %d", capsuleCount);
+        }
+        ImGui::PopID();
+
+        // ===== Convex 섹션 (읽기 전용 - 개수만 표시) =====
+        int32 convexCount = Body->AggGeom.ConvexElems.Num();
+        ImGui::Text("Convex");
+        ImGui::SameLine(200);
+        ImGui::TextDisabled("Elements: %d", convexCount);
+
+        ImGui::Unindent();
+    }
+
+    ImGui::PopStyleColor();
+}
+
+void SPhysicsAssetEditorWindow::RenderConstraintDetails(FConstraintInstance* Constraint)
+{
+    if (!Constraint) return;
+
+    PhysicsAssetEditorState* PhysState = GetPhysicsState();
+
+    ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.3f, 0.3f, 0.3f, 0.8f));
+
+    if (ImGui::CollapsingHeader("Constraint", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        ImGui::Indent();
+        ImGui::Text("Bone 1 (Child)");
+        ImGui::TextDisabled("%s", Constraint->ConstraintBone1.ToString().c_str());
+        ImGui::Text("Bone 2 (Parent)");
+        ImGui::TextDisabled("%s", Constraint->ConstraintBone2.ToString().c_str());
+        ImGui::Unindent();
+    }
+
+    if (ImGui::CollapsingHeader("Linear Limits", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        ImGui::Indent();
+        const char* motionModes[] = { "Free", "Limited", "Locked" };
+
+        ImGui::Text("X Motion");
+        int xMotion = static_cast<int>(Constraint->LinearXMotion);
+        ImGui::SetNextItemWidth(-1);
+        if (ImGui::Combo("##XMotion", &xMotion, motionModes, 3))
+        {
+            Constraint->LinearXMotion = static_cast<ELinearConstraintMotion>(xMotion);
+            if (PhysState) PhysState->bIsDirty = true;
+        }
+
+        ImGui::Text("Y Motion");
+        int yMotion = static_cast<int>(Constraint->LinearYMotion);
+        ImGui::SetNextItemWidth(-1);
+        if (ImGui::Combo("##YMotion", &yMotion, motionModes, 3))
+        {
+            Constraint->LinearYMotion = static_cast<ELinearConstraintMotion>(yMotion);
+            if (PhysState) PhysState->bIsDirty = true;
+        }
+
+        ImGui::Text("Z Motion");
+        int zMotion = static_cast<int>(Constraint->LinearZMotion);
+        ImGui::SetNextItemWidth(-1);
+        if (ImGui::Combo("##ZMotion", &zMotion, motionModes, 3))
+        {
+            Constraint->LinearZMotion = static_cast<ELinearConstraintMotion>(zMotion);
+            if (PhysState) PhysState->bIsDirty = true;
+        }
+
+        float limit = Constraint->LinearLimit;
+        ImGui::Text("Limit");
+        ImGui::SetNextItemWidth(-1);
+        if (ImGui::DragFloat("##LinearLimit", &limit, 0.1f, 0.0f, 1000.0f, "%.1f"))
+        {
+            Constraint->LinearLimit = limit;
+            if (PhysState) PhysState->bIsDirty = true;
+        }
+
+        ImGui::Unindent();
+    }
+
+    if (ImGui::CollapsingHeader("Angular Limits", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        ImGui::Indent();
+        const char* angularMotionModes[] = { "Free", "Limited", "Locked" };
+
+        ImGui::Text("Swing 1 Motion");
+        int swing1 = static_cast<int>(Constraint->Swing1Motion);
+        ImGui::SetNextItemWidth(-1);
+        if (ImGui::Combo("##Swing1Motion", &swing1, angularMotionModes, 3))
+        {
+            Constraint->Swing1Motion = static_cast<EAngularConstraintMotion>(swing1);
+            if (PhysState) PhysState->bIsDirty = true;
+        }
+
+        float swing1Limit = Constraint->Swing1LimitAngle;
+        ImGui::Text("Swing 1 Limit");
+        ImGui::SetNextItemWidth(-1);
+        // FREE나 LOCKED 모드일 때는 Limit 값 수정 비활성화
+        bool bSwing1LimitDisabled = (Constraint->Swing1Motion != EAngularConstraintMotion::Limited);
+        if (bSwing1LimitDisabled)
+        {
+            ImGui::BeginDisabled();
+        }
+        if (ImGui::DragFloat("##Swing1Limit", &swing1Limit, 0.5f, 0.0f, 180.0f, "%.1f"))
+        {
+            Constraint->Swing1LimitAngle = swing1Limit;
+            if (PhysState) PhysState->bIsDirty = true;
+        }
+        if (bSwing1LimitDisabled)
+        {
+            ImGui::EndDisabled();
+        }
+
+        ImGui::Text("Swing 2 Motion");
+        int swing2 = static_cast<int>(Constraint->Swing2Motion);
+        ImGui::SetNextItemWidth(-1);
+        if (ImGui::Combo("##Swing2Motion", &swing2, angularMotionModes, 3))
+        {
+            Constraint->Swing2Motion = static_cast<EAngularConstraintMotion>(swing2);
+            if (PhysState) PhysState->bIsDirty = true;
+        }
+
+        float swing2Limit = Constraint->Swing2LimitAngle;
+        ImGui::Text("Swing 2 Limit");
+        ImGui::SetNextItemWidth(-1);
+        // FREE나 LOCKED 모드일 때는 Limit 값 수정 비활성화
+        bool bSwing2LimitDisabled = (Constraint->Swing2Motion != EAngularConstraintMotion::Limited);
+        if (bSwing2LimitDisabled)
+        {
+            ImGui::BeginDisabled();
+        }
+        if (ImGui::DragFloat("##Swing2Limit", &swing2Limit, 0.5f, 0.0f, 180.0f, "%.1f"))
+        {
+            Constraint->Swing2LimitAngle = swing2Limit;
+            if (PhysState) PhysState->bIsDirty = true;
+        }
+        if (bSwing2LimitDisabled)
+        {
+            ImGui::EndDisabled();
+        }
+
+        ImGui::Text("Twist Motion");
+        int twist = static_cast<int>(Constraint->TwistMotion);
+        ImGui::SetNextItemWidth(-1);
+        if (ImGui::Combo("##TwistMotion", &twist, angularMotionModes, 3))
+        {
+            Constraint->TwistMotion = static_cast<EAngularConstraintMotion>(twist);
+            if (PhysState) PhysState->bIsDirty = true;
+        }
+
+        float twistLimit = Constraint->TwistLimitAngle;
+        ImGui::Text("Twist Limit");
+        ImGui::SetNextItemWidth(-1);
+        // FREE나 LOCKED 모드일 때는 Limit 값 수정 비활성화
+        bool bTwistLimitDisabled = (Constraint->TwistMotion != EAngularConstraintMotion::Limited);
+        if (bTwistLimitDisabled)
+        {
+            ImGui::BeginDisabled();
+        }
+        if (ImGui::DragFloat("##TwistLimit", &twistLimit, 0.5f, 0.0f, 180.0f, "%.1f"))
+        {
+            Constraint->TwistLimitAngle = twistLimit;
+            if (PhysState) PhysState->bIsDirty = true;
+        }
+        if (bTwistLimitDisabled)
+        {
+            ImGui::EndDisabled();
+        }
+
+        ImGui::Unindent();
+    }
+
+    if (ImGui::CollapsingHeader("Transform", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        ImGui::Indent();
+
+        // Position1 (Child 본 공간에서의 조인트 위치)
+        ImGui::Text("Position 1 (Child Frame)");
+        float pos1[3] = { Constraint->Position1.X, Constraint->Position1.Y, Constraint->Position1.Z };
+        ImGui::SetNextItemWidth(-1);
+        if (ImGui::InputFloat3("##Position1", pos1, "%.3f"))
+        {
+            Constraint->Position1 = FVector(pos1[0], pos1[1], pos1[2]);
+            if (PhysState)
+            {
+                PhysState->bIsDirty = true;
+                PhysState->bConstraintsDirty = true;
+            }
+        }
+
+        // Rotation1 (Child 본 공간에서의 조인트 회전)
+        ImGui::Text("Rotation 1 (Euler)");
+        float rot1[3] = { Constraint->Rotation1.X, Constraint->Rotation1.Y, Constraint->Rotation1.Z };
+        ImGui::SetNextItemWidth(-1);
+        if (ImGui::InputFloat3("##Rotation1", rot1, "%.1f"))
+        {
+            Constraint->Rotation1 = FVector(rot1[0], rot1[1], rot1[2]);
+            if (PhysState)
+            {
+                PhysState->bIsDirty = true;
+                PhysState->bConstraintsDirty = true;
+            }
+        }
+
+        ImGui::Separator();
+
+        // Position2 (Parent 본 공간에서의 조인트 위치 - 언리얼 규칙)
+        // 숫자 입력만 가능 (드래그 불가)
+        ImGui::Text("Position 2 (Parent Frame)");
+        float pos2[3] = { Constraint->Position2.X, Constraint->Position2.Y, Constraint->Position2.Z };
+        ImGui::SetNextItemWidth(-1);
+        if (ImGui::InputFloat3("##Position2", pos2, "%.3f"))
+        {
+            Constraint->Position2 = FVector(pos2[0], pos2[1], pos2[2]);
+            if (PhysState)
+            {
+                PhysState->bIsDirty = true;
+                PhysState->bConstraintsDirty = true;
+            }
+        }
+
+        // Rotation2 (Parent 본 공간에서의 조인트 회전 - 언리얼 규칙)
+        // 숫자 입력만 가능 (드래그 불가)
+        ImGui::Text("Rotation 2 (Euler)");
+        float rot2[3] = { Constraint->Rotation2.X, Constraint->Rotation2.Y, Constraint->Rotation2.Z };
+        ImGui::SetNextItemWidth(-1);
+        if (ImGui::InputFloat3("##Rotation2", rot2, "%.1f"))
+        {
+            Constraint->Rotation2 = FVector(rot2[0], rot2[1], rot2[2]);
+            if (PhysState)
+            {
+                PhysState->bIsDirty = true;
+                PhysState->bConstraintsDirty = true;
+            }
+        }
+
+        ImGui::Unindent();
+    }
+
+    if (ImGui::CollapsingHeader("Collision"))
+    {
+        ImGui::Indent();
+
+        // 인접 본 간 충돌 비활성화
+        bool bDisableCollision = Constraint->bDisableCollision;
+        if (ImGui::Checkbox("Disable Collision", &bDisableCollision))
+        {
+            Constraint->bDisableCollision = bDisableCollision;
+            if (PhysState) PhysState->bIsDirty = true;
+        }
+        ImGui::SameLine();
+        ImGui::TextDisabled("(?)");
+        if (ImGui::IsItemHovered())
+        {
+            ImGui::SetTooltip("Disable collision between connected bodies");
+        }
+
+        ImGui::Unindent();
+    }
+
+    if (ImGui::CollapsingHeader("Angular Motor"))
+    {
+        ImGui::Indent();
+
+        // 모터 활성화
+        bool bMotorEnabled = Constraint->bAngularMotorEnabled;
+        if (ImGui::Checkbox("Enable Motor", &bMotorEnabled))
+        {
+            Constraint->bAngularMotorEnabled = bMotorEnabled;
+            if (PhysState) PhysState->bIsDirty = true;
+        }
+
+        // 모터가 활성화된 경우에만 설정 표시
+        if (Constraint->bAngularMotorEnabled)
+        {
+            float motorStrength = Constraint->AngularMotorStrength;
+            ImGui::Text("Strength");
+            ImGui::SetNextItemWidth(-1);
+            if (ImGui::DragFloat("##MotorStrength", &motorStrength, 1.0f, 0.0f, 10000.0f, "%.1f"))
+            {
+                Constraint->AngularMotorStrength = motorStrength;
+                if (PhysState) PhysState->bIsDirty = true;
+            }
+
+            float motorDamping = Constraint->AngularMotorDamping;
+            ImGui::Text("Damping");
+            ImGui::SetNextItemWidth(-1);
+            if (ImGui::DragFloat("##MotorDamping", &motorDamping, 0.1f, 0.0f, 1000.0f, "%.2f"))
+            {
+                Constraint->AngularMotorDamping = motorDamping;
+                if (PhysState) PhysState->bIsDirty = true;
+            }
+        }
+
+        ImGui::Unindent();
+    }
+
+    ImGui::PopStyleColor();
+}
+
+void SPhysicsAssetEditorWindow::RenderViewportOverlay()
+{
+    // TODO
+}
+
+void SPhysicsAssetEditorWindow::RenderPhysicsBodies()
+{
+    PhysicsAssetEditorState* PhysState = GetPhysicsState();
+    if (!PhysState || !PhysState->World) return;
+    if (!PhysState->EditingAsset) return;
+    if (!PhysState->bShowBodies) return;
+    if (!ActiveState || !ActiveState->CurrentMesh) return;
+
+    const FSkeleton* Skeleton = ActiveState->CurrentMesh->GetSkeleton();
+    if (!Skeleton) return;
+
+    ASkeletalMeshActor* PreviewActor = static_cast<ASkeletalMeshActor*>(ActiveState->PreviewActor);
+    if (!PreviewActor) return;
+    USkeletalMeshComponent* MeshComp = PreviewActor->GetSkeletalMeshComponent();
+    if (!MeshComp) return;
+
+    UWorld* World = PhysState->World;
+
+    // 색상 정의
+    const FLinearColor UnselectedColor(0.5f, 0.5f, 0.5f, 0.6f);      // 회색: 선택 안됨
+    const FLinearColor SiblingColor(0.6f, 0.4f, 0.8f, 0.7f);         // 보라색: 같은 Body의 다른 Shape
+    const FLinearColor SelectedShapeColor(0.3f, 0.7f, 1.0f, 0.8f);   // 파란색: 직접 피킹된 Shape
+
+    // 모든 Body를 순회하며 렌더링
+    for (int32 BodyIndex = 0; BodyIndex < PhysState->EditingAsset->Bodies.Num(); ++BodyIndex)
+    {
+        UBodySetup* Body = PhysState->EditingAsset->Bodies[BodyIndex];
+        if (!Body) continue;
+
+        // Body의 BoneName이 유효한지 확인 (dangling 방지)
+        if (Body->BoneName.IsNone()) continue;
+
+        // 본 인덱스 찾기
+        int32 BoneIndex = -1;
+        for (int32 i = 0; i < (int32)Skeleton->Bones.size(); ++i)
+        {
+            if (Skeleton->Bones[i].Name == Body->BoneName.ToString())
+            {
+                BoneIndex = i;
+                break;
+            }
+        }
+        if (BoneIndex < 0) continue;
+
+        FTransform BoneWorldTransform = MeshComp->GetBoneWorldTransform(BoneIndex);
+
+        // 선택된 Body인지 확인
+        bool bIsBodySelected = (BodyIndex == PhysState->SelectedBodyIndex);
+
+        // Box Shape
+        for (int32 i = 0; i < Body->AggGeom.BoxElems.Num(); ++i)
+        {
+            const FKBoxElem& Box = Body->AggGeom.BoxElems[i];
+            FVector ShapeCenter = BoneWorldTransform.Translation +
+                BoneWorldTransform.Rotation.RotateVector(Box.Center);
+            // Box.Rotation은 이미 FQuat
+            FQuat FinalRotation = BoneWorldTransform.Rotation * Box.Rotation;
+            // Box.X/Y/Z는 half extent
+            FVector HalfExtent(Box.X, Box.Y, Box.Z);
+            FMatrix Transform = FMatrix::FromTRS(ShapeCenter, FinalRotation, HalfExtent);
+
+            // 색상 결정: 직접 피킹된 Shape > 같은 Body의 Shape > 미선택
+            FLinearColor ShapeColor = UnselectedColor;
+            if (bIsBodySelected)
+            {
+                bool bIsThisShapeSelected = (PhysState->SelectedShapeType == EShapeType::Box &&
+                                             PhysState->SelectedShapeIndex == i);
+                ShapeColor = bIsThisShapeSelected ? SelectedShapeColor : SiblingColor;
+            }
+            World->AddDebugBox(Transform, ShapeColor, 0);
+        }
+
+        // Sphere Shape
+        for (int32 i = 0; i < Body->AggGeom.SphereElems.Num(); ++i)
+        {
+            const FKSphereElem& Sphere = Body->AggGeom.SphereElems[i];
+            FVector ShapeCenter = BoneWorldTransform.Translation +
+                BoneWorldTransform.Rotation.RotateVector(Sphere.Center);
+            FMatrix Transform = FMatrix::FromTRS(ShapeCenter, FQuat::Identity(), FVector(Sphere.Radius, Sphere.Radius, Sphere.Radius));
+
+            FLinearColor ShapeColor = UnselectedColor;
+            if (bIsBodySelected)
+            {
+                bool bIsThisShapeSelected = (PhysState->SelectedShapeType == EShapeType::Sphere &&
+                                             PhysState->SelectedShapeIndex == i);
+                ShapeColor = bIsThisShapeSelected ? SelectedShapeColor : SiblingColor;
+            }
+            World->AddDebugSphere(Transform, ShapeColor, 0);
+        }
+
+        // Capsule Shape
+        for (int32 i = 0; i < Body->AggGeom.SphylElems.Num(); ++i)
+        {
+            const FKSphylElem& Capsule = Body->AggGeom.SphylElems[i];
+            FVector ShapeCenter = BoneWorldTransform.Translation +
+                BoneWorldTransform.Rotation.RotateVector(Capsule.Center);
+            // 기본 축 회전: 엔진 캡슐(Z축) → PhysX 캡슐(X축) - BodyInstance/RagdollDebugRenderer와 동일
+            FQuat BaseRotation = FQuat::MakeFromEulerZYX(FVector(-90.0f, 0.0f, 0.0f));
+            // Capsule.Rotation은 이미 FQuat
+            FQuat UserRotation = Capsule.Rotation;
+            FQuat FinalLocalRotation = UserRotation * BaseRotation;
+            FQuat FinalRotation = BoneWorldTransform.Rotation * FinalLocalRotation;
+            FMatrix Transform = FMatrix::FromTRS(ShapeCenter, FinalRotation, FVector::One());
+            // 언리얼 방식: HalfHeight = CylinderHalfHeight + Radius
+            float HalfHeight = (Capsule.Length * 0.5f) + Capsule.Radius;
+
+            FLinearColor ShapeColor = UnselectedColor;
+            if (bIsBodySelected)
+            {
+                bool bIsThisShapeSelected = (PhysState->SelectedShapeType == EShapeType::Capsule &&
+                                             PhysState->SelectedShapeIndex == i);
+                ShapeColor = bIsThisShapeSelected ? SelectedShapeColor : SiblingColor;
+            }
+            World->AddDebugCapsule(Transform, Capsule.Radius, HalfHeight, ShapeColor, 0);
+        }
+    }
+}
+
+void SPhysicsAssetEditorWindow::RenderConstraintVisuals()
+{
+    PhysicsAssetEditorState* PhysState = GetPhysicsState();
+    if (!PhysState || !PhysState->World) return;
+    if (!PhysState->EditingAsset) return;
+    if (!PhysState->bShowConstraints) return;
+    if (!ActiveState || !ActiveState->CurrentMesh) return;
+
+    const FSkeleton* Skeleton = ActiveState->CurrentMesh->GetSkeleton();
+    if (!Skeleton) return;
+
+    ASkeletalMeshActor* PreviewActor = static_cast<ASkeletalMeshActor*>(ActiveState->PreviewActor);
+    if (!PreviewActor) return;
+    USkeletalMeshComponent* MeshComp = PreviewActor->GetSkeletalMeshComponent();
+    if (!MeshComp) return;
+
+    UWorld* World = PhysState->World;
+
+    // 색상 정의 - 언리얼 스타일
+    const FLinearColor SwingConeColor(1.0f, 0.3f, 0.3f, 0.4f);      // 빨간색 반투명 (Swing 원뿔)
+    const FLinearColor SwingConeSelectedColor(1.0f, 0.3f, 0.3f, 0.6f);  // 선택 시 더 진하게
+    const FLinearColor TwistArcColor(0.3f, 1.0f, 0.3f, 0.4f);       // 녹색 반투명 (Twist 부채꼴)
+    const FLinearColor TwistArcSelectedColor(0.3f, 1.0f, 0.3f, 0.6f);   // 선택 시 더 진하게
+    const FLinearColor MarkerColor(1.0f, 1.0f, 1.0f, 0.8f);         // 흰색 (마커)
+
+    // 크기 설정 (축소됨)
+    const float NormalConeHeight = 0.1f;
+    const float SelectedConeHeight = 0.15f;  // 선택 시 확대
+    const float NormalArcRadius = 0.1f;
+    const float SelectedArcRadius = 0.15f;   // 선택 시 확대
+    const float MarkerRadius = 0.015f;
+
+    // 모든 Constraint 순회
+    for (int32 ConstraintIndex = 0; ConstraintIndex < PhysState->EditingAsset->Constraints.Num(); ++ConstraintIndex)
+    {
+        const FConstraintInstance& Constraint = PhysState->EditingAsset->Constraints[ConstraintIndex];
+
+        // Constraint의 BoneName이 유효한지 확인 (dangling 방지)
+        if (Constraint.ConstraintBone1.IsNone() || Constraint.ConstraintBone2.IsNone()) continue;
+
+        bool bIsSelected = (ConstraintIndex == PhysState->SelectedConstraintIndex);
+
+        // Bone1, Bone2 인덱스 찾기
+        int32 Bone1Index = -1, Bone2Index = -1;
+        for (int32 i = 0; i < (int32)Skeleton->Bones.size(); ++i)
+        {
+            if (Skeleton->Bones[i].Name == Constraint.ConstraintBone1.ToString())
+                Bone1Index = i;
+            if (Skeleton->Bones[i].Name == Constraint.ConstraintBone2.ToString())
+                Bone2Index = i;
+        }
+        if (Bone1Index < 0 || Bone2Index < 0) continue;
+
+        // 본 월드 트랜스폼 (언리얼 규칙: Bone1=Child, Bone2=Parent)
+        FTransform Bone1World = MeshComp->GetBoneWorldTransform(Bone1Index);  // Child
+        FTransform Bone2World = MeshComp->GetBoneWorldTransform(Bone2Index);  // Parent
+
+        // Joint 위치 계산 - Parent 본(Bone2) 위치 기준 (Position1은 항상 0,0,0)
+        FVector JointPos = Bone2World.Translation +
+            Bone2World.Rotation.RotateVector(Constraint.Position2);
+
+        // Joint 회전 계산 - Parent 본(Bone2) 기준 (Rotation1은 항상 0,0,0)
+        FQuat JointRot2 = FQuat::MakeFromEulerZYX(Constraint.Rotation2);
+        FQuat JointWorldRot = Bone2World.Rotation * JointRot2;
+
+        // 선택 상태에 따른 크기
+        float ConeHeight = bIsSelected ? SelectedConeHeight : NormalConeHeight;
+        float ArcRadius = bIsSelected ? SelectedArcRadius : NormalArcRadius;
+
+        // 1. Joint 마커 (작은 구)
+        FMatrix MarkerTransform = FMatrix::FromTRS(JointPos, FQuat::Identity(), FVector(MarkerRadius, MarkerRadius, MarkerRadius));
+        World->AddDebugSphere(MarkerTransform, MarkerColor);
+
+        // 2. Swing 원뿔 (양방향 다이아몬드 형태, 빨간색)
+        // Locked-Locked인 경우 시각화 안 함 (완전히 잠긴 상태)
+        bool bSwing1Locked = (Constraint.Swing1Motion == EAngularConstraintMotion::Locked);
+        bool bSwing2Locked = (Constraint.Swing2Motion == EAngularConstraintMotion::Locked);
+        if (!(bSwing1Locked && bSwing2Locked))
+        {
+            // Free인 경우 90도(PI/2), Limited인 경우 설정값, Locked인 경우 최소값(거의 없음)
+            float Swing1Rad, Swing2Rad;
+
+            if (Constraint.Swing1Motion == EAngularConstraintMotion::Free)
+                Swing1Rad = PI_CONST * 0.5f;  // 90도 (자유 회전)
+            else if (Constraint.Swing1Motion == EAngularConstraintMotion::Limited)
+                Swing1Rad = Constraint.Swing1LimitAngle * PI_CONST / 180.0f;
+            else  // Locked
+                Swing1Rad = 0.01f;  // 거의 없음 (잠김 표시)
+
+            if (Constraint.Swing2Motion == EAngularConstraintMotion::Free)
+                Swing2Rad = PI_CONST * 0.5f;  // 90도 (자유 회전)
+            else if (Constraint.Swing2Motion == EAngularConstraintMotion::Limited)
+                Swing2Rad = Constraint.Swing2LimitAngle * PI_CONST / 180.0f;
+            else  // Locked
+                Swing2Rad = 0.01f;  // 거의 없음 (잠김 표시)
+
+            // Swing 각도가 너무 작으면 최소값 설정
+            Swing1Rad = FMath::Max(Swing1Rad, 0.01f);
+            Swing2Rad = FMath::Max(Swing2Rad, 0.01f);
+
+            FLinearColor ConeColor = bIsSelected ? SwingConeSelectedColor : SwingConeColor;
+
+            // 양방향 원뿔 (메시 자체가 양방향)
+            // JointWorldRot의 Y축이 Twist 방향이므로, Cone(X축 기준)을 위해 Y→X 회전 적용
+            // +90도 Z축 회전: X → Y (즉, 원래 Y 방향이 X가 됨)
+            FQuat YtoXRot = FQuat::FromAxisAngle(FVector(0, 0, 1), PI_CONST * 0.5f);
+            // PhysX 좌표계와 일치시키기 위해 Twist 축(로컬 X축) 기준 +90도 추가 회전
+            FQuat TwistRot90 = FQuat::FromAxisAngle(FVector(1, 0, 0), PI_CONST * 0.5f);
+            FQuat ConeRot = JointWorldRot * YtoXRot * TwistRot90;
+            FMatrix ConeTransform = FMatrix::FromTRS(JointPos, ConeRot, FVector::One());
+            World->AddDebugCone(ConeTransform, Swing1Rad, Swing2Rad, ConeHeight, ConeColor);
+        }
+
+        // 3. Twist 부채꼴 (YZ 평면, 녹색)
+        // 반지름은 고정, TwistAngle에 따라 부채꼴 각도만 변함
+        // JointWorldRot의 Y축이 Twist 방향이므로, Arc(X축 기준)을 위해 Y→X 회전 적용
+        FQuat YtoXRotArc = FQuat::FromAxisAngle(FVector(0, 0, 1), PI_CONST * 0.5f);
+        // PhysX 좌표계와 일치시키기 위해 Twist 축(로컬 X축) 기준 +90도 추가 회전
+        FQuat TwistRot90Arc = FQuat::FromAxisAngle(FVector(1, 0, 0), PI_CONST * 0.5f);
+        FQuat ArcRot = JointWorldRot * YtoXRotArc * TwistRot90Arc;
+
+        if (Constraint.TwistMotion == EAngularConstraintMotion::Limited)
+        {
+            float TwistRad = Constraint.TwistLimitAngle * PI_CONST / 180.0f;
+            TwistRad = FMath::Max(TwistRad, 0.05f);
+
+            FMatrix ArcTransform = FMatrix::FromTRS(JointPos, ArcRot, FVector::One());
+            FLinearColor ArcColor = bIsSelected ? TwistArcSelectedColor : TwistArcColor;
+            World->AddDebugArc(ArcTransform, TwistRad, ArcRadius, ArcColor);
+        }
+        else if (Constraint.TwistMotion == EAngularConstraintMotion::Free)
+        {
+            // Free면 전체 원 (PI = 180도, 최대 크기)
+            FMatrix ArcTransform = FMatrix::FromTRS(JointPos, ArcRot, FVector::One());
+            FLinearColor ArcColor = bIsSelected ? TwistArcSelectedColor : TwistArcColor;
+            World->AddDebugArc(ArcTransform, PI_CONST, ArcRadius, ArcColor);
+        }
+
+        // 4. Child Frame 방향 화살표
+        // 언리얼 규칙: Rotation1 = (0,0,0) → Child 본의 로컬 좌표계 = Joint 좌표계
+        FQuat JointRot1 = FQuat::MakeFromEulerZYX(Constraint.Rotation1);
+        FQuat ChildFrameWorldRot = Bone1World.Rotation * JointRot1;
+
+        // 화살표 크기 설정 (얇고 길게)
+        const float ArrowLength = bIsSelected ? 0.08f : 0.05f;
+        const float ArrowHeadSize = ArrowLength * 0.15f;
+
+        // 초록색 화살표: Child frame -Z축 (Swing 중심 방향)
+        const FLinearColor SwingCenterArrowColor(0.2f, 1.0f, 0.2f, 1.0f);  // 진한 초록색
+        {
+            // DrawDebugArrow는 +X 방향으로 그리므로, X→-Z 회전 필요 (Y축 기준 -90도)
+            FQuat XtoNegZRot = FQuat::FromAxisAngle(FVector(0, 1, 0), -PI_CONST * 0.5f);
+            FQuat ArrowRot = ChildFrameWorldRot * XtoNegZRot;
+            FMatrix ArrowTransform = FMatrix::FromTRS(JointPos, ArrowRot, FVector::One());
+            World->AddDebugArrow(ArrowTransform, ArrowLength, ArrowHeadSize, SwingCenterArrowColor);
+        }
+
+        // 빨간색 화살표: Child frame -Y축 (Twist 방향, 180도 뒤집음)
+        const FLinearColor TwistArrowColor(1.0f, 0.2f, 0.2f, 1.0f);  // 진한 빨간색
+        {
+            // DrawDebugArrow는 +X 방향으로 그리므로, X→-Y 회전 필요 (Z축 기준 +90도)
+            FQuat XtoNegYRot = FQuat::FromAxisAngle(FVector(0, 0, 1), PI_CONST * 0.5f);  // X→-Y
+            FQuat ArrowRot = ChildFrameWorldRot * XtoNegYRot;
+            FMatrix ArrowTransform = FMatrix::FromTRS(JointPos, ArrowRot, FVector::One());
+            World->AddDebugArrow(ArrowTransform, ArrowLength, ArrowHeadSize, TwistArrowColor);
+        }
+    }
+}
+
+void SPhysicsAssetEditorWindow::SelectBody(int32 Index, PhysicsAssetEditorState::ESelectionSource Source)
+{
+    PhysicsAssetEditorState* PhysState = GetPhysicsState();
+    if (!PhysState) return;
+    PhysState->SelectedBodyIndex = Index;
+    PhysState->SelectedConstraintIndex = -1;  // Constraint 선택 해제
+    PhysState->SelectionSource = Source;
+    PhysState->bShapesDirty = true;  // Shape 라인 재구성 필요
+
+    // Body의 첫 번째 Shape 자동 선택
+    PhysState->SelectedShapeIndex = -1;
+    PhysState->SelectedShapeType = EShapeType::None;
+    if (PhysState->EditingAsset && Index >= 0 && Index < PhysState->EditingAsset->Bodies.Num())
+    {
+        UBodySetup* Body = PhysState->EditingAsset->Bodies[Index];
+        if (Body)
+        {
+            // 우선순위: Sphere > Box > Capsule
+            if (Body->AggGeom.SphereElems.Num() > 0)
+            {
+                PhysState->SelectedShapeIndex = 0;
+                PhysState->SelectedShapeType = EShapeType::Sphere;
+            }
+            else if (Body->AggGeom.BoxElems.Num() > 0)
+            {
+                PhysState->SelectedShapeIndex = 0;
+                PhysState->SelectedShapeType = EShapeType::Box;
+            }
+            else if (Body->AggGeom.SphylElems.Num() > 0)
+            {
+                PhysState->SelectedShapeIndex = 0;
+                PhysState->SelectedShapeType = EShapeType::Capsule;
+            }
+        }
+    }
+
+    // 기즈모 업데이트
+    UpdateShapeGizmo();
+    UpdateConstraintGizmo();
+}
+
+void SPhysicsAssetEditorWindow::SelectConstraint(int32 Index, PhysicsAssetEditorState::ESelectionSource Source)
+{
+    PhysicsAssetEditorState* PhysState = GetPhysicsState();
+    if (!PhysState) return;
+    PhysState->SelectedConstraintIndex = Index;
+    PhysState->SelectedBodyIndex = -1;
+    PhysState->SelectedShapeIndex = -1;
+    PhysState->SelectedShapeType = EShapeType::None;
+    PhysState->SelectionSource = Source;
+
+    // Shape 기즈모 숨김
+    UpdateShapeGizmo();
+    // Constraint 기즈모 업데이트
+    UpdateConstraintGizmo();
+}
+
+void SPhysicsAssetEditorWindow::ClearSelection()
+{
+    PhysicsAssetEditorState* PhysState = GetPhysicsState();
+    if (!PhysState) return;
+    PhysState->SelectedBodyIndex = -1;
+    PhysState->SelectedConstraintIndex = -1;
+    PhysState->SelectedShapeIndex = -1;
+    PhysState->SelectedShapeType = EShapeType::None;
+    PhysState->bShapesDirty = true;  // Shape 라인 클리어 필요
+    UpdateShapeGizmo();  // Shape 기즈모 숨김
+    UpdateConstraintGizmo();  // Constraint 기즈모 숨김
+}
+
+void SPhysicsAssetEditorWindow::DeleteSelectedShape()
+{
+    PhysicsAssetEditorState* PhysState = GetPhysicsState();
+    if (!PhysState || !PhysState->EditingAsset) return;
+    if (PhysState->SelectedBodyIndex < 0 || PhysState->SelectedShapeIndex < 0) return;
+    if (PhysState->SelectedShapeType == EShapeType::None) return;
+
+    UBodySetup* Body = PhysState->EditingAsset->Bodies[PhysState->SelectedBodyIndex];
+    if (!Body) return;
+
+    bool bDeleted = false;
+
+    switch (PhysState->SelectedShapeType)
+    {
+    case EShapeType::Sphere:
+        if (PhysState->SelectedShapeIndex < Body->AggGeom.SphereElems.Num())
+        {
+            Body->AggGeom.SphereElems.RemoveAt(PhysState->SelectedShapeIndex);
+            bDeleted = true;
+        }
+        break;
+    case EShapeType::Box:
+        if (PhysState->SelectedShapeIndex < Body->AggGeom.BoxElems.Num())
+        {
+            Body->AggGeom.BoxElems.RemoveAt(PhysState->SelectedShapeIndex);
+            bDeleted = true;
+        }
+        break;
+    case EShapeType::Capsule:
+        if (PhysState->SelectedShapeIndex < Body->AggGeom.SphylElems.Num())
+        {
+            Body->AggGeom.SphylElems.RemoveAt(PhysState->SelectedShapeIndex);
+            bDeleted = true;
+        }
+        break;
+    default:
+        break;
+    }
+
+    if (bDeleted)
+    {
+        PhysState->bIsDirty = true;
+
+        // Body에 Shape가 하나도 없으면 Body도 삭제
+        if (Body->AggGeom.SphereElems.Num() == 0 &&
+            Body->AggGeom.BoxElems.Num() == 0 &&
+            Body->AggGeom.SphylElems.Num() == 0)
+        {
+            RemoveBody(PhysState->SelectedBodyIndex);
+        }
+
+        // 모든 선택 해제 (회색으로 돌아감)
+        ClearSelection();
+    }
+}
+
+int32 SPhysicsAssetEditorWindow::GetShapeCountByType(UBodySetup* Body, EShapeType ShapeType)
+{
+    if (!Body) return 0;
+
+    switch (ShapeType)
+    {
+    case EShapeType::Sphere:  return Body->AggGeom.SphereElems.Num();
+    case EShapeType::Box:     return Body->AggGeom.BoxElems.Num();
+    case EShapeType::Capsule: return Body->AggGeom.SphylElems.Num();
+    default:                  return 0;
+    }
+}
+
+void SPhysicsAssetEditorWindow::UpdateShapeGizmo()
+{
+    PhysicsAssetEditorState* PhysState = GetPhysicsState();
+    if (!PhysState || !PhysState->World || !PhysState->ShapeGizmoAnchor) return;
+    if (!PhysState->EditingAsset) return;
+    if (!ActiveState || !ActiveState->CurrentMesh) return;
+
+    // Shape가 선택되지 않았으면 기즈모 숨김
+    if (PhysState->SelectedBodyIndex < 0 ||
+        PhysState->SelectedShapeIndex < 0 ||
+        PhysState->SelectedShapeType == EShapeType::None)
+    {
+        PhysState->ShapeGizmoAnchor->ClearTarget();
+        PhysState->ShapeGizmoAnchor->SetVisibility(false);
+        PhysState->ShapeGizmoAnchor->SetEditability(false);
+        // Constraint 기즈모가 활성화되지 않은 경우에만 SelectionManager 클리어
+        if (PhysState->SelectedConstraintIndex < 0)
+        {
+            PhysState->World->GetSelectionManager()->ClearSelection();
+        }
+        return;
+    }
+
+    UBodySetup* Body = PhysState->EditingAsset->Bodies[PhysState->SelectedBodyIndex];
+    if (!Body) return;
+
+    const FSkeleton* Skeleton = ActiveState->CurrentMesh->GetSkeleton();
+    if (!Skeleton) return;
+
+    ASkeletalMeshActor* PreviewActor = static_cast<ASkeletalMeshActor*>(ActiveState->PreviewActor);
+    if (!PreviewActor) return;
+    USkeletalMeshComponent* MeshComp = PreviewActor->GetSkeletalMeshComponent();
+    if (!MeshComp) return;
+
+    // 본 인덱스 찾기
+    int32 BoneIndex = -1;
+    for (int32 i = 0; i < (int32)Skeleton->Bones.size(); ++i)
+    {
+        if (Skeleton->Bones[i].Name == Body->BoneName.ToString())
+        {
+            BoneIndex = i;
+            break;
+        }
+    }
+    if (BoneIndex < 0) return;
+
+    // ShapeAnchorComponent에 타겟 설정 및 위치 업데이트
+    PhysState->ShapeGizmoAnchor->SetTarget(Body, PhysState->SelectedShapeType,
+                                            PhysState->SelectedShapeIndex, MeshComp, BoneIndex);
+    PhysState->ShapeGizmoAnchor->UpdateAnchorFromShape();
+    PhysState->ShapeGizmoAnchor->SetVisibility(true);
+    PhysState->ShapeGizmoAnchor->SetEditability(true);
+
+    // SelectionManager에 등록하여 기즈모 표시
+    PhysState->World->GetSelectionManager()->SelectActor(PreviewActor);
+    PhysState->World->GetSelectionManager()->SelectComponent(PhysState->ShapeGizmoAnchor);
+}
+
+void SPhysicsAssetEditorWindow::UpdateConstraintGizmo()
+{
+    PhysicsAssetEditorState* PhysState = GetPhysicsState();
+    if (!PhysState || !PhysState->World || !PhysState->ConstraintGizmoAnchor) return;
+    if (!PhysState->EditingAsset) return;
+    if (!ActiveState || !ActiveState->CurrentMesh) return;
+
+    // Constraint가 선택되지 않았으면 기즈모 숨김
+    if (PhysState->SelectedConstraintIndex < 0 ||
+        PhysState->SelectedConstraintIndex >= PhysState->EditingAsset->Constraints.Num())
+    {
+        PhysState->ConstraintGizmoAnchor->ClearTarget();
+        PhysState->ConstraintGizmoAnchor->SetVisibility(false);
+        PhysState->ConstraintGizmoAnchor->SetEditability(false);
+        return;
+    }
+
+    FConstraintInstance& Constraint = PhysState->EditingAsset->Constraints[PhysState->SelectedConstraintIndex];
+
+    const FSkeleton* Skeleton = ActiveState->CurrentMesh->GetSkeleton();
+    if (!Skeleton) return;
+
+    ASkeletalMeshActor* PreviewActor = static_cast<ASkeletalMeshActor*>(ActiveState->PreviewActor);
+    if (!PreviewActor) return;
+    USkeletalMeshComponent* MeshComp = PreviewActor->GetSkeletalMeshComponent();
+    if (!MeshComp) return;
+
+    // Bone1 (Child 본), Bone2 (Parent 본) 인덱스 찾기 (언리얼 규칙)
+    int32 Bone1Index = -1;  // Child
+    int32 Bone2Index = -1;  // Parent
+    for (int32 i = 0; i < (int32)Skeleton->Bones.size(); ++i)
+    {
+        if (Skeleton->Bones[i].Name == Constraint.ConstraintBone1.ToString())
+            Bone1Index = i;
+        if (Skeleton->Bones[i].Name == Constraint.ConstraintBone2.ToString())
+            Bone2Index = i;
+    }
+    if (Bone1Index < 0) return;  // Child 본 없으면 리턴
+
+    // ConstraintAnchorComponent에 타겟 설정 및 위치 업데이트 (Child, Parent 순)
+    PhysState->ConstraintGizmoAnchor->SetTarget(&Constraint, MeshComp, Bone1Index, Bone2Index);
+    PhysState->ConstraintGizmoAnchor->UpdateAnchorFromConstraint();
+    PhysState->ConstraintGizmoAnchor->SetVisibility(true);
+    PhysState->ConstraintGizmoAnchor->SetEditability(true);
+
+    // SelectionManager에 등록하여 기즈모 표시
+    PhysState->World->GetSelectionManager()->SelectActor(PreviewActor);
+    PhysState->World->GetSelectionManager()->SelectComponent(PhysState->ConstraintGizmoAnchor);
+}
+
+void SPhysicsAssetEditorWindow::RenderBoneContextMenu(int32 BoneIndex, bool bHasBody, int32 BodyIndex)
+{
+    if (ImGui::BeginPopup("BoneContextMenu"))
+    {
+        if (!ActiveState || !ActiveState->CurrentMesh)
+        {
+            ImGui::EndPopup();
+            return;
+        }
+
+        const FSkeleton* Skeleton = ActiveState->CurrentMesh->GetSkeleton();
+        if (!Skeleton || BoneIndex < 0 || BoneIndex >= (int32)Skeleton->Bones.size())
+        {
+            ImGui::EndPopup();
+            return;
+        }
+
+        const FString& BoneName = Skeleton->Bones[BoneIndex].Name;
+        ImGui::TextDisabled("%s", BoneName.c_str());
+        ImGui::Separator();
+
+        // Shape 추가 서브메뉴 (Body 유무와 관계없이 항상 표시)
+        if (ImGui::BeginMenu("Add Shape"))
+        {
+            if (ImGui::MenuItem("Box"))
+            {
+                AddShapeToBone(BoneIndex, EShapeType::Box);
+                ContextMenuBoneIndex = -1;
+                ImGui::CloseCurrentPopup();
+            }
+            if (ImGui::MenuItem("Sphere"))
+            {
+                AddShapeToBone(BoneIndex, EShapeType::Sphere);
+                ContextMenuBoneIndex = -1;
+                ImGui::CloseCurrentPopup();
+            }
+            if (ImGui::MenuItem("Capsule"))
+            {
+                AddShapeToBone(BoneIndex, EShapeType::Capsule);
+                ContextMenuBoneIndex = -1;
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndMenu();
+        }
+
+        // Body가 있으면 Constraint 및 삭제 옵션
+        if (bHasBody)
+        {
+            ImGui::Separator();
+
+            PhysicsAssetEditorState* PhysState = GetPhysicsState();
+
+            // Constraint 생성 옵션
+            if (PhysState && PhysState->ConstraintStartBodyIndex < 0)
+            {
+                // Constraint 시작점 설정
+                if (ImGui::MenuItem("Start Constraint"))
+                {
+                    PhysState->ConstraintStartBodyIndex = BodyIndex;
+                    ContextMenuBoneIndex = -1;
+                    UE_LOG("[PhysicsAssetEditor] Constraint start: %s", BoneName.c_str());
+                }
+            }
+            else if (PhysState && PhysState->ConstraintStartBodyIndex != BodyIndex)
+            {
+                // 시작점이 설정된 상태에서 다른 Body 우클릭
+                UBodySetup* StartBody = PhysState->EditingAsset->Bodies[PhysState->ConstraintStartBodyIndex];
+                FString startBoneName = StartBody ? StartBody->BoneName.ToString() : "Unknown";
+
+                FString menuText = FString("Complete Constraint from ") + startBoneName;
+                if (ImGui::MenuItem(menuText.c_str()))
+                {
+                    AddConstraintBetweenBodies(PhysState->ConstraintStartBodyIndex, BodyIndex);
+                    PhysState->ConstraintStartBodyIndex = -1;
+                    ContextMenuBoneIndex = -1;
+                }
+
+                if (ImGui::MenuItem("Cancel Constraint"))
+                {
+                    PhysState->ConstraintStartBodyIndex = -1;
+                    ContextMenuBoneIndex = -1;
+                }
+            }
+
+            // 부모 Body로 자동 Constraint 추가
+            if (ImGui::MenuItem("Add Constraint to Parent"))
+            {
+                AddConstraintToParentBody(BodyIndex);
+                ContextMenuBoneIndex = -1;
+            }
+
+            ImGui::Separator();
+
+            if (ImGui::MenuItem("Remove Body"))
+            {
+                RemoveBody(BodyIndex);
+                ContextMenuBoneIndex = -1;
+            }
+        }
+
+        ImGui::EndPopup();
+    }
+}
+
+void SPhysicsAssetEditorWindow::AddBodyToSelectedBone()
+{
+    if (!ActiveState || ActiveState->SelectedBoneIndex < 0)
+        return;
+    AddBodyToBone(ActiveState->SelectedBoneIndex);
+}
+
+void SPhysicsAssetEditorWindow::AddBodyToBone(int32 BoneIndex)
+{
+    PhysicsAssetEditorState* PhysState = GetPhysicsState();
+    if (!PhysState || !PhysState->EditingAsset) return;
+    if (!ActiveState || !ActiveState->CurrentMesh) return;
+
+    const FSkeleton* Skeleton = ActiveState->CurrentMesh->GetSkeleton();
+    if (!Skeleton || BoneIndex < 0 || BoneIndex >= (int32)Skeleton->Bones.size())
+        return;
+
+    const FString& BoneName = Skeleton->Bones[BoneIndex].Name;
+
+    // 이미 Body가 있는지 확인
+    for (int32 i = 0; i < PhysState->EditingAsset->Bodies.Num(); ++i)
+    {
+        if (PhysState->EditingAsset->Bodies[i] &&
+            PhysState->EditingAsset->Bodies[i]->BoneName == BoneName)
+        {
+            UE_LOG("[PhysicsAssetEditor] Body already exists for bone: %s", BoneName.c_str());
+            return;
+        }
+    }
+
+    // Body 생성
+    UBodySetup* NewBody = CreateDefaultBodySetup(BoneName);
+    if (NewBody)
+    {
+        PhysState->EditingAsset->Bodies.Add(NewBody);
+        int32 NewIndex = PhysState->EditingAsset->Bodies.Num() - 1;
+        SelectBody(NewIndex, PhysicsAssetEditorState::ESelectionSource::TreeOrViewport);
+        PhysState->bIsDirty = true;
+        UE_LOG("[PhysicsAssetEditor] Added body for bone: %s", BoneName.c_str());
+    }
+}
+
+void SPhysicsAssetEditorWindow::RemoveBody(int32 BodyIndex)
+{
+    PhysicsAssetEditorState* PhysState = GetPhysicsState();
+    if (!PhysState || !PhysState->EditingAsset) return;
+    if (BodyIndex < 0 || BodyIndex >= PhysState->EditingAsset->Bodies.Num()) return;
+
+    UBodySetup* Body = PhysState->EditingAsset->Bodies[BodyIndex];
+    if (!Body) return;
+
+    FName BoneName = Body->BoneName;
+    UE_LOG("[PhysicsAssetEditor] Removed body for bone: %s", BoneName.ToString().c_str());
+
+    // 이 Body와 연결된 모든 Constraint 삭제 (역순으로 삭제해야 인덱스 문제 없음)
+    for (int32 i = PhysState->EditingAsset->Constraints.Num() - 1; i >= 0; --i)
+    {
+        const FConstraintInstance& Constraint = PhysState->EditingAsset->Constraints[i];
+        if (Constraint.ConstraintBone1 == BoneName || Constraint.ConstraintBone2 == BoneName)
+        {
+            UE_LOG("[PhysicsAssetEditor] Removed constraint: %s - %s",
+                Constraint.ConstraintBone1.ToString().c_str(),
+                Constraint.ConstraintBone2.ToString().c_str());
+            PhysState->EditingAsset->Constraints.RemoveAt(i);
+        }
+    }
+
+    PhysState->EditingAsset->Bodies.RemoveAt(BodyIndex);
+    ClearSelection();
+    PhysState->bIsDirty = true;
+    PhysState->bShapesDirty = true;
+}
+
+UBodySetup* SPhysicsAssetEditorWindow::CreateDefaultBodySetup(const FString& BoneName)
+{
+    return CreateBodySetupWithShape(BoneName, EShapeType::Capsule);
+}
+
+void SPhysicsAssetEditorWindow::AddShapeToBone(int32 BoneIndex, EShapeType ShapeType)
+{
+    PhysicsAssetEditorState* PhysState = GetPhysicsState();
+    if (!PhysState || !PhysState->EditingAsset) return;
+    if (!ActiveState || !ActiveState->CurrentMesh) return;
+
+    const FSkeleton* Skeleton = ActiveState->CurrentMesh->GetSkeleton();
+    if (!Skeleton || BoneIndex < 0 || BoneIndex >= (int32)Skeleton->Bones.size())
+        return;
+
+    const FString& BoneName = Skeleton->Bones[BoneIndex].Name;
+
+    // 이미 Body가 있는지 확인
+    UBodySetup* ExistingBody = nullptr;
+    int32 ExistingBodyIndex = -1;
+    for (int32 i = 0; i < PhysState->EditingAsset->Bodies.Num(); ++i)
+    {
+        if (PhysState->EditingAsset->Bodies[i] &&
+            PhysState->EditingAsset->Bodies[i]->BoneName == BoneName)
+        {
+            ExistingBody = PhysState->EditingAsset->Bodies[i];
+            ExistingBodyIndex = i;
+            break;
+        }
+    }
+
+    if (ExistingBody)
+    {
+        // 기존 Body에 Shape 추가 - 추가 전 인덱스 기록
+        int32 NewShapeIndex = GetShapeCountByType(ExistingBody, ShapeType);
+        AddShapeToBody(ExistingBody, ShapeType);
+        SelectBody(ExistingBodyIndex, PhysicsAssetEditorState::ESelectionSource::TreeOrViewport);
+        PhysState->SelectedShapeType = ShapeType;
+        PhysState->SelectedShapeIndex = NewShapeIndex;
+    }
+    else
+    {
+        // 새 Body 생성 후 Shape 추가 (MassInKg는 AddShapeToBody에서 부피 기반으로 계산됨)
+        UBodySetup* NewBody = NewObject<UBodySetup>();
+        NewBody->BoneName = FName(BoneName);
+        NewBody->LinearDamping = 0.01f;
+        NewBody->AngularDamping = 0.0f;
+
+        AddShapeToBody(NewBody, ShapeType);
+
+        PhysState->EditingAsset->Bodies.Add(NewBody);
+        int32 NewIndex = PhysState->EditingAsset->Bodies.Num() - 1;
+
+        // 자동 Constraint 생성: 부모 방향으로 Body를 탐색하여 연결
+        AddConstraintToParentBody(NewIndex);
+
+        SelectBody(NewIndex, PhysicsAssetEditorState::ESelectionSource::TreeOrViewport);
+        PhysState->SelectedShapeType = ShapeType;
+        PhysState->SelectedShapeIndex = 0;  // 새 Body의 첫 번째 Shape
+    }
+
+    PhysState->bIsDirty = true;
+    UpdateShapeGizmo();  // 기즈모 표시
+    const char* ShapeNames[] = { "None", "Sphere", "Box", "Capsule" };
+    UE_LOG("[PhysicsAssetEditor] Added %s shape to bone: %s", ShapeNames[(int)ShapeType], BoneName.c_str());
+}
+
+void SPhysicsAssetEditorWindow::AddShapeToBody(UBodySetup* Body, EShapeType ShapeType)
+{
+    if (!Body) return;
+
+    FString BoneName = Body->BoneName.ToString();
+
+    switch (ShapeType)
+    {
+    case EShapeType::Box:
+    {
+        FKBoxElem Box;
+        Box.Name = FName(BoneName + "_box");
+        Box.Center = FVector(0.0f, 0.0f, 0.0f);
+        Box.Rotation = FQuat::MakeFromEulerZYX(FVector(0.0f, 0.0f, 0.0f));
+        Box.X = 0.15f;  // Half extent
+        Box.Y = 0.15f;
+        Box.Z = 0.15f;
+        Body->AggGeom.BoxElems.Add(Box);
+        break;
+    }
+    case EShapeType::Sphere:
+    {
+        FKSphereElem Sphere;
+        Sphere.Name = FName(BoneName + "_sphere");
+        Sphere.Center = FVector(0.0f, 0.0f, 0.0f);
+        Sphere.Radius = 0.15f;
+        Body->AggGeom.SphereElems.Add(Sphere);
+        break;
+    }
+    case EShapeType::Capsule:
+    default:
+    {
+        FKSphylElem Capsule;
+        Capsule.Name = FName(BoneName + "_sphyl");
+        Capsule.Center = FVector(0.0f, 0.0f, 0.0f);
+        Capsule.Rotation = FQuat::MakeFromEulerZYX(FVector(0.0f, 0.0f, 0.0f));
+        Capsule.Radius = 0.1f;
+        Capsule.Length = 0.3f;  // 전체 실린더 길이
+        Body->AggGeom.SphylElems.Add(Capsule);
+        break;
+    }
+    }
+
+    // Shape 추가 후 부피 기반 질량 재계산
+    UpdateBodyMassFromVolume(Body);
+}
+
+void SPhysicsAssetEditorWindow::AddBodyToBoneWithShape(int32 BoneIndex, EShapeType ShapeType)
+{
+    PhysicsAssetEditorState* PhysState = GetPhysicsState();
+    if (!PhysState || !PhysState->EditingAsset) return;
+    if (!ActiveState || !ActiveState->CurrentMesh) return;
+
+    const FSkeleton* Skeleton = ActiveState->CurrentMesh->GetSkeleton();
+    if (!Skeleton || BoneIndex < 0 || BoneIndex >= (int32)Skeleton->Bones.size())
+        return;
+
+    const FString& BoneName = Skeleton->Bones[BoneIndex].Name;
+
+    // 이미 Body가 있는지 확인
+    for (int32 i = 0; i < PhysState->EditingAsset->Bodies.Num(); ++i)
+    {
+        if (PhysState->EditingAsset->Bodies[i] &&
+            PhysState->EditingAsset->Bodies[i]->BoneName == BoneName)
+        {
+            UE_LOG("[PhysicsAssetEditor] Body already exists for bone: %s", BoneName.c_str());
+            return;
+        }
+    }
+
+    // Body 생성
+    UBodySetup* NewBody = CreateBodySetupWithShape(BoneName, ShapeType);
+    if (NewBody)
+    {
+        PhysState->EditingAsset->Bodies.Add(NewBody);
+        int32 NewIndex = PhysState->EditingAsset->Bodies.Num() - 1;
+        SelectBody(NewIndex, PhysicsAssetEditorState::ESelectionSource::TreeOrViewport);
+        PhysState->bIsDirty = true;
+
+        const char* ShapeNames[] = { "Box", "Sphere", "Capsule" };
+        UE_LOG("[PhysicsAssetEditor] Added %s body for bone: %s", ShapeNames[(int)ShapeType], BoneName.c_str());
+    }
+}
+
+UBodySetup* SPhysicsAssetEditorWindow::CreateBodySetupWithShape(const FString& BoneName, EShapeType ShapeType)
+{
+    UBodySetup* Body = NewObject<UBodySetup>();
+    Body->BoneName = FName(BoneName);
+
+    // Shape 추가 (AddShapeToBody가 부피 기반 질량도 계산함)
+    AddShapeToBody(Body, ShapeType);
+
+    // 기본 물리 속성 (MassInKg는 AddShapeToBody에서 부피 기반으로 이미 계산됨)
+    Body->LinearDamping = 0.01f;
+    Body->AngularDamping = 0.05f;
+
+    return Body;
+}
+
+// ========== Constraint 생성/삭제 함수들 ==========
+
+FConstraintInstance SPhysicsAssetEditorWindow::CreateDefaultConstraint(const FName& ChildBone, const FName& ParentBone)
+{
+    // 언리얼 규칙: ConstraintBone1 = Child, ConstraintBone2 = Parent
+    FConstraintInstance Constraint;
+    Constraint.ConstraintBone1 = ChildBone;   // Child
+    Constraint.ConstraintBone2 = ParentBone;  // Parent
+
+    // Linear Limits: 기본적으로 모두 잠금 (뼈가 빠지면 안됨)
+    Constraint.LinearXMotion = ELinearConstraintMotion::Locked;
+    Constraint.LinearYMotion = ELinearConstraintMotion::Locked;
+    Constraint.LinearZMotion = ELinearConstraintMotion::Locked;
+    Constraint.LinearLimit = 0.0f;
+
+    // Angular Limits: 기본적으로 Limited
+    Constraint.TwistMotion = EAngularConstraintMotion::Limited;
+    Constraint.Swing1Motion = EAngularConstraintMotion::Limited;
+    Constraint.Swing2Motion = EAngularConstraintMotion::Limited;
+
+    Constraint.TwistLimitAngle = 45.0f;
+    Constraint.Swing1LimitAngle = 45.0f;
+    Constraint.Swing2LimitAngle = 45.0f;
+
+    // 충돌 비활성화 (인접 본 간 충돌 무시)
+    Constraint.bDisableCollision = true;
+
+    return Constraint;
+}
+
+void SPhysicsAssetEditorWindow::AddConstraintBetweenBodies(int32 BodyIndex1, int32 BodyIndex2)
+{
+    PhysicsAssetEditorState* PhysState = GetPhysicsState();
+    if (!PhysState || !PhysState->EditingAsset) return;
+    if (!ActiveState || !ActiveState->CurrentMesh) return;
+
+    const FSkeleton* Skeleton = ActiveState->CurrentMesh->GetSkeleton();
+    if (!Skeleton) return;
+
+    // 유효성 검사
+    if (BodyIndex1 < 0 || BodyIndex1 >= PhysState->EditingAsset->Bodies.Num()) return;
+    if (BodyIndex2 < 0 || BodyIndex2 >= PhysState->EditingAsset->Bodies.Num()) return;
+    if (BodyIndex1 == BodyIndex2) return;
+
+    UBodySetup* Body1 = PhysState->EditingAsset->Bodies[BodyIndex1];
+    UBodySetup* Body2 = PhysState->EditingAsset->Bodies[BodyIndex2];
+    if (!Body1 || !Body2) return;
+
+    // 중복 Constraint 체크
+    for (const auto& Constraint : PhysState->EditingAsset->Constraints)
+    {
+        if ((Constraint.ConstraintBone1 == Body1->BoneName && Constraint.ConstraintBone2 == Body2->BoneName) ||
+            (Constraint.ConstraintBone1 == Body2->BoneName && Constraint.ConstraintBone2 == Body1->BoneName))
+        {
+            UE_LOG("[PhysicsAssetEditor] Constraint already exists between %s and %s",
+                   Body1->BoneName.ToString().c_str(), Body2->BoneName.ToString().c_str());
+            return;
+        }
+    }
+
+    // 사용자 선택 순서 기준으로 Parent/Child 결정
+    // - BodyIndex1 (Start Constraint) → Parent
+    // - BodyIndex2 (Complete Constraint) → Child
+    FName ParentBoneName = Body1->BoneName;
+    FName ChildBoneName = Body2->BoneName;
+
+    UE_LOG("[PhysicsAssetEditor] Creating constraint: Parent=%s (Start), Child=%s (Complete)",
+           ParentBoneName.ToString().c_str(), ChildBoneName.ToString().c_str());
+
+    // Constraint 생성 (언리얼 규칙: Bone1=Child, Bone2=Parent)
+    FConstraintInstance NewConstraint = CreateDefaultConstraint(ChildBoneName, ParentBoneName);
+
+    // === Rotation2 계산 (본 방향 기반, 언리얼 방식) ===
+    // Joint는 Child 본 위치에 생성됨
+    // - Child 입장 (Rotation1): Joint가 자기 원점에 있음 → 기본값 (0,0,0)
+    // - Parent 입장 (Rotation2): Child 본 방향을 향하는 회전 계산 필요
+    ASkeletalMeshActor* PreviewActor = static_cast<ASkeletalMeshActor*>(ActiveState->PreviewActor);
+    if (PreviewActor)
+    {
+        USkeletalMeshComponent* MeshComp = PreviewActor->GetSkeletalMeshComponent();
+        if (MeshComp)
+        {
+            // Child/Parent 본 인덱스 찾기
+            int32 ChildBoneIdx = -1, ParentBoneIdx = -1;
+            for (int32 i = 0; i < (int32)Skeleton->Bones.size(); ++i)
+            {
+                if (Skeleton->Bones[i].Name == ChildBoneName.ToString())
+                    ChildBoneIdx = i;
+                if (Skeleton->Bones[i].Name == ParentBoneName.ToString())
+                    ParentBoneIdx = i;
+            }
+
+            if (ChildBoneIdx >= 0 && ParentBoneIdx >= 0)
+            {
+                FTransform ChildWorld = MeshComp->GetBoneWorldTransform(ChildBoneIdx);
+                FTransform ParentWorld = MeshComp->GetBoneWorldTransform(ParentBoneIdx);
+
+                // 본 방향 계산 (Parent → Child 방향 = 자식 본 방향)
+                FVector BoneDirection = (ChildWorld.Translation - ParentWorld.Translation);
+                if (BoneDirection.SizeSquared() > KINDA_SMALL_NUMBER)
+                {
+                    FVector Dir = BoneDirection.GetNormalized();
+                    // 좌표계 변환: Engine Y축 = PhysX X축 (Twist)
+                    FVector DefaultAxis(0, 1, 0);  // Engine Y축 → PhysX X축 (Twist)
+
+                    // DefaultAxis를 Dir로 회전시키는 쿼터니언 계산
+                    FQuat JointWorldRot;
+                    float Dot = FVector::Dot(DefaultAxis, Dir);
+                    if (Dot > 0.9999f)
+                    {
+                        JointWorldRot = FQuat::Identity();
+                    }
+                    else if (Dot < -0.9999f)
+                    {
+                        JointWorldRot = FQuat::FromAxisAngle(FVector(0, 0, 1), PI_CONST);
+                    }
+                    else
+                    {
+                        FVector Axis = FVector::Cross(DefaultAxis, Dir).GetNormalized();
+                        float Angle = acos(Dot);
+                        JointWorldRot = FQuat::FromAxisAngle(Axis, Angle);
+                    }
+
+                    // === Rotation1: Child 본 로컬에서 Joint 프레임 회전 ===
+                    FQuat ChildWorldRotInv = ChildWorld.Rotation.Inverse();
+                    FQuat LocalRot1 = ChildWorldRotInv * JointWorldRot;
+                    NewConstraint.Rotation1 = LocalRot1.ToEulerZYXDeg();
+
+                    // === Rotation2: Parent 본 로컬에서 Joint 프레임 회전 ===
+                    FQuat ParentWorldRotInv = ParentWorld.Rotation.Inverse();
+                    FQuat LocalRot2 = ParentWorldRotInv * JointWorldRot;
+                    NewConstraint.Rotation2 = LocalRot2.ToEulerZYXDeg();
+
+                    // Position2도 계산 (Parent 로컬에서 Joint 위치)
+                    FVector LocalPos2 = ParentWorldRotInv.RotateVector(ChildWorld.Translation - ParentWorld.Translation);
+                    NewConstraint.Position2 = LocalPos2;
+
+                    // Position1은 Child 본 원점 기준 (0,0,0)
+                    NewConstraint.Position1 = FVector::Zero();
+                }
+            }
+        }
+    }
+
+    PhysState->EditingAsset->Constraints.Add(NewConstraint);
+
+    int32 NewIndex = PhysState->EditingAsset->Constraints.Num() - 1;
+    SelectConstraint(NewIndex, PhysicsAssetEditorState::ESelectionSource::TreeOrViewport);
+    PhysState->bIsDirty = true;
+    PhysState->bConstraintsDirty = true;
+
+    UE_LOG("[PhysicsAssetEditor] Added constraint: Child=%s, Parent=%s",
+           ChildBoneName.ToString().c_str(), ParentBoneName.ToString().c_str());
+}
+
+void SPhysicsAssetEditorWindow::AddConstraintToParentBody(int32 ChildBodyIndex)
+{
+    PhysicsAssetEditorState* PhysState = GetPhysicsState();
+    if (!PhysState || !PhysState->EditingAsset) return;
+    if (!ActiveState || !ActiveState->CurrentMesh) return;
+
+    const FSkeleton* Skeleton = ActiveState->CurrentMesh->GetSkeleton();
+    if (!Skeleton) return;
+
+    if (ChildBodyIndex < 0 || ChildBodyIndex >= PhysState->EditingAsset->Bodies.Num()) return;
+
+    UBodySetup* ChildBody = PhysState->EditingAsset->Bodies[ChildBodyIndex];
+    if (!ChildBody) return;
+
+    // Child Body의 본 인덱스 찾기
+    int32 ChildBoneIndex = -1;
+    for (int32 i = 0; i < (int32)Skeleton->Bones.size(); ++i)
+    {
+        if (Skeleton->Bones[i].Name == ChildBody->BoneName.ToString())
+        {
+            ChildBoneIndex = i;
+            break;
+        }
+    }
+    if (ChildBoneIndex < 0) return;
+
+    // 부모 본 체인을 따라가며 Body가 있는 본 찾기
+    int32 ParentBoneIndex = Skeleton->Bones[ChildBoneIndex].ParentIndex;
+    while (ParentBoneIndex >= 0)
+    {
+        const FString& ParentBoneName = Skeleton->Bones[ParentBoneIndex].Name;
+
+        for (int32 i = 0; i < PhysState->EditingAsset->Bodies.Num(); ++i)
+        {
+            UBodySetup* ParentBody = PhysState->EditingAsset->Bodies[i];
+            if (ParentBody && ParentBody->BoneName.ToString() == ParentBoneName)
+            {
+                // 부모 Body 발견 - Constraint 생성
+                AddConstraintBetweenBodies(i, ChildBodyIndex);
+                return;
+            }
+        }
+
+        ParentBoneIndex = Skeleton->Bones[ParentBoneIndex].ParentIndex;
+    }
+
+    UE_LOG("[PhysicsAssetEditor] No parent body found for %s", ChildBody->BoneName.ToString().c_str());
+}
+
+void SPhysicsAssetEditorWindow::RemoveConstraint(int32 ConstraintIndex)
+{
+    PhysicsAssetEditorState* PhysState = GetPhysicsState();
+    if (!PhysState || !PhysState->EditingAsset) return;
+    if (ConstraintIndex < 0 || ConstraintIndex >= PhysState->EditingAsset->Constraints.Num()) return;
+
+    FConstraintInstance& Constraint = PhysState->EditingAsset->Constraints[ConstraintIndex];
+    UE_LOG("[PhysicsAssetEditor] Removed constraint between %s and %s",
+           Constraint.ConstraintBone1.ToString().c_str(),
+           Constraint.ConstraintBone2.ToString().c_str());
+
+    PhysState->EditingAsset->Constraints.RemoveAt(ConstraintIndex);
+    ClearSelection();
+    PhysState->bIsDirty = true;
+    PhysState->bConstraintsDirty = true;
+}
+
+void SPhysicsAssetEditorWindow::RenderConstraintTreeNode(int32 ConstraintIndex, const FName& CurrentBoneName)
+{
+    PhysicsAssetEditorState* PhysState = GetPhysicsState();
+    if (!PhysState || !PhysState->EditingAsset) return;
+    if (ConstraintIndex < 0 || ConstraintIndex >= PhysState->EditingAsset->Constraints.Num()) return;
+
+    FConstraintInstance& Constraint = PhysState->EditingAsset->Constraints[ConstraintIndex];
+
+    // 언리얼 스타일: [ Bone1 -> Bone2 ] 컨스트레인트
+    bool bSelected = (PhysState->SelectedConstraintIndex == ConstraintIndex);
+    ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_SpanAvailWidth;
+    if (bSelected) flags |= ImGuiTreeNodeFlags_Selected;
+
+    // 트리 라벨: [ Parent -> Child ] 형식 (ConstraintBone2=Parent, ConstraintBone1=Child)
+    FString label = FString("[ ") + Constraint.ConstraintBone2.ToString() +
+                    " -> " + Constraint.ConstraintBone1.ToString() + " ]";
+
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.8f, 0.4f, 1.0f)); // 주황색
+    if (ImGui::TreeNodeEx((void*)(intptr_t)(30000 + ConstraintIndex), flags, "%s", label.c_str()))
+    {
+        ImGui::TreePop();
+    }
+    ImGui::PopStyleColor();
+
+    if (ImGui::IsItemClicked())
+    {
+        SelectConstraint(ConstraintIndex, PhysicsAssetEditorState::ESelectionSource::TreeOrViewport);
+    }
+
+    // 우클릭 컨텍스트 메뉴
+    if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
+    {
+        ContextMenuConstraintIndex = ConstraintIndex;
+        ImGui::OpenPopup("ConstraintContextMenu");
+    }
+
+    RenderConstraintContextMenu(ConstraintIndex);
+}
+
+void SPhysicsAssetEditorWindow::RenderConstraintContextMenu(int32 ConstraintIndex)
+{
+    if (ContextMenuConstraintIndex != ConstraintIndex) return;
+
+    if (ImGui::BeginPopup("ConstraintContextMenu"))
+    {
+        PhysicsAssetEditorState* PhysState = GetPhysicsState();
+        if (PhysState && PhysState->EditingAsset &&
+            ConstraintIndex >= 0 && ConstraintIndex < PhysState->EditingAsset->Constraints.Num())
+        {
+            FConstraintInstance& Constraint = PhysState->EditingAsset->Constraints[ConstraintIndex];
+
+            ImGui::TextDisabled("%s <-> %s",
+                Constraint.ConstraintBone1.ToString().c_str(),
+                Constraint.ConstraintBone2.ToString().c_str());
+            ImGui::Separator();
+
+            if (ImGui::MenuItem("Delete Constraint"))
+            {
+                RemoveConstraint(ConstraintIndex);
+                ContextMenuConstraintIndex = -1;
+            }
+        }
+        ImGui::EndPopup();
+    }
+}
+
+// ===== Tools 패널 (언리얼 피직스 에셋 에디터 스타일) =====
+// 본 타입 감지 함수들은 BoneUtils.h에서 제공 (BoneUtils:: 네임스페이스)
+
+void SPhysicsAssetEditorWindow::RenderToolsPanel()
+{
+    PhysicsAssetEditorState* PhysState = GetPhysicsState();
+    if (!PhysState) return;
+
+    if (ImGui::CollapsingHeader("Tools", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        ImGui::Text("Body Creation");
+        ImGui::Separator();
+
+        // 프리미티브 타입 선택 (콤보박스)
+        // EShapeType: None=0, Sphere=1, Box=2, Capsule=3
+        // 콤보박스 배열 인덱스: 0=Sphere, 1=Box, 2=Capsule
+        const char* PrimitiveTypes[] = { "Sphere", "Box", "Capsule" };
+        int CurrentType = (int)SelectedPrimitiveType - 1;  // Sphere(1)->0, Box(2)->1, Capsule(3)->2
+        if (ImGui::Combo("Primitive Type", &CurrentType, PrimitiveTypes, 3))
+        {
+            SelectedPrimitiveType = (EShapeType)(CurrentType + 1);  // 0->Sphere(1), 1->Box(2), 2->Capsule(3)
+        }
+
+        ImGui::Spacing();
+
+        // FBX가 로드되어 있어야 버튼 활성화
+        bool bCanGenerate = PhysState->CurrentMesh != nullptr;
+
+        if (!bCanGenerate)
+        {
+            ImGui::BeginDisabled();
+        }
+
+        // "모든 바디 생성" 버튼
+        if (ImGui::Button("Generate All Bodies", ImVec2(-1, 30)))
+        {
+            GenerateAllBodies();
+        }
+
+        if (!bCanGenerate)
+        {
+            ImGui::EndDisabled();
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+            {
+                ImGui::SetTooltip("Load an FBX file first");
+            }
+        }
+        else if (ImGui::IsItemHovered())
+        {
+            ImGui::SetTooltip("Generate bodies for all bones based on skeleton structure");
+        }
+    }
+
+    // ===== Simulation 섹션 =====
+    if (ImGui::CollapsingHeader("Simulation", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        // 시뮬레이션 체크박스
+        if (ImGui::Checkbox("Simulate", &bSimulateInEditor))
+        {
+            // PreviewActor에서 SkeletalMeshComponent 가져오기
+            ASkeletalMeshActor* PreviewActor = PhysState->PreviewActor;
+            USkeletalMeshComponent* PreviewComp = PreviewActor ? PreviewActor->GetSkeletalMeshComponent() : nullptr;
+            if (PreviewComp)
+            {
+                if (bSimulateInEditor)
+                {
+                    // Week_Final_5 시뮬레이션 시작
+                    // 이전 시뮬레이션 상태가 남아있을 수 있으므로 먼저 정리
+                    if (PreviewComp->bRagdollInitialized)
+                    {
+                        PreviewComp->TermRagdoll();
+                    }
+
+                    PreviewComp->ResetToRefPose();       // 본 포즈 초기화
+                    PreviewComp->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+
+                    // PhysicsAsset 설정 (이미 같은 에셋이면 조기 반환하지만 문제 없음)
+                    PreviewComp->SetPhysicsAsset(PhysState->EditingAsset);
+
+                    FPhysScene* PhysScene = PhysState->World->GetPhysicsScene();
+                    if (PhysScene)
+                    {
+                        // 이전 시뮬레이션에서 DeferReleaseActor로 큐에 쌓인 액터들을
+                        // 새 시뮬레이션 시작 전에 완전히 해제
+                        PhysScene->FlushDeferredReleases();
+
+                        PreviewComp->InitRagdoll(PhysScene);
+                        PreviewComp->SetPhysicsMode(EPhysicsMode::Ragdoll);
+                        UE_LOG("[PhysicsAssetEditor] 시뮬레이션 시작: %d bodies, %d constraints",
+                               PreviewComp->Bodies.Num(), PreviewComp->Constraints.Num());
+                    }
+                    else
+                    {
+                        UE_LOG("[PhysicsAssetEditor] 시뮬레이션 실패: PhysScene이 없습니다");
+                    }
+                }
+                else
+                {
+                    // 시뮬레이션 중지 + 래그돌 해제 + 포즈 복원
+                    PreviewComp->TermRagdoll();
+                    PreviewComp->SetPhysicsMode(EPhysicsMode::Animation);
+                    PreviewComp->ResetToRefPose();
+
+                    // 본 라인 캐시 리셋
+                    ActiveState->bBoneLinesDirty = true;
+
+                    UE_LOG("[PhysicsAssetEditor] 시뮬레이션 중지, 포즈 복원");
+                }
+            }
+        }
+
+        if (ImGui::IsItemHovered())
+        {
+            ImGui::SetTooltip("Toggle physics simulation in preview");
+        }
+    }
+
+    // 확인 팝업 렌더링
+    RenderGenerateConfirmPopup();
+}
+
+void SPhysicsAssetEditorWindow::RenderGenerateConfirmPopup()
+{
+    if (!bShowGenerateConfirmPopup) return;
+
+    ImGui::OpenPopup("Confirm Generate");
+
+    if (ImGui::BeginPopupModal("Confirm Generate", &bShowGenerateConfirmPopup,
+        ImGuiWindowFlags_AlwaysAutoResize))
+    {
+        ImGui::Text("Existing bodies and constraints will be deleted.");
+        ImGui::Text("Do you want to continue?");
+        ImGui::Separator();
+
+        if (ImGui::Button("Yes", ImVec2(120, 0)))
+        {
+            bShowGenerateConfirmPopup = false;
+            DoGenerateAllBodies();
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel", ImVec2(120, 0)))
+        {
+            bShowGenerateConfirmPopup = false;
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
+}
+
+void SPhysicsAssetEditorWindow::GenerateAllBodies()
+{
+    PhysicsAssetEditorState* PhysState = GetPhysicsState();
+    if (!PhysState || !PhysState->EditingAsset) return;
+    if (!PhysState->CurrentMesh) return;
+
+    const FSkeleton* Skeleton = PhysState->CurrentMesh->GetSkeleton();
+    if (!Skeleton || Skeleton->Bones.empty()) return;
+
+    UPhysicsAsset* Asset = PhysState->EditingAsset;
+
+    // 기존 데이터가 있으면 확인 팝업 표시
+    if (Asset->Bodies.Num() > 0 || Asset->Constraints.Num() > 0)
+    {
+        bShowGenerateConfirmPopup = true;
+        return;
+    }
+
+    // 기존 데이터 없으면 바로 생성
+    DoGenerateAllBodies();
+}
+
+float SPhysicsAssetEditorWindow::CalculateBoneLengthForGenerate(const FSkeleton& Skeleton, int32 BoneIndex, FVector& OutBoneLocalDir)
+{
+    const FBone& CurrentBone = Skeleton.Bones[BoneIndex];
+    FVector CurrentPos = BoneUtils::GetBonePosition(CurrentBone.BindPose);
+
+    // Hand 본인지 확인 - 여러 자식(손가락)의 평균 방향 사용
+    bool bIsHandBone = BoneUtils::IsHandBone(CurrentBone.Name);
+
+    if (bIsHandBone)
+    {
+        // Hand 본: 모든 자식 손가락들의 평균 방향 계산
+        FVector AvgDirGlobal = FVector::Zero();
+        float MaxLength = 0.0f;
+        int32 ChildCount = 0;
+
+        for (int32 i = 0; i < Skeleton.Bones.Num(); ++i)
+        {
+            if (Skeleton.Bones[i].ParentIndex == BoneIndex)
+            {
+                const FBone& ChildBone = Skeleton.Bones[i];
+                FVector ChildPos = BoneUtils::GetBonePosition(ChildBone.BindPose);
+                FVector DirToChild = ChildPos - CurrentPos;
+                float Length = DirToChild.Size();
+
+                if (Length > KINDA_SMALL_NUMBER)
+                {
+                    AvgDirGlobal = AvgDirGlobal + DirToChild.GetNormalized();
+                    ChildCount++;
+                    if (Length > MaxLength) MaxLength = Length;
+                }
+            }
+        }
+
+        if (ChildCount > 0 && AvgDirGlobal.SizeSquared() > KINDA_SMALL_NUMBER)
+        {
+            AvgDirGlobal = AvgDirGlobal.GetNormalized();
+            OutBoneLocalDir = BoneUtils::TransformDirection(CurrentBone.InverseBindPose, AvgDirGlobal);
+            OutBoneLocalDir = OutBoneLocalDir.GetNormalized();
+            return MaxLength;
+        }
+    }
+
+    // 일반 본: 첫 번째 자식 본 방향 사용
+    for (int32 i = 0; i < Skeleton.Bones.Num(); ++i)
+    {
+        if (Skeleton.Bones[i].ParentIndex == BoneIndex)
+        {
+            const FBone& ChildBone = Skeleton.Bones[i];
+            FVector ChildPos = BoneUtils::GetBonePosition(ChildBone.BindPose);
+
+            // 글로벌 방향 계산
+            FVector BoneDirGlobal = ChildPos - CurrentPos;
+            float BoneLength = BoneDirGlobal.Size();
+
+            if (BoneLength > KINDA_SMALL_NUMBER)
+            {
+                BoneDirGlobal = BoneDirGlobal / BoneLength;  // 정규화
+
+                // 글로벌 방향 → 본의 로컬 좌표계로 변환
+                // InverseBindPose의 회전 부분만 사용하여 방향 변환
+                OutBoneLocalDir = BoneUtils::TransformDirection(CurrentBone.InverseBindPose, BoneDirGlobal);
+                OutBoneLocalDir = OutBoneLocalDir.GetNormalized();
+            }
+            else
+            {
+                OutBoneLocalDir = FVector(0, 0, 1);  // 기본 방향
+            }
+
+            return BoneLength;
+        }
+    }
+
+    // 자식이 없으면 (말단 본) 기본값
+    OutBoneLocalDir = FVector(0, 0, 1);
+    return 0.0f;
+}
+
+void SPhysicsAssetEditorWindow::AdjustShapeForBoneType(UBodySetup* Body, const FString& BoneName, float BoneLength)
+{
+    if (!Body) return;
+
+    // BoneUtils 네임스페이스의 상수 사용
+    using namespace BoneUtils;
+
+    // 본 타입 감지
+    bool bIsHandBone = IsHandBone(BoneName);
+    bool bIsHeadBone = IsHeadBone(BoneName);
+    bool bIsSpineBone = IsSpineOrPelvisBone(BoneName);
+    bool bIsNeckBone = IsNeckBone(BoneName);
+    bool bIsShoulderBone = IsShoulderBone(BoneName);
+    bool bIsFootBone = IsFootBone(BoneName);
+
+    // Hand 본은 고정 크기
+    if (bIsHandBone)
+    {
+        BoneLength = HandBoneSize;
+    }
+
+    // Head 본은 길이 제한
+    if (bIsHeadBone)
+    {
+        BoneLength = HeadBoneSize;
+    }
+
+    // 클램프
+    float ClampedLength = std::min(std::max(BoneLength, MinBoneSize), MaxBoneSize);
+
+    // 비율 결정
+    float EffectiveRadiusRatio = RadiusRatio;
+    float EffectiveLengthRatio = LengthRatio;
+
+    if (bIsHandBone) EffectiveRadiusRatio = HandRadiusRatio;
+    else if (bIsHeadBone) EffectiveRadiusRatio = HeadRadiusRatio;
+    else if (bIsSpineBone) { EffectiveRadiusRatio = SpineRadiusRatio; EffectiveLengthRatio = SpineLengthRatio; }
+    else if (bIsNeckBone) { EffectiveRadiusRatio = NeckRadiusRatio; EffectiveLengthRatio = NeckLengthRatio; }
+    else if (bIsShoulderBone) EffectiveRadiusRatio = ShoulderRadiusRatio;
+    else if (bIsFootBone) EffectiveRadiusRatio = FootRadiusRatio;
+
+    float ShapeRadius = ClampedLength * EffectiveRadiusRatio;
+    float ShapeLength = ClampedLength * EffectiveLengthRatio;
+
+    // Shape 타입별 크기 조정
+    if (Body->AggGeom.SphylElems.Num() > 0)
+    {
+        // 캡슐
+        FKSphylElem& Capsule = Body->AggGeom.SphylElems[0];
+        Capsule.Radius = ShapeRadius;
+        Capsule.Length = ShapeLength;
+        Capsule.Center = FVector(0, 0, ClampedLength * 0.5f);
+
+        if (bIsHeadBone)
+        {
+            Capsule.Center.Z += HeadCenterOffset;
+        }
+
+        if (bIsSpineBone)
+        {
+            Capsule.Rotation = FQuat::MakeFromEulerZYX(FVector(180.0f, 90.0f, 90.0f));
+        }
+        else
+        {
+            Capsule.Rotation = FQuat::MakeFromEulerZYX(FVector(180.0f, 0.0f, 0.0f));
+        }
+    }
+    else if (Body->AggGeom.SphereElems.Num() > 0)
+    {
+        // 구
+        FKSphereElem& Sphere = Body->AggGeom.SphereElems[0];
+        Sphere.Radius = ShapeRadius * 1.5f;  // 구는 좀 더 크게
+        Sphere.Center = FVector(0, 0, ClampedLength * 0.5f);
+
+        if (bIsHeadBone)
+        {
+            Sphere.Center.Z += HeadCenterOffset;
+        }
+    }
+    else if (Body->AggGeom.BoxElems.Num() > 0)
+    {
+        // 박스
+        FKBoxElem& Box = Body->AggGeom.BoxElems[0];
+        Box.X = ShapeRadius;
+        Box.Y = ShapeRadius;
+        Box.Z = ShapeLength * 0.5f;
+        Box.Center = FVector(0, 0, ClampedLength * 0.5f);
+
+        if (bIsHeadBone)
+        {
+            Box.Center.Z += HeadCenterOffset;
+        }
+
+        if (bIsSpineBone)
+        {
+            Box.Rotation = FQuat::MakeFromEulerZYX(FVector(0.0f, 0.0f, 90.0f));
+        }
+    }
+}
+
+void SPhysicsAssetEditorWindow::GenerateConstraintsForBodies()
+{
+    PhysicsAssetEditorState* PhysState = GetPhysicsState();
+    if (!PhysState || !PhysState->EditingAsset || !PhysState->CurrentMesh) return;
+
+    const FSkeleton* Skeleton = PhysState->CurrentMesh->GetSkeleton();
+    if (!Skeleton) return;
+
+    UPhysicsAsset* Asset = PhysState->EditingAsset;
+
+    // Body가 있는 본들의 이름 집합 생성
+    TSet<FString> BonesWithBodies;
+    for (const UBodySetup* Body : Asset->Bodies)
+    {
+        if (Body)
+        {
+            BonesWithBodies.insert(Body->BoneName.ToString());
+        }
+    }
+    // 각 본의 자식 인덱스 맵 생성 (손자 본 찾기용)
+    TMap<int32, TArray<int32>> BoneChildrenMap;
+    for (int32 i = 0; i < Skeleton->Bones.Num(); ++i)
+    {
+        int32 ParentIdx = Skeleton->Bones[i].ParentIndex;
+        if (ParentIdx >= 0)
+        {
+            BoneChildrenMap[ParentIdx].push_back(i);
+        }
+    }
+
+    // 각 자식 본과 부모 본 사이에 Constraint 생성
+    for (int32 i = 0; i < Skeleton->Bones.Num(); ++i)
+    {
+        const FBone& ChildBone = Skeleton->Bones[i];
+        int32 ParentIndex = ChildBone.ParentIndex;
+
+        if (ParentIndex < 0 || ParentIndex >= Skeleton->Bones.Num())
+            continue;
+
+        const FBone& ParentBone = Skeleton->Bones[ParentIndex];
+
+        // 두 본 모두 Body가 있어야 Constraint 생성
+        if (BonesWithBodies.find(ChildBone.Name) == BonesWithBodies.end() ||
+            BonesWithBodies.find(ParentBone.Name) == BonesWithBodies.end())
+        {
+            continue;
+        }
+
+        // 언리얼 규칙: Bone1=Child, Bone2=Parent
+        FConstraintInstance CI = CreateDefaultConstraint(FName(ChildBone.Name), FName(ParentBone.Name));
+
+        // Joint 위치는 Child 본 위치에 생성됨 (언리얼 방식)
+        // Position1 = Child 로컬에서 Joint 위치 = (0,0,0)
+        // Position2 = Parent 로컬에서 Joint 위치 = Child까지의 오프셋
+        // Rotation1 = Child 로컬에서 Joint 방향 = 자식 본 방향(Child→Grandchild) 기준
+        // Rotation2 = Parent 로컬에서 Joint 방향 = 자식 본 방향 기준
+
+        FVector ParentPosGlobal = BoneUtils::GetBonePosition(ParentBone.BindPose);
+        FVector ChildPosGlobal = BoneUtils::GetBonePosition(ChildBone.BindPose);
+        FVector DirToChildGlobal = ChildPosGlobal - ParentPosGlobal;
+        float DistanceToChild = DirToChildGlobal.Size();
+
+        // === 자식 본 방향 계산 (Child → Grandchild) ===
+        // 언리얼 규칙: Twist 축 = 자식 본의 방향
+        FVector ChildBoneDirection = FVector::Zero();
+        auto it = BoneChildrenMap.find(i);  // 현재 자식 본(i)의 자식들(손자) 찾기
+        if (it != BoneChildrenMap.end() && !it->second.empty())
+        {
+            // 모든 손자 본들의 방향 평균 (손가락 등 여러 자식이 있는 경우)
+            FVector AvgDirection = FVector::Zero();
+            for (int32 GrandchildIndex : it->second)
+            {
+                const FBone& GrandchildBone = Skeleton->Bones[GrandchildIndex];
+                FVector GrandchildPosGlobal = BoneUtils::GetBonePosition(GrandchildBone.BindPose);
+                FVector DirToGrandchild = GrandchildPosGlobal - ChildPosGlobal;
+                if (DirToGrandchild.SizeSquared() > KINDA_SMALL_NUMBER)
+                {
+                    AvgDirection += DirToGrandchild.GetNormalized();
+                }
+            }
+            if (AvgDirection.SizeSquared() > KINDA_SMALL_NUMBER)
+            {
+                ChildBoneDirection = AvgDirection.GetNormalized();
+            }
+            else
+            {
+                // fallback: 부모→자식 방향
+                ChildBoneDirection = DistanceToChild > KINDA_SMALL_NUMBER ? DirToChildGlobal.GetNormalized() : FVector(0, 1, 0);
+            }
+        }
+        else
+        {
+            // 손자가 없으면 부모→자식 방향 사용 (끝 본)
+            if (DistanceToChild > KINDA_SMALL_NUMBER)
+            {
+                ChildBoneDirection = DirToChildGlobal.GetNormalized();
+            }
+            else
+            {
+                ChildBoneDirection = FVector(0, 1, 0);  // 기본값
+            }
+        }
+
+        // Head 본 감지
+        bool bIsHeadBone = false;
+        {
+            FString BoneNameLower = ChildBone.Name;
+            std::transform(BoneNameLower.begin(), BoneNameLower.end(), BoneNameLower.begin(), ::tolower);
+            bIsHeadBone = (BoneNameLower.find("head") != std::string::npos);
+        }
+
+        // Head 본은 방향을 반대로 (목→머리 대신 머리→위쪽 방향)
+        if (bIsHeadBone)
+        {
+            ChildBoneDirection = -ChildBoneDirection;
+        }
+
+        // Position1: Child 본 로컬에서 Joint 위치 = 원점 (언리얼 규칙)
+        CI.Position1 = FVector::Zero();
+
+        // === Joint 월드 회전 계산 (본 방향 → Y축) ===
+        // Twist 축(Y축)이 본 방향을 따라가도록 하는 월드 회전
+        FVector DefaultAxis(0, 1, 0);
+        FQuat JointWorldRot;
+
+        float DotBoneDir = FVector::Dot(DefaultAxis, ChildBoneDirection);
+        if (DotBoneDir > 0.9999f)
+        {
+            JointWorldRot = FQuat::Identity();
+        }
+        else if (DotBoneDir < -0.9999f)
+        {
+            JointWorldRot = FQuat::FromAxisAngle(FVector(0, 0, 1), PI);
+        }
+        else
+        {
+            FVector Axis = FVector::Cross(DefaultAxis, ChildBoneDirection).GetNormalized();
+            float Angle = acos(FMath::Clamp(DotBoneDir, -1.0f, 1.0f));
+            JointWorldRot = FQuat::FromAxisAngle(Axis, Angle);
+        }
+
+        // === 본 월드 회전 추출 ===
+        FQuat ChildBoneWorldRot = FQuat(ChildBone.BindPose).GetNormalized();
+        FQuat ParentBoneWorldRot = FQuat(ParentBone.BindPose).GetNormalized();
+
+        // === Rotation1: Child 본 로컬에서 Joint 프레임 회전 ===
+        // Rotation1 = ChildBoneWorldRot.Inverse() * JointWorldRot
+        FQuat Rot1 = ChildBoneWorldRot.Inverse() * JointWorldRot;
+        CI.Rotation1 = Rot1.ToEulerZYXDeg();
+
+        // === Rotation2: Parent 본 로컬에서 Joint 프레임 회전 ===
+        // Rotation2 = ParentBoneWorldRot.Inverse() * JointWorldRot
+        FQuat Rot2 = ParentBoneWorldRot.Inverse() * JointWorldRot;
+        CI.Rotation2 = Rot2.ToEulerZYXDeg();
+
+        if (DistanceToChild > KINDA_SMALL_NUMBER)
+        {
+            // Position2: Parent 로컬에서 Joint(=Child) 위치
+            FVector DirNormalized = DirToChildGlobal / DistanceToChild;
+            FVector DirLocal = BoneUtils::TransformDirection(ParentBone.InverseBindPose, DirNormalized);
+            DirLocal = DirLocal.GetNormalized();
+            CI.Position2 = DirLocal * DistanceToChild;
+        }
+        else
+        {
+            CI.Position2 = FVector::Zero();
+        }
+
+        Asset->Constraints.Add(CI);
+    }
+}
+
+void SPhysicsAssetEditorWindow::DoGenerateAllBodies()
+{
+    PhysicsAssetEditorState* PhysState = GetPhysicsState();
+    if (!PhysState || !PhysState->EditingAsset || !PhysState->CurrentMesh) return;
+
+    const FSkeleton* Skeleton = PhysState->CurrentMesh->GetSkeleton();
+    if (!Skeleton || Skeleton->Bones.empty()) return;
+
+    UPhysicsAsset* Asset = PhysState->EditingAsset;
+
+    // 기존 데이터 클리어 (UObject는 ObjectFactory로 삭제)
+    for (UBodySetup* Body : Asset->Bodies)
+    {
+        if (Body) ObjectFactory::DeleteObject(Body);
+    }
+    Asset->Bodies.Empty();
+    Asset->Constraints.Empty();
+
+    // BoneUtils 상수 사용
+    using namespace BoneUtils;
+
+    // === Phase 1: Bodies 생성 ===
+    for (int32 i = 0; i < Skeleton->Bones.Num(); ++i)
+    {
+        const FBone& Bone = Skeleton->Bones[i];
+
+        // 손가락/발가락/말단 본 스킵
+        if (ShouldSkipBone(Bone.Name))
+        {
+            continue;
+        }
+
+        // 본 길이 및 로컬 방향 계산
+        FVector BoneLocalDir;
+        float BoneLength = CalculateBoneLengthForGenerate(*Skeleton, i, BoneLocalDir);
+
+        // 본 타입 감지
+        bool bIsHandBone = IsHandBone(Bone.Name);
+        bool bIsHeadBone = IsHeadBone(Bone.Name);
+        bool bIsSpineBone = IsSpineOrPelvisBone(Bone.Name);
+        bool bIsNeckBone = IsNeckBone(Bone.Name);
+        bool bIsShoulderBone = IsShoulderBone(Bone.Name);
+        bool bIsFootBone = IsFootBone(Bone.Name);
+
+        // Hand 본은 고정 크기 사용
+        if (bIsHandBone)
+        {
+            BoneLength = HandBoneSize;
+        }
+
+        // Head 본은 고정 크기 사용 (자식이 없어도 생성)
+        if (bIsHeadBone)
+        {
+            BoneLength = HeadBoneSize;
+        }
+
+        // 너무 작은 본은 스킵 (Hand, Head 제외)
+        if (BoneLength < MinBoneSize && !bIsHandBone && !bIsHeadBone)
+        {
+            continue;
+        }
+
+        // 클램프
+        float ClampedLength = std::min(BoneLength, MaxBoneSize);
+
+        // 비율 결정
+        float EffectiveRadiusRatio = RadiusRatio;
+        float EffectiveLengthRatio = LengthRatio;
+
+        if (bIsHandBone) EffectiveRadiusRatio = HandRadiusRatio;
+        else if (bIsHeadBone) EffectiveRadiusRatio = HeadRadiusRatio;
+        else if (bIsSpineBone) { EffectiveRadiusRatio = SpineRadiusRatio; EffectiveLengthRatio = SpineLengthRatio; }
+        else if (bIsNeckBone) { EffectiveRadiusRatio = NeckRadiusRatio; EffectiveLengthRatio = NeckLengthRatio; }
+        else if (bIsShoulderBone) EffectiveRadiusRatio = ShoulderRadiusRatio;
+        else if (bIsFootBone) EffectiveRadiusRatio = FootRadiusRatio;
+
+        float ShapeRadius = ClampedLength * EffectiveRadiusRatio;
+        float ShapeLength = ClampedLength * EffectiveLengthRatio;
+
+        // BodySetup 생성
+        UBodySetup* BodySetup = NewObject<UBodySetup>();
+        BodySetup->BoneName = FName(Bone.Name);
+
+        // 선택된 프리미티브 타입에 따라 Shape 생성
+        switch (SelectedPrimitiveType)
+        {
+        case EShapeType::Capsule:
+        {
+            // === 캡슐: 본 방향 기반 자동 정렬 ===
+            FKSphylElem Capsule;
+            Capsule.Name = FName(Bone.Name + "_sphyl");
+            Capsule.Radius = ShapeRadius;
+            Capsule.Length = ShapeLength;
+
+            // Center: 본 방향을 따라 본 길이의 절반 위치
+            if (bIsHeadBone)
+            {
+                // Head: 월드 Z축(위쪽)을 본 로컬 좌표로 변환하여 오프셋
+                FVector WorldUp(0.0f, 0.0f, 1.0f);
+                FVector LocalUp = BoneUtils::TransformDirection(Bone.InverseBindPose, WorldUp).GetNormalized();
+                Capsule.Center = LocalUp * HeadCenterOffset;
+                // 캡슐이 위쪽을 향하도록 회전
+                Capsule.Rotation = FQuat::MakeFromEulerZYX(CalculateCapsuleRotationFromBoneDir(LocalUp));
+            }
+            else if (bIsSpineBone)
+            {
+                // Spine/Pelvis/Chest: 월드 Y축(좌우)을 본 로컬 좌표로 변환하여 가로 배치
+                FVector WorldRight(0.0f, 1.0f, 0.0f);
+                FVector LocalRight = BoneUtils::TransformDirection(Bone.InverseBindPose, WorldRight).GetNormalized();
+                Capsule.Center = FVector::Zero();  // 본 원점에 배치
+                // 캡슐이 좌우 방향으로 눕도록 회전
+                Capsule.Rotation = FQuat::MakeFromEulerZYX(CalculateCapsuleRotationFromBoneDir(LocalRight));
+            }
+            else
+            {
+                Capsule.Center = BoneLocalDir * (ClampedLength * 0.5f);
+                // 본의 로컬 방향에서 캡슐 회전값 자동 계산
+                Capsule.Rotation = FQuat::MakeFromEulerZYX(CalculateCapsuleRotationFromBoneDir(BoneLocalDir));
+            }
+
+            BodySetup->AggGeom.SphylElems.Add(Capsule);
+            break;
+        }
+        case EShapeType::Sphere:
+        {
+            // === 구: 본 방향 기반 자동 정렬 ===
+            FKSphereElem Sphere;
+            Sphere.Name = FName(Bone.Name + "_sphere");
+            Sphere.Radius = ShapeRadius * 1.2f;
+
+            // Center: 본 방향을 따라 본 길이의 절반 위치
+            if (bIsHeadBone)
+            {
+                // Head: 월드 Z축(위쪽)을 본 로컬 좌표로 변환하여 오프셋
+                FVector WorldUp(0.0f, 0.0f, 1.0f);
+                FVector LocalUp = BoneUtils::TransformDirection(Bone.InverseBindPose, WorldUp).GetNormalized();
+                Sphere.Center = LocalUp * HeadCenterOffset;
+            }
+            else
+            {
+                Sphere.Center = BoneLocalDir * (ClampedLength * 0.5f);
+            }
+
+            BodySetup->AggGeom.SphereElems.Add(Sphere);
+            break;
+        }
+        case EShapeType::Box:
+        {
+            // === 박스: 본 방향 기반 자동 정렬 ===
+            FKBoxElem Box;
+            Box.Name = FName(Bone.Name + "_box");
+
+            // Center: 본 방향을 따라 본 길이의 절반 위치
+            if (bIsHeadBone)
+            {
+                // Head: 정육면체에 가까운 박스
+                float HeadBoxSize = ShapeRadius;
+                Box.X = HeadBoxSize;
+                Box.Y = HeadBoxSize;
+                Box.Z = HeadBoxSize;
+
+                // Head: 월드 Z축(위쪽)을 본 로컬 좌표로 변환하여 오프셋
+                FVector WorldUp(0.0f, 0.0f, 1.0f);
+                FVector LocalUp = BoneUtils::TransformDirection(Bone.InverseBindPose, WorldUp).GetNormalized();
+                Box.Center = LocalUp * HeadCenterOffset;
+                Box.Rotation = FQuat::MakeFromEulerZYX(FVector(0.0f, 0.0f, 0.0f));  // 회전 없음
+            }
+            else if (bIsSpineBone)
+            {
+                // 박스 크기: Z축이 길이 방향
+                Box.X = ShapeRadius;
+                Box.Y = ShapeRadius;
+                Box.Z = ShapeLength * 0.5f;
+
+                // Spine/Pelvis/Chest: 월드 Y축(좌우)을 본 로컬 좌표로 변환하여 가로 배치
+                FVector WorldRight(0.0f, 1.0f, 0.0f);
+                FVector LocalRight = BoneUtils::TransformDirection(Bone.InverseBindPose, WorldRight).GetNormalized();
+                Box.Center = FVector::Zero();  // 본 원점에 배치
+                // 박스가 좌우 방향으로 눕도록 회전
+                Box.Rotation = FQuat::MakeFromEulerZYX(CalculateBoxRotationFromBoneDir(LocalRight));
+            }
+            else
+            {
+                // 박스 크기: Z축이 길이 방향
+                Box.X = ShapeRadius;
+                Box.Y = ShapeRadius;
+                Box.Z = ShapeLength * 0.5f;
+
+                Box.Center = BoneLocalDir * (ClampedLength * 0.5f);
+                // 본의 로컬 방향에서 박스 회전값 자동 계산
+                Box.Rotation = FQuat::MakeFromEulerZYX(CalculateBoxRotationFromBoneDir(BoneLocalDir));
+            }
+
+            BodySetup->AggGeom.BoxElems.Add(Box);
+            break;
+        }
+        default:
+            continue;
+        }
+
+        // 기본 물리 속성 (MassInKg는 부피 기반으로 계산)
+        UpdateBodyMassFromVolume(BodySetup);
+        // PhysMaterial은 None (nullptr) - 필요 시 에셋 선택
+        BodySetup->PhysMaterial = nullptr;
+        BodySetup->PhysMaterialPath = "";
+        BodySetup->LinearDamping = 0.1f;
+        BodySetup->AngularDamping = 0.1f;
+
+        Asset->Bodies.Add(BodySetup);
+    }
+
+    // === Phase 2: Constraints 생성 ===
+    GenerateConstraintsForBodies();
+
+    // Dirty 플래그 설정
+    PhysState->bIsDirty = true;
+
+    // 선택 초기화
+    ClearSelection();
+
+    UE_LOG("Generated %d bodies and %d constraints", Asset->Bodies.Num(), Asset->Constraints.Num());
+}
+
+// ============================================================================
+// Physics Asset 에디터 월드 새로고침
+// ============================================================================
+
+void SPhysicsAssetEditorWindow::RefreshPhysicsAssetInWorld(UPhysicsAsset* Asset)
+{
+    // Week_Final_5에는 GetEffectivePhysicsAssetPath, SetPhysicsAssetPathOverride 등이 없음
+    // 에디터 전용 기능이므로 제거
+    PhysicsAssetEditorState* PhysState = GetPhysicsState();
+    if (!PhysState || PhysState->CurrentFilePath.empty()) return;
+
+    UE_LOG("[PhysicsAsset] RefreshPhysicsAssetInWorld - Week_Final_5: 자동 갱신 비활성화");
+}

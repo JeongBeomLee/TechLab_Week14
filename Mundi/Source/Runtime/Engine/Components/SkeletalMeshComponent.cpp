@@ -17,6 +17,7 @@
 #include "World.h"
 #include "Renderer.h"
 #include "PhysicsDebugUtils.h"
+#include "LinesBatch.h"
 #include "ECollisionChannel.h"
 
 USkeletalMeshComponent::USkeletalMeshComponent()
@@ -508,6 +509,9 @@ void USkeletalMeshComponent::InitRagdoll(FPhysScene* InPhysScene)
         TermRagdoll();
     }
 
+    // 본 포즈가 최신 상태인지 확인 (GetBoneWorldTransform이 올바른 값을 반환하도록)
+    ForceRecomputePose();
+
     PhysScene = InPhysScene;
     const FSkeleton* Skeleton = SkeletalMesh->GetSkeleton();
     if (!Skeleton)
@@ -517,7 +521,7 @@ void USkeletalMeshComponent::InitRagdoll(FPhysScene* InPhysScene)
     }
 
     const int32 NumBones = Skeleton->Bones.Num();
-    const int32 NumBodySetups = PhysicsAsset->BodySetups.Num();
+    const int32 NumBodySetups = PhysicsAsset->Bodies.Num();
 
     // Bodies 배열 초기화 (본 개수만큼, nullptr로)
     Bodies.SetNum(NumBones);
@@ -536,18 +540,34 @@ void USkeletalMeshComponent::InitRagdoll(FPhysScene* InPhysScene)
     // PhysicsAsset의 각 BodySetup에 대해 FBodyInstance 생성
     for (int32 BodyIdx = 0; BodyIdx < NumBodySetups; ++BodyIdx)
     {
-        UBodySetup* BodySetup = PhysicsAsset->BodySetups[BodyIdx];
+        UBodySetup* BodySetup = PhysicsAsset->Bodies[BodyIdx];
         if (!BodySetup)
         {
             continue;
         }
 
-        // BodySetup에 저장된 BoneIndex 사용
+        // BoneIndex 결정: 캐시된 값이 유효하면 사용, 아니면 BoneName으로 검색
         int32 BoneIndex = BodySetup->BoneIndex;
         if (BoneIndex < 0 || BoneIndex >= NumBones)
         {
-            UE_LOG("[Ragdoll] BodySetup %d has invalid BoneIndex %d", BodyIdx, BoneIndex);
-            continue;
+            // BoneName으로 BoneIndex 검색
+            BoneIndex = -1;
+            for (int32 i = 0; i < NumBones; ++i)
+            {
+                if (Skeleton->Bones[i].Name == BodySetup->BoneName.ToString())
+                {
+                    BoneIndex = i;
+                    BodySetup->BoneIndex = i;  // 캐시 업데이트
+                    break;
+                }
+            }
+
+            if (BoneIndex < 0)
+            {
+                UE_LOG("[Ragdoll] BodySetup %d: BoneName '%s' not found in skeleton",
+                       BodyIdx, BodySetup->BoneName.ToString().c_str());
+                continue;
+            }
         }
 
         // 본의 월드 트랜스폼 계산 (컴포넌트 스케일 적용)
@@ -585,68 +605,66 @@ void USkeletalMeshComponent::InitRagdoll(FPhysScene* InPhysScene)
     // 초기 포즈에서 겹치는 바디 쌍 검출 및 충돌 무시 설정
     SetupInitialOverlapFilters();
 
-    // Constraints 생성
-    for (int32 ConstraintIdx = 0; ConstraintIdx < PhysicsAsset->ConstraintSetups.Num(); ++ConstraintIdx)
+    // Constraints 생성 (본 이름 기반)
+    for (const FConstraintInstance& AssetCI : PhysicsAsset->Constraints)
     {
-        const FConstraintSetup& Setup = PhysicsAsset->ConstraintSetups[ConstraintIdx];
+        // 본 이름으로 BoneIndex 찾기
+        int32 ChildBoneIndex = -1;
+        int32 ParentBoneIndex = -1;
 
-        // BodySetup 인덱스 → BoneIndex 변환하여 FBodyInstance 찾기
-        // Setup.ParentBodyIndex/ChildBodyIndex는 BodySetups 배열의 인덱스이고,
-        // Bodies 배열은 BoneIndex로 인덱싱됨
-        FBodyInstance* ParentBody = nullptr;
-        FBodyInstance* ChildBody = nullptr;
-
-        if (Setup.ParentBodyIndex >= 0 && Setup.ParentBodyIndex < PhysicsAsset->BodySetups.Num())
+        for (int32 i = 0; i < Skeleton->Bones.Num(); ++i)
         {
-            UBodySetup* ParentSetup = PhysicsAsset->BodySetups[Setup.ParentBodyIndex];
-            if (ParentSetup && ParentSetup->BoneIndex >= 0 && ParentSetup->BoneIndex < Bodies.Num())
+            if (Skeleton->Bones[i].Name == AssetCI.ConstraintBone1)
             {
-                ParentBody = Bodies[ParentSetup->BoneIndex];
+                ChildBoneIndex = i;
+            }
+            if (Skeleton->Bones[i].Name == AssetCI.ConstraintBone2)
+            {
+                ParentBoneIndex = i;
             }
         }
-        if (Setup.ChildBodyIndex >= 0 && Setup.ChildBodyIndex < PhysicsAsset->BodySetups.Num())
-        {
-            UBodySetup* ChildSetup = PhysicsAsset->BodySetups[Setup.ChildBodyIndex];
-            if (ChildSetup && ChildSetup->BoneIndex >= 0 && ChildSetup->BoneIndex < Bodies.Num())
-            {
-                ChildBody = Bodies[ChildSetup->BoneIndex];
-            }
-        }
+
+        // BoneIndex로 Body 찾기
+        FBodyInstance* ChildBody = (ChildBoneIndex >= 0 && ChildBoneIndex < Bodies.Num()) ? Bodies[ChildBoneIndex] : nullptr;
+        FBodyInstance* ParentBody = (ParentBoneIndex >= 0 && ParentBoneIndex < Bodies.Num()) ? Bodies[ParentBoneIndex] : nullptr;
 
         // 둘 다 없으면 스킵
-        if (!ParentBody && !ChildBody)
+        if (!ChildBody && !ParentBody)
         {
             continue;
         }
 
         // 둘 다 유효한 RigidActor가 있는지 확인
-        bool bParentValid = ParentBody && ParentBody->RigidActor;
         bool bChildValid = ChildBody && ChildBody->RigidActor;
+        bool bParentValid = ParentBody && ParentBody->RigidActor;
 
-        if (!bParentValid && !bChildValid)
+        if (!bChildValid && !bParentValid)
         {
-            UE_LOG("[Ragdoll] Skipping constraint %d: no valid RigidActor", ConstraintIdx);
+            UE_LOG("[Ragdoll] Skipping constraint: no valid RigidActor");
             continue;
         }
 
-        FConstraintInstance* NewConstraint = new FConstraintInstance();
-        NewConstraint->InitConstraint(Setup, ParentBody, ChildBody, PhysScene);
+        // 새 FConstraintInstance 생성 (에셋 데이터 복사)
+        FConstraintInstance* CI = new FConstraintInstance(AssetCI);
 
-        // Joint가 성공적으로 생성된 경우에만 추가
-        if (NewConstraint->IsValid())
+        // Joint 초기화 (FConstraintInstance가 PhysX Joint를 래핑)
+        // Body1 = Child Body, Body2 = Parent Body (언리얼 규칙)
+        CI->InitConstraint(ChildBody, ParentBody, this);
+
+        if (CI->IsValidConstraintInstance())
         {
-            Constraints.Add(NewConstraint);
+            Constraints.Add(CI);
         }
         else
         {
-            UE_LOG("[Ragdoll] Constraint %d failed to create joint", ConstraintIdx);
-            delete NewConstraint;
+            UE_LOG("[Ragdoll] Constraint failed to create joint");
+            delete CI;
         }
     }
 
     bRagdollInitialized = true;
     UE_LOG("[Ragdoll] Initialized with %d bodies and %d constraints",
-           PhysicsAsset->BodySetups.Num(), Constraints.Num());
+           PhysicsAsset->Bodies.Num(), Constraints.Num());
 }
 
 void USkeletalMeshComponent::TermRagdoll()
@@ -697,6 +715,45 @@ FBodyInstance* USkeletalMeshComponent::GetBodyInstance(int32 BoneIndex) const
         return Bodies[BoneIndex];
     }
     return nullptr;
+}
+
+const TArray<FBodyInstance*>& USkeletalMeshComponent::GetBodies()
+{
+    UWorld* MyWorld = GetWorld();
+
+    // 에디터 모드 + PIE 비활성일 때만 lazy 초기화
+    // (PIE 중에는 재생성 안 함 - StartPIE에서 정리했고, PIE Scene에 잘못 생성되면 안됨)
+    if (MyWorld && !MyWorld->bPie && !GEngine.IsPIEActive())
+    {
+        // Bodies 배열이 비어있거나 모두 nullptr인 경우 초기화 시도
+        bool bNeedInit = Bodies.IsEmpty();
+        if (!bNeedInit)
+        {
+            bNeedInit = true;
+            for (const FBodyInstance* Body : Bodies)
+            {
+                if (Body != nullptr)
+                {
+                    bNeedInit = false;
+                    break;
+                }
+            }
+        }
+
+        if (bNeedInit && PhysicsAsset)
+        {
+            FPhysScene* Scene = MyWorld->GetPhysicsScene();
+            if (Scene)
+            {
+                bool bPrevSimulate = bSimulatePhysics;
+                bSimulatePhysics = false;
+                InitRagdoll(Scene);
+                bSimulatePhysics = bPrevSimulate;
+            }
+        }
+    }
+
+    return Bodies;
 }
 
 void USkeletalMeshComponent::AddImpulse(const FVector& Impulse, const FName& BoneName)
@@ -1068,26 +1125,31 @@ void USkeletalMeshComponent::InitTestRagdoll(FPhysScene* InPhysScene)
             continue;
         }
 
-        // FConstraintSetup 생성
-        FConstraintSetup Setup;
-        Setup.JointName = FName(Bone.Name + "_Joint");
-        Setup.ParentBodyIndex = ParentIndex;
-        Setup.ChildBodyIndex = BoneIndex;
+        // FConstraintInstance 생성
+        FConstraintInstance* CI = new FConstraintInstance();
+        CI->ConstraintBone1 = Bone.Name;  // Child Bone
+        CI->ConstraintBone2 = Skeleton->Bones[ParentIndex].Name;  // Parent Bone
 
         // 기본 각도 제한 설정 (Motion 타입은 기본값 Limited 사용)
-        Setup.Swing1LimitDegrees = 30.0f;
-        Setup.Swing2LimitDegrees = 30.0f;
-        Setup.TwistLimitDegrees = 20.0f;
-        Setup.Stiffness = 100.0f;
-        Setup.Damping = 10.0f;
+        CI->Swing1LimitAngle = 30.0f;
+        CI->Swing2LimitAngle = 30.0f;
+        CI->TwistLimitAngle = 20.0f;
+        CI->AngularMotorStrength = 100.0f;
+        CI->AngularMotorDamping = 10.0f;
 
-        FConstraintInstance* NewConstraint = new FConstraintInstance();
-        NewConstraint->InitConstraint(Setup, ParentBody, ChildBody, PhysScene);
+        // Joint 초기화
+        CI->InitConstraint(ChildBody, ParentBody, this);
 
-        Constraints.Add(NewConstraint);
+        if (CI->IsValidConstraintInstance())
+        {
+            Constraints.Add(CI);
+        }
+        else
+        {
+            delete CI;
+        }
 
-        UE_LOG("[TestRagdoll] Created constraint '%s' (parent=%d, child=%d)",
-               Setup.JointName.ToString().c_str(), ParentIndex, BoneIndex);
+        UE_LOG("[TestRagdoll] Created constraint (parent=%d, child=%d)", ParentIndex, BoneIndex);
     }
     #endif
 
@@ -1143,11 +1205,6 @@ void USkeletalMeshComponent::RenderDebugVolume(URenderer* Renderer) const
     FVector4 DebugColor(0.0f, 1.0f, 0.0f, 0.3f); // 반투명 녹색
     FPhysicsDebugUtils::GeneratePhysicsAssetDebugMesh(PhysicsAsset, BoneTransforms, DebugColor, BodyTriBatch);
 
-    // Constraint 삼각형/라인 배치 생성 (DebugSelectedConstraintIndex로 선택 하이라이팅)
-    FTrianglesBatch ConstraintTriBatch;
-    FLinesBatch ConstraintLineBatch;
-    FPhysicsDebugUtils::GenerateConstraintsDebugMesh(PhysicsAsset, BoneTransforms, DebugSelectedConstraintIndex, ConstraintTriBatch, ConstraintLineBatch);
-
     // Body 삼각형 렌더링
     if (BodyTriBatch.Vertices.Num() > 0)
     {
@@ -1156,24 +1213,7 @@ void USkeletalMeshComponent::RenderDebugVolume(URenderer* Renderer) const
         Renderer->EndTriangleBatchAlwaysOnTop(FMatrix::Identity());
     }
 
-    // Constraint 삼각형 렌더링
-    if (ConstraintTriBatch.Vertices.Num() > 0)
-    {
-        Renderer->BeginTriangleBatch();
-        Renderer->AddTriangles(ConstraintTriBatch.Vertices, ConstraintTriBatch.Indices, ConstraintTriBatch.Colors);
-        Renderer->EndTriangleBatchAlwaysOnTop(FMatrix::Identity());
-    }
-
-    // Constraint 라인 렌더링
-    if (ConstraintLineBatch.Num() > 0)
-    {
-        Renderer->BeginLineBatch();
-        for (int32 i = 0; i < ConstraintLineBatch.Num(); ++i)
-        {
-            Renderer->AddLine(ConstraintLineBatch.StartPoints[i], ConstraintLineBatch.EndPoints[i], ConstraintLineBatch.Colors[i]);
-        }
-        Renderer->EndLineBatchAlwaysOnTop(FMatrix::Identity());
-    }
+    // Note: Constraint 시각화는 SPhysicsAssetEditorWindow::RenderConstraintVisuals()에서 처리됨
 }
 
 void USkeletalMeshComponent::OnCreatePhysicsState()

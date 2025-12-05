@@ -136,7 +136,7 @@ void FKConvexElem::ExtractDataFromConvexMesh()
         return;
     }
 
-    // 정점 추출
+    // 정점 추출 - PhysX 좌표계 → 엔진 좌표계로 변환 필요
     uint32 NumVertices = ConvexMesh->getNbVertices();
     const PxVec3* PxVertices = ConvexMesh->getVertices();
 
@@ -144,7 +144,8 @@ void FKConvexElem::ExtractDataFromConvexMesh()
     VertexData.SetNum(NumVertices);
     for (uint32 i = 0; i < NumVertices; ++i)
     {
-        VertexData[i] = FVector(PxVertices[i].x, PxVertices[i].y, PxVertices[i].z);
+        // PhysX 좌표 (x, y, z) → 엔진 좌표 (-z, x, y)
+        VertexData[i] = P2UVector(PxVertices[i]);
     }
 
     // 폴리곤에서 인덱스 추출 (삼각형화)
@@ -183,8 +184,11 @@ PxConvexMeshGeometry FKConvexElem::GetPxGeometry(const FVector& Scale3D) const
         return PxConvexMeshGeometry();
     }
 
+    // 스케일 축 변환: 엔진 (X, Y, Z) → PhysX (Y, Z, X)
+    // 스케일은 크기이므로 음수 부호는 사용하지 않음 (U2PVector와 다르게 처리)
     FVector AbsScale(FMath::Abs(Scale3D.X), FMath::Abs(Scale3D.Y), FMath::Abs(Scale3D.Z));
-    PxMeshScale MeshScale(U2PVector(AbsScale), PxQuat(PxIdentity));
+    PxVec3 PxScale(AbsScale.Y, AbsScale.Z, AbsScale.X);  // 축 변환만 적용, 음수 없음
+    PxMeshScale MeshScale(PxScale, PxQuat(PxIdentity));
     return PxConvexMeshGeometry(ConvexMesh, MeshScale);
 }
 

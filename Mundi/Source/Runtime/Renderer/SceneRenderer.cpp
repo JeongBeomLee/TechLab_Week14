@@ -61,6 +61,7 @@
 #include "Modules/ParticleModuleTypeDataBeam.h"
 #include "Modules/ParticleModuleTypeDataRibbon.h"
 #include "DOFComponent.h"
+#include "RagdollDebugRenderer.h"
 
 FSceneRenderer::FSceneRenderer(UWorld* InWorld, FSceneView* InView, URenderer* InOwnerRenderer)
 	: World(InWorld)
@@ -591,6 +592,14 @@ void FSceneRenderer::RenderShadowDepthPass(FShadowRenderRequest& ShadowRequest, 
 
 	for (const FMeshBatchElement& Batch : InShadowBatches)
 	{
+		// 버퍼 유효성 검사 - null 버퍼는 스킵
+		if (!Batch.VertexBuffer || !Batch.IndexBuffer)
+		{
+			UE_LOG("[Shadow] Warning: Skipping batch with null buffer (VB=%p, IB=%p)",
+				Batch.VertexBuffer, Batch.IndexBuffer);
+			continue;
+		}
+
 		// GPU 스키닝 여부 확인
 		bool bUseGPUSkinning = (Batch.BoneMatricesBuffer != nullptr);
 
@@ -1639,8 +1648,105 @@ void FSceneRenderer::RenderDebugPass()
 		}
 	}
 
+	// Ragdoll Debug draw
+	if (World->GetRenderSettings().IsShowFlagEnabled(EEngineShowFlags::SF_Ragdoll))
+	{
+		for (AActor* Actor : World->GetActors())
+		{
+			if (!Actor || Actor->IsPendingDestroy()) continue;
+
+			for (USceneComponent* Component : Actor->GetSceneComponents())
+			{
+				if (USkeletalMeshComponent* SkelMeshComp = Cast<USkeletalMeshComponent>(Component))
+				{
+					// PhysicsAsset이 있는 경우 렌더링 시도
+					if (SkelMeshComp->PhysicsAsset != nullptr)
+					{
+						// Bodies가 초기화되어 있으면 RenderSkeletalMeshRagdoll 사용
+						// 그렇지 않으면 PhysicsAsset 기반 Preview 사용 (메인 에디터에서도 동작)
+						const TArray<FBodyInstance*>& Bodies = SkelMeshComp->GetBodies();
+						bool bHasValidBodies = false;
+						for (const FBodyInstance* Body : Bodies)
+						{
+							if (Body && Body->IsValidBodyInstance())
+							{
+								bHasValidBodies = true;
+								break;
+							}
+						}
+
+						if (bHasValidBodies)
+						{
+							FRagdollDebugRenderer::RenderSkeletalMeshRagdoll(
+								OwnerRenderer,
+								SkelMeshComp,
+								FVector4(0.0f, 1.0f, 0.0f, 1.0f),  // 초록색 본
+								FVector4(1.0f, 1.0f, 0.0f, 1.0f)   // 노란색 조인트
+							);
+						}
+						else
+						{
+							// Bodies 없이 PhysicsAsset과 본 트랜스폼으로 직접 렌더링
+							FRagdollDebugRenderer::RenderPhysicsAssetPreview(
+								OwnerRenderer,
+								SkelMeshComp,
+								SkelMeshComp->PhysicsAsset,
+								FVector4(0.0f, 1.0f, 0.0f, 1.0f),  // 초록색 본
+								FVector4(1.0f, 1.0f, 0.0f, 1.0f)   // 노란색 조인트
+							);
+						}
+					}
+				}
+			}
+		}
+	}
+
 	// 수집된 라인을 출력하고 정리
 	OwnerRenderer->EndLineBatch(FMatrix::Identity());
+
+	// Debug Primitive 렌더링 (Physics Body 시각화 등)
+	RenderDebugPrimitivesPass();
+}
+
+void FSceneRenderer::RenderDebugPrimitivesPass()
+{
+	const TArray<FDebugPrimitive>& DebugPrimitives = World->GetDebugPrimitives();
+	if (DebugPrimitives.IsEmpty())
+		return;
+
+	// Debug Primitive 배치 시작
+	OwnerRenderer->BeginDebugPrimitiveBatch();
+
+	for (const FDebugPrimitive& Prim : DebugPrimitives)
+	{
+		switch (Prim.Type)
+		{
+		case EDebugPrimitiveType::Sphere:
+			OwnerRenderer->DrawDebugSphere(Prim.Transform, Prim.Color, Prim.UUID);
+			break;
+		case EDebugPrimitiveType::Box:
+			OwnerRenderer->DrawDebugBox(Prim.Transform, Prim.Color, Prim.UUID);
+			break;
+		case EDebugPrimitiveType::Capsule:
+			OwnerRenderer->DrawDebugCapsule(Prim.Transform, Prim.Radius, Prim.HalfHeight, Prim.Color, Prim.UUID);
+			break;
+		case EDebugPrimitiveType::Cone:
+			OwnerRenderer->DrawDebugCone(Prim.Transform, Prim.Angle1, Prim.Angle2, Prim.Radius, Prim.Color, Prim.UUID);
+			break;
+		case EDebugPrimitiveType::Arc:
+			OwnerRenderer->DrawDebugArc(Prim.Transform, Prim.Angle1, Prim.Radius, Prim.Color, Prim.UUID);
+			break;
+		case EDebugPrimitiveType::Arrow:
+			OwnerRenderer->DrawDebugArrow(Prim.Transform, Prim.Radius, Prim.HalfHeight, Prim.Color, Prim.UUID);
+			break;
+		}
+	}
+
+	// Debug Primitive 배치 종료
+	OwnerRenderer->EndDebugPrimitiveBatch();
+
+	// 렌더링 후 큐 클리어 (매 프레임 갱신)
+	World->ClearDebugPrimitives();
 }
 
 void FSceneRenderer::RenderOverayEditorPrimitivesPass()

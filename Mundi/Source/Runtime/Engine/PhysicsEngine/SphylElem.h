@@ -71,8 +71,10 @@ struct FKSphylElem : public FKShapeElem
 
     PxCapsuleGeometry GetPxGeometry(const FVector& Scale3D) const
     {
-        float RadiusScale = FMath::Max(FMath::Abs(Scale3D.Y), FMath::Abs(Scale3D.Z));
-        float LengthScale = FMath::Abs(Scale3D.X);
+        // 엔진에서 캡슐 길이 방향 = Z축, 단면 = XY 평면
+        // (BodySetup.cpp에서 Z→X 회전을 적용하여 PhysX 캡슐(X축 길이)로 변환)
+        float RadiusScale = FMath::Max(FMath::Abs(Scale3D.X), FMath::Abs(Scale3D.Y));
+        float LengthScale = FMath::Abs(Scale3D.Z);
 
         constexpr float MinRadius = 0.01f;
         constexpr float MinHalfHeight = 0.01f;

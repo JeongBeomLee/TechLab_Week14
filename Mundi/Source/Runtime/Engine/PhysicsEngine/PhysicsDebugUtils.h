@@ -2,7 +2,8 @@
 
 #include "AggregateGeom.h"
 #include "BodySetup.h"
-#include "FConstraintSetup.h"
+#include "ConstraintInstance.h"
+#include "LinesBatch.h"
 #include "Source/Runtime/Engine/Components/LineComponent.h"
 
 /**
@@ -147,7 +148,7 @@ public:
 	 * @param OutLineBatch 출력 라인 배치 (연결선, 축 마커 등)
 	 */
 	static void GenerateConstraintMeshVisualization(
-		const FConstraintSetup& Constraint,
+		const FConstraintInstance& Constraint,
 		const FVector& ParentPos,
 		const FVector& ChildPos,
 		const FQuat& ParentRotation,

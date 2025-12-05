@@ -2,7 +2,7 @@
 #include "ResourceBase.h"
 #include "PhysicsTypes.h"
 #include "BodySetup.h"
-#include "FConstraintSetup.h"
+#include "ConstraintInstance.h"
 #include "UPhysicsAsset.generated.h"
 
 class USkeletalMesh;
@@ -15,7 +15,7 @@ class USkeletalMesh;
  *
  * 주요 기능:
  * - 본별 충돌 바디 설정 (UBodySetup with AggGeom)
- * - 바디 간 제약 조건 설정 (FConstraintSetup)
+ * - 바디 간 제약 조건 설정 (FConstraintInstance)
  * - 직렬화/역직렬화 지원
  */
 UCLASS(DisplayName="피직스 에셋", Description="스켈레탈 메시의 물리 시뮬레이션 데이터입니다")
@@ -24,7 +24,7 @@ class UPhysicsAsset : public UResourceBase
 public:
 	GENERATED_REFLECTION_BODY()
 
-	UPhysicsAsset() = default; 
+	UPhysicsAsset() = default;
 	virtual ~UPhysicsAsset() = default;
 
 	// ────────────────────────────────────────────────────────────────
@@ -36,12 +36,12 @@ public:
 	FString SkeletalMeshPath;
 
 	/** 스켈레탈 본에 연결된 바디 설정 목록 */
-	UPROPERTY(EditAnywhere, Category="PhysicsAsset")
-	TArray<UBodySetup*> BodySetups;
+	UPROPERTY(EditAnywhere, Category="Bodies")
+	TArray<UBodySetup*> Bodies;
 
 	/** 바디 간 제약 조건 목록 */
-	UPROPERTY(EditAnywhere, Category="PhysicsAsset")
-	TArray<FConstraintSetup> ConstraintSetups;
+	UPROPERTY(EditAnywhere, Category="Constraints")
+	TArray<FConstraintInstance> Constraints;
 
 	// ────────────────────────────────────────────────────────────────
 	// Body 관리 메서드
@@ -82,12 +82,11 @@ public:
 
 	/**
 	 * 새로운 제약 조건을 추가합니다.
-	 * @param JointName 제약 조건 이름
-	 * @param ParentBodyIndex 부모 바디 인덱스
-	 * @param ChildBodyIndex 자식 바디 인덱스
+	 * @param ChildBone 자식 본 이름 (ConstraintBone1)
+	 * @param ParentBone 부모 본 이름 (ConstraintBone2)
 	 * @return 추가된 제약 조건의 인덱스
 	 */
-	int32 AddConstraint(const FName& JointName, int32 ParentBodyIndex, int32 ChildBodyIndex);
+	int32 AddConstraint(const FName& ChildBone, const FName& ParentBone);
 
 	/**
 	 * 제약 조건을 제거합니다.
@@ -97,12 +96,21 @@ public:
 	bool RemoveConstraint(int32 ConstraintIndex);
 
 	/**
-	 * 두 바디 사이의 제약 조건을 찾습니다.
-	 * @param ParentBodyIndex 부모 바디 인덱스
-	 * @param ChildBodyIndex 자식 바디 인덱스
+	 * 두 본 사이의 제약 조건을 찾습니다.
+	 * @param ChildBone 자식 본 이름
+	 * @param ParentBone 부모 본 이름
 	 * @return 제약 조건 인덱스 (-1이면 없음)
 	 */
-	int32 FindConstraintIndex(int32 ParentBodyIndex, int32 ChildBodyIndex) const;
+	int32 FindConstraintIndex(const FName& ChildBone, const FName& ParentBone) const;
+
+	/** 본 이름으로 BodySetup 찾기 */
+	UBodySetup* FindBodySetup(const FName& BoneName) const;
+
+	/** BodySetup 개수 */
+	int32 GetBodySetupCount() const { return Bodies.Num(); }
+
+	/** Constraint 개수 */
+	int32 GetConstraintCount() const { return Constraints.Num(); }
 
 	// ────────────────────────────────────────────────────────────────
 	// 유틸리티

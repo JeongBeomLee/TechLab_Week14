@@ -73,21 +73,24 @@ private:
 
 // ==================================================================================
 // BASIC TYPE CONVERSIONS
+// 왼손 좌표계 (Z-up, X-forward) ↔ 오른손 좌표계 (Y-up, Z-forward)
 // ==================================================================================
 
+// 엔진 → PhysX 벡터 변환: (X, Y, Z) → (Y, Z, -X)
 inline PxVec3 U2PVector(const FVector& UVec)
 {
-    return PxVec3(UVec.X, UVec.Y, UVec.Z); 
+    return PxVec3(UVec.Y, UVec.Z, -UVec.X);
 }
 
 inline PxVec4 U2PVector(const FVector4& UVec)
 {
-    return PxVec4(UVec.X, UVec.Y, UVec.Z, UVec.W);
+    return PxVec4(UVec.Y, UVec.Z, -UVec.X, UVec.W);
 }
 
+// 엔진 → PhysX 쿼터니언 변환: 축 변환 + 회전 방향 보정
 inline PxQuat U2PQuat(const FQuat& UQuat)
 {
-    return PxQuat(UQuat.X, UQuat.Y, UQuat.Z, UQuat.W);
+    return PxQuat(-UQuat.Y, -UQuat.Z, UQuat.X, UQuat.W);
 }
 
 inline PxTransform U2PTransform(const FTransform& UTransform)
@@ -112,19 +115,21 @@ inline PxMat44 U2PMatrix(const FMatrix& UMat)
     return Result;
 }
 
+// PhysX → 엔진 벡터 변환: (x, y, z) → (-z, x, y)
 inline FVector P2UVector(const PxVec3& PVec)
 {
-    return FVector(PVec.x, PVec.y, PVec.z);
+    return FVector(-PVec.z, PVec.x, PVec.y);
 }
 
 inline FVector4 P2UVector(const PxVec4& PVec)
 {
-    return FVector4(PVec.x, PVec.y, PVec.z, PVec.w);
+    return FVector4(-PVec.z, PVec.x, PVec.y, PVec.w);
 }
 
+// PhysX → 엔진 쿼터니언 변환
 inline FQuat P2UQuat(const PxQuat& PQuat)
 {
-    return FQuat(PQuat.x, PQuat.y, PQuat.z, PQuat.w);
+    return FQuat(PQuat.z, -PQuat.x, -PQuat.y, PQuat.w);
 }
 
 inline FTransform P2UTransform(const PxTransform& PTransform)

@@ -116,9 +116,11 @@ void UBoxComponent::UpdateBodySetup()
 
 	FKBoxElem BoxElem;
 
-	BoxElem.X = BoxExtent.X * 2.0f;
-	BoxElem.Y = BoxExtent.Y * 2.0f;
-	BoxElem.Z = BoxExtent.Z * 2.0f;
+	// BoxExtent는 half-extent, FKBoxElem의 X/Y/Z도 half-extent로 사용됨
+	// (GetPxGeometry에서 half-extent로 처리)
+	BoxElem.X = BoxExtent.X;
+	BoxElem.Y = BoxExtent.Y;
+	BoxElem.Z = BoxExtent.Z;
 
 	BoxElem.Center = FVector::Zero();
 	BoxElem.Rotation = FQuat::Identity();

@@ -80,11 +80,11 @@ void FPhysicsDebugUtils::GenerateBoxMesh(
 	FVector Center = BoneTransform.Translation + BoneTransform.Rotation.RotateVector(ScaledCenter);
 	FQuat Rotation = BoneTransform.Rotation * Box.Rotation;
 
-	// Box.X, Box.Y, Box.Z는 지름이므로 반으로 나눔, Scale3D 적용
+	// Box.X, Box.Y, Box.Z는 이미 half-extent, Scale3D 적용
 	FVector HalfExtent(
-		Box.X * 0.5f * BoneTransform.Scale3D.X,
-		Box.Y * 0.5f * BoneTransform.Scale3D.Y,
-		Box.Z * 0.5f * BoneTransform.Scale3D.Z);
+		Box.X * BoneTransform.Scale3D.X,
+		Box.Y * BoneTransform.Scale3D.Y,
+		Box.Z * BoneTransform.Scale3D.Z);
 
 	// 8개 코너 생성 (dx/dy/dz 패턴)
 	constexpr int dx[] = {-1, 1, 1, -1, -1, 1, 1, -1};
@@ -139,9 +139,9 @@ void FPhysicsDebugUtils::GenerateCapsuleMesh(
 	FVector Center = BoneTransform.Translation + BoneTransform.Rotation.RotateVector(ScaledCenter);
 	FQuat Rotation = BoneTransform.Rotation * Capsule.Rotation;
 
-	// 캡슐: 길이는 X축 스케일, 반지름은 Y/Z 중 큰 값
-	float LengthScale = BoneTransform.Scale3D.X;
-	float RadiusScale = FMath::Max(BoneTransform.Scale3D.Y, BoneTransform.Scale3D.Z);
+	// 캡슐: 엔진에서 길이 방향 = Z축, 단면 = XY 평면 (SphylElem.h와 동일하게)
+	float RadiusScale = FMath::Max(FMath::Abs(BoneTransform.Scale3D.X), FMath::Abs(BoneTransform.Scale3D.Y));
+	float LengthScale = FMath::Abs(BoneTransform.Scale3D.Z);
 	float HalfLength = Capsule.Length * 0.5f * LengthScale;
 	float Radius = Capsule.Radius * RadiusScale;
 
@@ -345,9 +345,9 @@ void FPhysicsDebugUtils::GeneratePhysicsAssetDebugMesh(
 	OutBatch.Indices.Empty();
 	OutBatch.Colors.Empty();
 
-	for (int32 BodyIdx = 0; BodyIdx < PhysicsAsset->BodySetups.Num(); ++BodyIdx)
+	for (int32 BodyIdx = 0; BodyIdx < PhysicsAsset->Bodies.Num(); ++BodyIdx)
 	{
-		UBodySetup* BodySetup = PhysicsAsset->BodySetups[BodyIdx];
+		UBodySetup* BodySetup = PhysicsAsset->Bodies[BodyIdx];
 		if (!BodySetup) continue;
 
 		// BodySetup의 BoneIndex로 해당 본의 트랜스폼 가져오기
@@ -481,7 +481,7 @@ void FPhysicsDebugUtils::GenerateTwistFanMesh(
 }
 
 void FPhysicsDebugUtils::GenerateConstraintMeshVisualization(
-	const FConstraintSetup& Constraint,
+	const FConstraintInstance& Constraint,
 	const FVector& ParentPos,
 	const FVector& ChildPos,
 	const FQuat& ParentRotation,
@@ -528,20 +528,20 @@ void FPhysicsDebugUtils::GenerateConstraintMeshVisualization(
 	OutLineBatch.Add(ChildPos, ChildPos + ChildZAxis, FVector4(0.5f, 0.5f, 1, 0.8f));  // Z축: 연파랑
 
 	// 5. Swing Limit 원뿔 면 (ParentPos, ParentRotation 기준)
-	if (Constraint.Swing1LimitDegrees > 1.0f || Constraint.Swing2LimitDegrees > 1.0f)
+	if (Constraint.Swing1LimitAngle > 1.0f || Constraint.Swing2LimitAngle > 1.0f)
 	{
 		GenerateSwingConeMesh(ParentPos, ParentRotation,
-			Constraint.Swing1LimitDegrees, Constraint.Swing2LimitDegrees, ConeLength, SwingColor,
+			Constraint.Swing1LimitAngle, Constraint.Swing2LimitAngle, ConeLength, SwingColor,
 			OutVertices, OutIndices, OutColors);
 	}
 
 	// 6. Twist Limit 부채꼴 면 (ParentPos, ParentRotation 기준)
-	float TwistRange = Constraint.TwistLimitDegrees * 2.0f;
+	float TwistRange = Constraint.TwistLimitAngle * 2.0f;
 	if (TwistRange > 1.0f && TwistRange < 359.0f)
 	{
 		float ArcRadius = ConeLength * 0.5f;
 		GenerateTwistFanMesh(ParentPos, ParentRotation,
-			-Constraint.TwistLimitDegrees, Constraint.TwistLimitDegrees, ArcRadius, TwistColor,
+			-Constraint.TwistLimitAngle, Constraint.TwistLimitAngle, ArcRadius, TwistColor,
 			OutVertices, OutIndices, OutColors);
 	}
 }
@@ -560,17 +560,15 @@ void FPhysicsDebugUtils::GenerateConstraintsDebugMesh(
 	OutTriangleBatch.Colors.Empty();
 	OutLineBatch.Clear();
 
-	int32 NumConstraints = static_cast<int32>(PhysicsAsset->ConstraintSetups.size());
+	int32 NumConstraints = static_cast<int32>(PhysicsAsset->Constraints.size());
 
 	for (int32 i = 0; i < NumConstraints; ++i)
 	{
-		const FConstraintSetup& Constraint = PhysicsAsset->ConstraintSetups[i];
-		if (Constraint.ParentBodyIndex < 0 || Constraint.ChildBodyIndex < 0) continue;
-		if (Constraint.ParentBodyIndex >= static_cast<int32>(PhysicsAsset->BodySetups.size())) continue;
-		if (Constraint.ChildBodyIndex >= static_cast<int32>(PhysicsAsset->BodySetups.size())) continue;
+		const FConstraintInstance& Constraint = PhysicsAsset->Constraints[i];
 
-		UBodySetup* ParentBody = PhysicsAsset->BodySetups[Constraint.ParentBodyIndex];
-		UBodySetup* ChildBody = PhysicsAsset->BodySetups[Constraint.ChildBodyIndex];
+		// 본 이름으로 BodySetup 찾기
+		UBodySetup* ChildBody = PhysicsAsset->FindBodySetup(Constraint.ConstraintBone1);
+		UBodySetup* ParentBody = PhysicsAsset->FindBodySetup(Constraint.ConstraintBone2);
 		if (!ParentBody || !ChildBody) continue;
 
 		// 본 트랜스폼 가져오기
@@ -584,14 +582,15 @@ void FPhysicsDebugUtils::GenerateConstraintsDebugMesh(
 		const FTransform& ChildBoneTransform = BoneTransforms[ChildBoneIndex];
 
 		// 저장된 Frame 데이터를 월드 좌표로 변환
-		FVector ParentPos = ParentBoneTransform.TransformPosition(Constraint.ParentPosition);
-		FVector ChildPos = ChildBoneTransform.TransformPosition(Constraint.ChildPosition);
+		// FConstraintInstance: Position1 = Child, Position2 = Parent
+		FVector ParentPos = ParentBoneTransform.TransformPosition(Constraint.Position2);
+		FVector ChildPos = ChildBoneTransform.TransformPosition(Constraint.Position1);
 
 		// 저장된 Rotation을 월드 회전으로 변환
-		FQuat ParentLocalRot = FQuat::MakeFromEulerZYX(Constraint.ParentRotation);
+		FQuat ParentLocalRot = FQuat::MakeFromEulerZYX(Constraint.Rotation2);
 		FQuat ParentWorldRot = ParentBoneTransform.Rotation * ParentLocalRot;
 
-		FQuat ChildLocalRot = FQuat::MakeFromEulerZYX(Constraint.ChildRotation);
+		FQuat ChildLocalRot = FQuat::MakeFromEulerZYX(Constraint.Rotation1);
 		FQuat ChildWorldRot = ChildBoneTransform.Rotation * ChildLocalRot;
 
 		bool bSelected = (SelectedConstraintIndex == i);

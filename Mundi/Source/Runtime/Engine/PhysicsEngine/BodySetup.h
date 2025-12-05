@@ -48,6 +48,28 @@ public:
 	UPROPERTY(EditAnywhere, Category="Physics")
 	UPhysicalMaterial* PhysicalMaterial;
 
+	/** 물리 재질 경로 (에셋 저장용) */
+	FString PhysMaterialPath;
+
+	/** PhysicalMaterial 별명 (Week13 호환) */
+	UPhysicalMaterial* PhysMaterial = nullptr;
+
+	// ====================================================================
+	// Physics Properties (Week13 호환)
+	// ====================================================================
+
+	/** 질량 (kg) */
+	UPROPERTY(EditAnywhere, Category="Physics")
+	float MassInKg = 1.0f;
+
+	/** 선형 감쇠 */
+	UPROPERTY(EditAnywhere, Category="Physics")
+	float LinearDamping = 0.01f;
+
+	/** 각도 감쇠 */
+	UPROPERTY(EditAnywhere, Category="Physics")
+	float AngularDamping = 0.05f;
+
     void AddShapesToRigidActor_AssumesLocked(
         FBodyInstance* OwningInstance,
         const FVector& Scale3D,

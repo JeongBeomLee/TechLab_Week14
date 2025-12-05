@@ -204,7 +204,8 @@ void FPhysScene::InitPhysScene()
     SceneDesc.flags |= PxSceneFlag::eENABLE_ACTIVE_ACTORS;
     SceneDesc.flags |= PxSceneFlag::eENABLE_CCD;
 
-    SceneDesc.gravity = PxVec3(0, 0, -9.81);
+    // PhysX는 Y-up 좌표계이므로 중력은 -Y 방향
+    SceneDesc.gravity = PxVec3(0.0f, -9.81f, 0.0f);
 
     SimEventCallback = new FPhysXSimEventCallback(this);
     SceneDesc.simulationEventCallback = SimEventCallback;

@@ -1,25 +1,25 @@
 ﻿#include "pch.h"
 #include "PhysicsAssetEditorBootstrap.h"
-#include "PhysicsAssetEditorState.h"
 #include "ViewerState.h"
 #include "CameraActor.h"
 #include "FViewport.h"
 #include "FViewportClient.h"
+#include "Source/Editor/SelectionManager.h"
 #include "Source/Runtime/Engine/PhysicsEngine/PhysicsAsset.h"
-#include "Source/Runtime/Engine/PhysicsEngine/PhysicsTypes.h"
 #include "Source/Runtime/Engine/PhysicsEngine/PhysScene.h"
-#include "SkeletalMeshActor.h"
-#include "SkeletalMesh.h"
-#include "Grid/GridActor.h"
-#include "JsonSerializer.h"
-#include "EditorAssetPreviewContext.h"
-#include "PathUtils.h"
+#include "Source/Runtime/Engine/PhysicsEngine/BodySetup.h"
+#include "Source/Runtime/Engine/PhysicsEngine/PhysicalMaterial.h"
+#include "Source/Runtime/Engine/PhysicsEngine/ConstraintInstance.h"
+#include "Source/Runtime/Engine/GameFramework/SkeletalMeshActor.h"
+#include "Source/Runtime/Engine/GameFramework/StaticMeshActor.h"
+#include "Source/Runtime/Engine/Components/StaticMeshComponent.h"
+#include "Source/Runtime/Engine/Components/BoxComponent.h"
 #include "Source/Runtime/Engine/Components/LineComponent.h"
-#include "Source/Runtime/Engine/Components/BoneAnchorComponent.h"
-#include "SelectionManager.h"
-
-// PhysicsAssetEditorState 소멸자 정의 (unique_ptr<FPhysScene> 삭제를 위해 완전한 타입 필요)
-PhysicsAssetEditorState::~PhysicsAssetEditorState() = default;
+#include "Source/Runtime/Engine/Components/ShapeAnchorComponent.h"
+#include "Source/Runtime/Engine/Components/ConstraintAnchorComponent.h"
+#include "Source/Runtime/AssetManagement/ResourceManager.h"
+#include "EditorAssetPreviewContext.h"
+#include "PhysXSupport.h"
 
 ViewerState* PhysicsAssetEditorBootstrap::CreateViewerState(const char* Name, UWorld* InWorld,
 	ID3D11Device* InDevice, UEditorAssetPreviewContext* Context)
@@ -35,7 +35,11 @@ ViewerState* PhysicsAssetEditorBootstrap::CreateViewerState(const char* Name, UW
 	State->World->SetWorldType(EWorldType::PreviewMinimal);
 	State->World->Initialize();
 	State->World->GetRenderSettings().DisableShowFlag(EEngineShowFlags::SF_EditorIcon);
-	// 그리드는 Physics Asset Editor에서는 유지
+	State->World->GetRenderSettings().EnableShowFlag(EEngineShowFlags::SF_Ragdoll);
+
+	// Physics Asset Editor는 물리 시뮬레이션이 필요하므로 PhysScene 생성
+	// (Preview World는 기본적으로 PhysScene을 생성하지 않음)
+	State->World->CreatePhysicsScene();
 
 	// Viewport 생성
 	State->Viewport = new FViewport();
@@ -48,73 +52,138 @@ ViewerState* PhysicsAssetEditorBootstrap::CreateViewerState(const char* Name, UW
 	Client->SetViewportType(EViewportType::Perspective);
 	Client->SetViewMode(EViewMode::VMI_Lit_Phong);
 
-	// 카메라 설정 (스켈레탈 메시를 볼 수 있는 위치 - SkeletalViewer와 동일하게 가까이)
-	Client->GetCamera()->SetActorLocation(FVector(3.f, 0.f, 2.f));
+	// 카메라 설정 - 정면에서 가까이 바라보게
+	Client->GetCamera()->SetActorLocation(FVector(3.f, 0.f, 1.f));
+	Client->GetCamera()->SetRotationFromEulerAngles(FVector(0.f, 10.f, 180.f));
 
 	State->Client = Client;
 	State->Viewport->SetViewportClient(Client);
 	State->World->SetEditorCameraActor(Client->GetCamera());
 
-	// 프리뷰 액터 생성 (스켈레탈 메시 렌더링용)
+	// 프리뷰 액터 생성 (스켈레탈 메시를 담을 액터)
 	if (State->World)
 	{
-		ASkeletalMeshActor* PreviewActor = State->World->SpawnActor<ASkeletalMeshActor>();
-		if (PreviewActor)
+		ASkeletalMeshActor* Preview = State->World->SpawnActor<ASkeletalMeshActor>();
+		State->PreviewActor = Preview;
+		State->CurrentMesh = Preview && Preview->GetSkeletalMeshComponent()
+			? Preview->GetSkeletalMeshComponent()->GetSkeletalMesh() : nullptr;
+	}
+
+	// 기본 FBX 경로 설정 및 로드
+	const FString DefaultFbxPath = "Data/DancingRacer.fbx";
+	strncpy_s(State->MeshPathBuffer, DefaultFbxPath.c_str(), sizeof(State->MeshPathBuffer) - 1);
+
+	// 기본 메시 로드
+	if (State->PreviewActor)
+	{
+		USkeletalMesh* DefaultMesh = UResourceManager::GetInstance().Load<USkeletalMesh>(DefaultFbxPath);
+		if (DefaultMesh)
 		{
-			PreviewActor->SetActorLocation(FVector(0.f, 0.f, 0.f));
-			State->PreviewActor = PreviewActor;
+			State->PreviewActor->SetSkeletalMesh(DefaultFbxPath);
+			State->CurrentMesh = DefaultMesh;
+			State->LoadedMeshPath = DefaultFbxPath;
 
-			// Context에 AssetPath가 있으면 파일에서 로드, 없으면 기본 에셋 생성
-			UPhysicsAsset* Asset = nullptr;
-			if (Context && !Context->AssetPath.empty())
+			// 모든 본 노드 확장
+			if (const FSkeleton* Skeleton = DefaultMesh->GetSkeleton())
 			{
-				// 파일에서 Physics Asset 로드
-				Asset = LoadPhysicsAsset(Context->AssetPath);
-				if (Asset)
+				for (int32 i = 0; i < (int32)Skeleton->Bones.size(); ++i)
 				{
-					State->CurrentFilePath = Context->AssetPath;
-					State->bIsDirty = false;
-					UE_LOG("[PhysicsAssetEditorBootstrap] Physics Asset 로드: %s", Context->AssetPath.c_str());
-
-					// 연결된 스켈레탈 메시 로드
-					if (!Asset->SkeletalMeshPath.empty())
-					{
-						// SetSkeletalMesh는 경로를 받아 내부에서 로드함
-						PreviewActor->GetSkeletalMeshComponent()->SetSkeletalMesh(Asset->SkeletalMeshPath);
-						State->CurrentMesh = PreviewActor->GetSkeletalMeshComponent()->GetSkeletalMesh();
-						State->LoadedMeshPath = Asset->SkeletalMeshPath;
-					}
+					State->ExpandedBoneIndices.insert(i);
 				}
 			}
+		}
+	}
 
-			// 로드 실패하거나 AssetPath가 없으면 기본 에셋 생성
-			if (!Asset)
+	// Physics Asset 생성
+	State->EditingAsset = NewObject<UPhysicsAsset>();
+
+	// SkeletalMeshComponent에 EditingAsset 설정 (디버그 렌더링을 위해)
+	if (State->PreviewActor)
+	{
+		if (USkeletalMeshComponent* SkelComp = State->PreviewActor->GetSkeletalMeshComponent())
+		{
+			SkelComp->SetPhysicsAsset(State->EditingAsset);
+		}
+	}
+
+	// Shape 와이어프레임용 LineComponent 생성 및 연결
+	State->ShapeLineComponent = NewObject<ULineComponent>();
+	State->ShapeLineComponent->SetAlwaysOnTop(true);
+	if (State->PreviewActor)
+	{
+		State->PreviewActor->AddOwnedComponent(State->ShapeLineComponent);
+		State->ShapeLineComponent->RegisterComponent(State->World);
+	}
+
+	// Shape 기즈모용 앵커 컴포넌트 생성
+	State->ShapeGizmoAnchor = NewObject<UShapeAnchorComponent>();
+	State->ShapeGizmoAnchor->SetVisibility(false);
+	State->ShapeGizmoAnchor->SetEditability(false);
+	if (State->PreviewActor)
+	{
+		State->PreviewActor->AddOwnedComponent(State->ShapeGizmoAnchor);
+		State->ShapeGizmoAnchor->RegisterComponent(State->World);
+	}
+
+	// Constraint 와이어프레임용 LineComponent 생성 및 연결
+	State->ConstraintLineComponent = NewObject<ULineComponent>();
+	State->ConstraintLineComponent->SetAlwaysOnTop(true);
+	if (State->PreviewActor)
+	{
+		State->PreviewActor->AddOwnedComponent(State->ConstraintLineComponent);
+		State->ConstraintLineComponent->RegisterComponent(State->World);
+	}
+
+	// Constraint 기즈모용 앵커 컴포넌트 생성
+	State->ConstraintGizmoAnchor = NewObject<UConstraintAnchorComponent>();
+	State->ConstraintGizmoAnchor->SetVisibility(false);
+	State->ConstraintGizmoAnchor->SetEditability(false);
+	if (State->PreviewActor)
+	{
+		State->PreviewActor->AddOwnedComponent(State->ConstraintGizmoAnchor);
+		State->ConstraintGizmoAnchor->RegisterComponent(State->World);
+	}
+
+	// ===== 바닥 생성 (시뮬레이션용) =====
+	// 1. 물리 바닥 (BoxComponent 사용 - PIE와 동일한 방식)
+	if (State->World)
+	{
+		// 바닥용 액터 생성
+		State->FloorCollisionActor = State->World->SpawnActor<AActor>();
+		if (State->FloorCollisionActor)
+		{
+			// BoxComponent 생성 및 설정
+			UBoxComponent* FloorBox = NewObject<UBoxComponent>();
+			FloorBox->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+			FloorBox->bSimulatePhysics = false;  // Static이므로 시뮬레이션 안함
+
+			State->FloorCollisionActor->AddOwnedComponent(FloorBox);
+			State->FloorCollisionActor->SetRootComponent(FloorBox);
+			FloorBox->RegisterComponent(State->World);
+
+			// 바닥 위치: Z=-0.5 (윗면이 Z=0)
+			State->FloorCollisionActor->SetActorLocation(FVector(0.f, 0.f, -0.5f));
+
+			// X,Y가 바닥 평면, Z가 up - 100x100x1 크기
+			// SetBoxExtent를 사용해야 UpdateBodySetup()이 호출되어 물리 Shape이 올바르게 설정됨
+			FloorBox->SetBoxExtent(FVector(50.f, 50.f, 0.5f));
+		}
+	}
+
+	// 2. 시각적 바닥 (StaticMeshActor)
+	if (State->World)
+	{
+		State->FloorMeshActor = State->World->SpawnActor<AStaticMeshActor>();
+		if (State->FloorMeshActor)
+		{
+			UStaticMeshComponent* FloorMeshComp = State->FloorMeshActor->GetStaticMeshComponent();
+			if (FloorMeshComp)
 			{
-				Asset = CreateDefaultPhysicsAsset();
-				UE_LOG("[PhysicsAssetEditorBootstrap] 기본 Physics Asset 생성");
-
-				// 기본 메시 제거 (Physics Asset 에디터에서는 빈 상태로 시작)
-				PreviewActor->GetSkeletalMeshComponent()->SetSkeletalMesh("");
-				State->CurrentMesh = nullptr;
+				FloorMeshComp->SetStaticMesh("Data/Model/bathroomFloor.fbx");
+				// 바닥 위치 및 스케일 조정 (Y=0 평면에 맞춤, Z방향 더 넓게)
+				State->FloorMeshActor->SetActorLocation(FVector(0.f, 0.f, -0.5f));
+				State->FloorMeshActor->SetActorScale(FVector(30.f, 30.f, 1.f));  // Z방향 더 넓게
 			}
-
-			State->EditingAsset = Asset;
-
-			// Body 프리뷰 LineComponent 생성
-			ULineComponent* BodyLineComp = NewObject<ULineComponent>();
-			BodyLineComp->SetAlwaysOnTop(true);
-			PreviewActor->AddOwnedComponent(BodyLineComp);
-			BodyLineComp->RegisterComponent(State->World);
-			BodyLineComp->SetLineVisible(true);
-			State->BodyPreviewLineComponent = BodyLineComp;
-
-			// Constraint 프리뷰 LineComponent 생성
-			ULineComponent* ConstraintLineComp = NewObject<ULineComponent>();
-			ConstraintLineComp->SetAlwaysOnTop(true);
-			PreviewActor->AddOwnedComponent(ConstraintLineComp);
-			ConstraintLineComp->RegisterComponent(State->World);
-			ConstraintLineComp->SetLineVisible(true);
-			State->ConstraintPreviewLineComponent = ConstraintLineComp;
 		}
 	}
 
@@ -126,51 +195,175 @@ void PhysicsAssetEditorBootstrap::DestroyViewerState(ViewerState*& State)
 	if (!State) return;
 
 	// PhysicsAssetEditorState로 캐스팅
-	PhysicsAssetEditorState* PhysicsState = static_cast<PhysicsAssetEditorState*>(State);
+	PhysicsAssetEditorState* PhysState = static_cast<PhysicsAssetEditorState*>(State);
 
 	// 리소스 정리
-	if (PhysicsState->Viewport)
+	if (PhysState->Viewport)
 	{
-		delete PhysicsState->Viewport;
-		PhysicsState->Viewport = nullptr;
+		delete PhysState->Viewport;
+		PhysState->Viewport = nullptr;
 	}
 
-	if (PhysicsState->Client)
+	if (PhysState->Client)
 	{
-		delete PhysicsState->Client;
-		PhysicsState->Client = nullptr;
+		delete PhysState->Client;
+		PhysState->Client = nullptr;
 	}
 
-	if (PhysicsState->World)
+	// FloorCollisionActor와 FloorMeshActor는 World 삭제 시 자동 정리됨
+	PhysState->FloorCollisionActor = nullptr;
+	PhysState->FloorMeshActor = nullptr;
+
+	if (PhysState->World)
 	{
-		ObjectFactory::DeleteObject(PhysicsState->World);
-		PhysicsState->World = nullptr;
+		// SelectionManager 정리 (World 삭제 전에 해야 함)
+		// 선택된 컴포넌트가 World와 함께 삭제되면 dangling pointer 발생
+		if (USelectionManager* SelectionMgr = PhysState->World->GetSelectionManager())
+		{
+			SelectionMgr->ClearSelection();
+		}
+
+		ObjectFactory::DeleteObject(PhysState->World);
+		PhysState->World = nullptr;
 	}
 
-	// Physics Asset 관련 포인터 정리
-	// EditingAsset은 ResourceManager가 관리할 수 있으므로 delete 하지 않음
-	PhysicsState->EditingAsset = nullptr;
-	PhysicsState->BodyPreviewLineComponent = nullptr;
-	PhysicsState->ConstraintPreviewLineComponent = nullptr;
+	// Physics Asset은 NewObject로 생성되었으므로 ObjectFactory::DeleteObject로 삭제
+	// ObjectFactory::DeleteAll에서 자동으로 삭제되므로 여기서는 포인터만 nullptr로 설정
+	// (World 삭제 시 관련 액터들도 함께 정리됨)
+	PhysState->EditingAsset = nullptr;
+
+	// ShapeLineComponent는 PreviewActor에 AddOwnedComponent로 추가했으므로 Actor 삭제 시 함께 정리됨
+	PhysState->ShapeLineComponent = nullptr;
+	PhysState->ShapeGizmoAnchor = nullptr;
+	PhysState->ConstraintLineComponent = nullptr;
+	PhysState->ConstraintGizmoAnchor = nullptr;
 
 	delete State;
 	State = nullptr;
 }
 
-UPhysicsAsset* PhysicsAssetEditorBootstrap::CreateDefaultPhysicsAsset()
+// ===== Helper 함수들: Shape 직렬화 =====
+static JSON SerializeSphereElem(const FKSphereElem& Elem)
 {
-	// 빈 Physics Asset 생성
-	UPhysicsAsset* DefaultAsset = NewObject<UPhysicsAsset>();
-
-	// 기본값만 설정, 바디와 제약 조건은 빈 상태로 유지
-	// 사용자가 스켈레탈 메시를 로드하면 해당 본에 바디를 추가할 수 있음
-
-	return DefaultAsset;
+	JSON Obj = JSON::Make(JSON::Class::Object);
+	Obj["Name"] = Elem.Name.ToString();
+	Obj["Center"] = FJsonSerializer::VectorToJson(Elem.Center);
+	Obj["Radius"] = Elem.Radius;
+	Obj["CollisionEnabled"] = static_cast<int32>(Elem.CollisionEnabled);
+	return Obj;
 }
 
-bool PhysicsAssetEditorBootstrap::SavePhysicsAsset(UPhysicsAsset* Asset, const FString& FilePath)
+static JSON SerializeBoxElem(const FKBoxElem& Elem)
 {
-	// 입력 검증
+	JSON Obj = JSON::Make(JSON::Class::Object);
+	Obj["Name"] = Elem.Name.ToString();
+	Obj["Center"] = FJsonSerializer::VectorToJson(Elem.Center);
+	Obj["Rotation"] = FJsonSerializer::QuatToJson(Elem.Rotation);
+	Obj["X"] = Elem.X;
+	Obj["Y"] = Elem.Y;
+	Obj["Z"] = Elem.Z;
+	Obj["CollisionEnabled"] = static_cast<int32>(Elem.CollisionEnabled);
+	return Obj;
+}
+
+static JSON SerializeSphylElem(const FKSphylElem& Elem)
+{
+	JSON Obj = JSON::Make(JSON::Class::Object);
+	Obj["Name"] = Elem.Name.ToString();
+	Obj["Center"] = FJsonSerializer::VectorToJson(Elem.Center);
+	Obj["Rotation"] = FJsonSerializer::QuatToJson(Elem.Rotation);
+	Obj["Radius"] = Elem.Radius;
+	Obj["Length"] = Elem.Length;
+	Obj["CollisionEnabled"] = static_cast<int32>(Elem.CollisionEnabled);
+	return Obj;
+}
+
+static JSON SerializeAggGeom(const FKAggregateGeom& AggGeom)
+{
+	JSON Obj = JSON::Make(JSON::Class::Object);
+
+	// Sphere Elements
+	JSON SphereArray = JSON::Make(JSON::Class::Array);
+	for (const FKSphereElem& Sphere : AggGeom.SphereElems)
+	{
+		SphereArray.append(SerializeSphereElem(Sphere));
+	}
+	Obj["SphereElems"] = SphereArray;
+
+	// Box Elements
+	JSON BoxArray = JSON::Make(JSON::Class::Array);
+	for (const FKBoxElem& Box : AggGeom.BoxElems)
+	{
+		BoxArray.append(SerializeBoxElem(Box));
+	}
+	Obj["BoxElems"] = BoxArray;
+
+	// Sphyl (Capsule) Elements
+	JSON SphylArray = JSON::Make(JSON::Class::Array);
+	for (const FKSphylElem& Sphyl : AggGeom.SphylElems)
+	{
+		SphylArray.append(SerializeSphylElem(Sphyl));
+	}
+	Obj["SphylElems"] = SphylArray;
+
+	return Obj;
+}
+
+static JSON SerializeBodySetup(UBodySetup* Body)
+{
+	JSON Obj = JSON::Make(JSON::Class::Object);
+	Obj["BoneName"] = Body->BoneName.ToString();
+	Obj["MassInKg"] = Body->MassInKg;
+	Obj["LinearDamping"] = Body->LinearDamping;
+	Obj["AngularDamping"] = Body->AngularDamping;
+
+	// PhysMaterial 경로 저장 (에셋 참조용)
+	Obj["PhysMaterialPath"] = Body->PhysMaterialPath;
+
+	// 에셋 경로가 있을 때만 에셋 참조, 없으면 None (런타임에 기본값 0 사용)
+	Obj["AggGeom"] = SerializeAggGeom(Body->AggGeom);
+	return Obj;
+}
+
+static JSON SerializeConstraintInstance(const FConstraintInstance& Constraint)
+{
+	JSON Obj = JSON::Make(JSON::Class::Object);
+	Obj["ConstraintBone1"] = Constraint.ConstraintBone1.ToString();
+	Obj["ConstraintBone2"] = Constraint.ConstraintBone2.ToString();
+
+	// Linear Limits
+	Obj["LinearXMotion"] = static_cast<int32>(Constraint.LinearXMotion);
+	Obj["LinearYMotion"] = static_cast<int32>(Constraint.LinearYMotion);
+	Obj["LinearZMotion"] = static_cast<int32>(Constraint.LinearZMotion);
+	Obj["LinearLimit"] = Constraint.LinearLimit;
+
+	// Angular Limits
+	Obj["TwistMotion"] = static_cast<int32>(Constraint.TwistMotion);
+	Obj["Swing1Motion"] = static_cast<int32>(Constraint.Swing1Motion);
+	Obj["Swing2Motion"] = static_cast<int32>(Constraint.Swing2Motion);
+	Obj["TwistLimitAngle"] = Constraint.TwistLimitAngle;
+	Obj["Swing1LimitAngle"] = Constraint.Swing1LimitAngle;
+	Obj["Swing2LimitAngle"] = Constraint.Swing2LimitAngle;
+
+	// Transform
+	Obj["Position1"] = FJsonSerializer::VectorToJson(Constraint.Position1);
+	Obj["Rotation1"] = FJsonSerializer::VectorToJson(Constraint.Rotation1);
+	Obj["Position2"] = FJsonSerializer::VectorToJson(Constraint.Position2);
+	Obj["Rotation2"] = FJsonSerializer::VectorToJson(Constraint.Rotation2);
+
+	// Collision
+	Obj["bDisableCollision"] = Constraint.bDisableCollision;
+
+	// Motor
+	Obj["bAngularMotorEnabled"] = Constraint.bAngularMotorEnabled;
+	Obj["AngularMotorStrength"] = Constraint.AngularMotorStrength;
+	Obj["AngularMotorDamping"] = Constraint.AngularMotorDamping;
+
+	return Obj;
+}
+
+bool PhysicsAssetEditorBootstrap::SavePhysicsAsset(UPhysicsAsset* Asset, const FString& FilePath, const FString& SourceFbxPath)
+{
 	if (!Asset)
 	{
 		UE_LOG("[PhysicsAssetEditorBootstrap] SavePhysicsAsset: Asset이 nullptr입니다");
@@ -183,16 +376,37 @@ bool PhysicsAssetEditorBootstrap::SavePhysicsAsset(UPhysicsAsset* Asset, const F
 		return false;
 	}
 
-	// JSON 객체 생성
+	// Root JSON Object
 	JSON JsonHandle = JSON::Make(JSON::Class::Object);
 
-	// PhysicsAsset 직렬화 (false = 저장 모드)
-	Asset->Serialize(false, JsonHandle);
+	// 소스 FBX 경로 저장 (백슬래시를 슬래시로 정규화하여 JSON 이스케이프 문제 방지)
+	if (!SourceFbxPath.empty())
+	{
+		FString NormalizedFbxPath = NormalizePath(SourceFbxPath);
+		JsonHandle["SourceFbxPath"] = NormalizedFbxPath;
+	}
 
-	// FString을 FWideString으로 변환 (UTF-8 → UTF-16)
-	FWideString WidePath = UTF8ToWide(FilePath);
+	// Bodies 배열 직렬화
+	JSON BodiesArray = JSON::Make(JSON::Class::Array);
+	for (UBodySetup* Body : Asset->Bodies)
+	{
+		if (Body)
+		{
+			BodiesArray.append(SerializeBodySetup(Body));
+		}
+	}
+	JsonHandle["Bodies"] = BodiesArray;
+
+	// Constraints 배열 직렬화
+	JSON ConstraintsArray = JSON::Make(JSON::Class::Array);
+	for (const FConstraintInstance& Constraint : Asset->Constraints)
+	{
+		ConstraintsArray.append(SerializeConstraintInstance(Constraint));
+	}
+	JsonHandle["Constraints"] = ConstraintsArray;
 
 	// 파일로 저장
+	FWideString WidePath = UTF8ToWide(FilePath);
 	if (!FJsonSerializer::SaveJsonToFile(JsonHandle, WidePath))
 	{
 		UE_LOG("[PhysicsAssetEditorBootstrap] SavePhysicsAsset: 파일 저장 실패: %s", FilePath.c_str());
@@ -203,96 +417,593 @@ bool PhysicsAssetEditorBootstrap::SavePhysicsAsset(UPhysicsAsset* Asset, const F
 	return true;
 }
 
-UPhysicsAsset* PhysicsAssetEditorBootstrap::LoadPhysicsAsset(const FString& FilePath)
+// ===== Helper 함수들: Shape 역직렬화 =====
+static FKSphereElem DeserializeSphereElem(const JSON& Data)
 {
-	// 입력 검증
+	FKSphereElem Elem;
+	FString NameStr;
+	FJsonSerializer::ReadString(Data, "Name", NameStr, "", false);
+	Elem.Name = FName(NameStr);
+	FJsonSerializer::ReadVector(Data, "Center", Elem.Center, FVector::Zero(), false);
+	FJsonSerializer::ReadFloat(Data, "Radius", Elem.Radius, 1.0f, false);
+	int32 CollisionInt = static_cast<int32>(ECollisionEnabled::QueryAndPhysics);
+	FJsonSerializer::ReadInt32(Data, "CollisionEnabled", CollisionInt, CollisionInt, false);
+	Elem.CollisionEnabled = static_cast<ECollisionEnabled>(CollisionInt);
+	return Elem;
+}
+
+// Helper: 3값(Euler)이면 Euler로 읽고, 4값(Quat)이면 Quat으로 읽음
+static FQuat ReadRotationEulerOrQuat(const JSON& Data, const FString& Key)
+{
+	if (!Data.hasKey(Key)) return FQuat::Identity();
+
+	const JSON& RotJson = Data.at(Key);
+	if (RotJson.JSONType() != JSON::Class::Array) return FQuat::Identity();
+
+	if (RotJson.size() == 3)
+	{
+		// Euler angles (degrees)
+		FVector EulerDeg(
+			static_cast<float>(RotJson.at(0).ToFloat()),
+			static_cast<float>(RotJson.at(1).ToFloat()),
+			static_cast<float>(RotJson.at(2).ToFloat())
+		);
+		return FQuat::MakeFromEulerZYX(EulerDeg);
+	}
+	else if (RotJson.size() == 4)
+	{
+		// Quaternion [X, Y, Z, W]
+		return FQuat(
+			static_cast<float>(RotJson.at(0).ToFloat()),
+			static_cast<float>(RotJson.at(1).ToFloat()),
+			static_cast<float>(RotJson.at(2).ToFloat()),
+			static_cast<float>(RotJson.at(3).ToFloat())
+		);
+	}
+
+	return FQuat::Identity();
+}
+
+static FKBoxElem DeserializeBoxElem(const JSON& Data)
+{
+	FKBoxElem Elem;
+	FString NameStr;
+	FJsonSerializer::ReadString(Data, "Name", NameStr, "", false);
+	Elem.Name = FName(NameStr);
+	FJsonSerializer::ReadVector(Data, "Center", Elem.Center, FVector::Zero(), false);
+	Elem.Rotation = ReadRotationEulerOrQuat(Data, "Rotation");
+	FJsonSerializer::ReadFloat(Data, "X", Elem.X, 1.0f, false);
+	FJsonSerializer::ReadFloat(Data, "Y", Elem.Y, 1.0f, false);
+	FJsonSerializer::ReadFloat(Data, "Z", Elem.Z, 1.0f, false);
+	int32 CollisionInt = static_cast<int32>(ECollisionEnabled::QueryAndPhysics);
+	FJsonSerializer::ReadInt32(Data, "CollisionEnabled", CollisionInt, CollisionInt, false);
+	Elem.CollisionEnabled = static_cast<ECollisionEnabled>(CollisionInt);
+	return Elem;
+}
+
+static FKSphylElem DeserializeSphylElem(const JSON& Data)
+{
+	FKSphylElem Elem;
+	FString NameStr;
+	FJsonSerializer::ReadString(Data, "Name", NameStr, "", false);
+	Elem.Name = FName(NameStr);
+	FJsonSerializer::ReadVector(Data, "Center", Elem.Center, FVector::Zero(), false);
+	Elem.Rotation = ReadRotationEulerOrQuat(Data, "Rotation");
+	FJsonSerializer::ReadFloat(Data, "Radius", Elem.Radius, 1.0f, false);
+	FJsonSerializer::ReadFloat(Data, "Length", Elem.Length, 1.0f, false);
+	int32 CollisionInt = static_cast<int32>(ECollisionEnabled::QueryAndPhysics);
+	FJsonSerializer::ReadInt32(Data, "CollisionEnabled", CollisionInt, CollisionInt, false);
+	Elem.CollisionEnabled = static_cast<ECollisionEnabled>(CollisionInt);
+	return Elem;
+}
+
+static void DeserializeAggGeom(const JSON& Data, FKAggregateGeom& OutAggGeom)
+{
+	OutAggGeom.EmptyElements();
+
+	// Sphere Elements
+	JSON SphereArray;
+	if (FJsonSerializer::ReadArray(Data, "SphereElems", SphereArray, nullptr, false))
+	{
+		for (size_t i = 0; i < SphereArray.size(); ++i)
+		{
+			OutAggGeom.SphereElems.Add(DeserializeSphereElem(SphereArray.at(i)));
+		}
+	}
+
+	// Box Elements
+	JSON BoxArray;
+	if (FJsonSerializer::ReadArray(Data, "BoxElems", BoxArray, nullptr, false))
+	{
+		for (size_t i = 0; i < BoxArray.size(); ++i)
+		{
+			OutAggGeom.BoxElems.Add(DeserializeBoxElem(BoxArray.at(i)));
+		}
+	}
+
+	// Sphyl (Capsule) Elements
+	JSON SphylArray;
+	if (FJsonSerializer::ReadArray(Data, "SphylElems", SphylArray, nullptr, false))
+	{
+		for (size_t i = 0; i < SphylArray.size(); ++i)
+		{
+			OutAggGeom.SphylElems.Add(DeserializeSphylElem(SphylArray.at(i)));
+		}
+	}
+}
+
+static UBodySetup* DeserializeBodySetup(const JSON& Data)
+{
+	UBodySetup* Body = NewObject<UBodySetup>();
+
+	FString BoneNameStr;
+	FJsonSerializer::ReadString(Data, "BoneName", BoneNameStr, "", false);
+	Body->BoneName = FName(BoneNameStr);
+
+	FJsonSerializer::ReadFloat(Data, "MassInKg", Body->MassInKg, 1.0f, false);
+	FJsonSerializer::ReadFloat(Data, "LinearDamping", Body->LinearDamping, 0.01f, false);
+	FJsonSerializer::ReadFloat(Data, "AngularDamping", Body->AngularDamping, 0.05f, false);
+
+	// PhysMaterial 경로 로드
+	FJsonSerializer::ReadString(Data, "PhysMaterialPath", Body->PhysMaterialPath, "", false);
+
+	// PhysMaterial 로드: 경로가 있으면 에셋에서 로드, 없으면 nullptr (런타임에 기본값 사용)
+	if (!Body->PhysMaterialPath.empty())
+	{
+		Body->PhysMaterial = PhysicsAssetEditorBootstrap::LoadPhysicalMaterial(Body->PhysMaterialPath);
+	}
+	else
+	{
+		Body->PhysMaterial = nullptr;
+	}
+
+	// AggGeom 역직렬화
+	JSON AggGeomData;
+	if (FJsonSerializer::ReadObject(Data, "AggGeom", AggGeomData, nullptr, false))
+	{
+		DeserializeAggGeom(AggGeomData, Body->AggGeom);
+	}
+
+	return Body;
+}
+
+static FConstraintInstance DeserializeConstraintInstance(const JSON& Data)
+{
+	FConstraintInstance Constraint;
+
+	FString Bone1Str, Bone2Str;
+	FJsonSerializer::ReadString(Data, "ConstraintBone1", Bone1Str, "", false);
+	FJsonSerializer::ReadString(Data, "ConstraintBone2", Bone2Str, "", false);
+	Constraint.ConstraintBone1 = FName(Bone1Str);
+	Constraint.ConstraintBone2 = FName(Bone2Str);
+
+	// Linear Limits
+	int32 LinearXInt = 0, LinearYInt = 0, LinearZInt = 0;
+	FJsonSerializer::ReadInt32(Data, "LinearXMotion", LinearXInt, static_cast<int32>(ELinearConstraintMotion::Locked), false);
+	FJsonSerializer::ReadInt32(Data, "LinearYMotion", LinearYInt, static_cast<int32>(ELinearConstraintMotion::Locked), false);
+	FJsonSerializer::ReadInt32(Data, "LinearZMotion", LinearZInt, static_cast<int32>(ELinearConstraintMotion::Locked), false);
+	Constraint.LinearXMotion = static_cast<ELinearConstraintMotion>(LinearXInt);
+	Constraint.LinearYMotion = static_cast<ELinearConstraintMotion>(LinearYInt);
+	Constraint.LinearZMotion = static_cast<ELinearConstraintMotion>(LinearZInt);
+	FJsonSerializer::ReadFloat(Data, "LinearLimit", Constraint.LinearLimit, 0.0f, false);
+
+	// Angular Limits
+	int32 TwistInt = 0, Swing1Int = 0, Swing2Int = 0;
+	FJsonSerializer::ReadInt32(Data, "TwistMotion", TwistInt, static_cast<int32>(EAngularConstraintMotion::Limited), false);
+	FJsonSerializer::ReadInt32(Data, "Swing1Motion", Swing1Int, static_cast<int32>(EAngularConstraintMotion::Limited), false);
+	FJsonSerializer::ReadInt32(Data, "Swing2Motion", Swing2Int, static_cast<int32>(EAngularConstraintMotion::Limited), false);
+	Constraint.TwistMotion = static_cast<EAngularConstraintMotion>(TwistInt);
+	Constraint.Swing1Motion = static_cast<EAngularConstraintMotion>(Swing1Int);
+	Constraint.Swing2Motion = static_cast<EAngularConstraintMotion>(Swing2Int);
+	FJsonSerializer::ReadFloat(Data, "TwistLimitAngle", Constraint.TwistLimitAngle, 45.0f, false);
+	FJsonSerializer::ReadFloat(Data, "Swing1LimitAngle", Constraint.Swing1LimitAngle, 45.0f, false);
+	FJsonSerializer::ReadFloat(Data, "Swing2LimitAngle", Constraint.Swing2LimitAngle, 45.0f, false);
+
+	// Transform
+	FJsonSerializer::ReadVector(Data, "Position1", Constraint.Position1, FVector::Zero(), false);
+	FJsonSerializer::ReadVector(Data, "Rotation1", Constraint.Rotation1, FVector::Zero(), false);
+	FJsonSerializer::ReadVector(Data, "Position2", Constraint.Position2, FVector::Zero(), false);
+	FJsonSerializer::ReadVector(Data, "Rotation2", Constraint.Rotation2, FVector::Zero(), false);
+
+	// Collision
+	FJsonSerializer::ReadBool(Data, "bDisableCollision", Constraint.bDisableCollision, true, false);
+
+	// Motor
+	FJsonSerializer::ReadBool(Data, "bAngularMotorEnabled", Constraint.bAngularMotorEnabled, false, false);
+	FJsonSerializer::ReadFloat(Data, "AngularMotorStrength", Constraint.AngularMotorStrength, 0.0f, false);
+	FJsonSerializer::ReadFloat(Data, "AngularMotorDamping", Constraint.AngularMotorDamping, 0.0f, false);
+
+	return Constraint;
+}
+
+UPhysicsAsset* PhysicsAssetEditorBootstrap::LoadPhysicsAsset(const FString& FilePath, FString* OutSourceFbxPath)
+{
 	if (FilePath.empty())
 	{
 		UE_LOG("[PhysicsAssetEditorBootstrap] LoadPhysicsAsset: FilePath가 비어있습니다");
 		return nullptr;
 	}
 
-	// 경로를 상대 경로로 정규화
+	// 경로 정규화
 	FString NormalizedFilePath = ResolveAssetRelativePath(NormalizePath(FilePath), "");
 
-	// ForceLoad로 항상 파일에서 로드 (캐시 무시, 에디터에서는 최신 파일 반영 필요)
-	UPhysicsAsset* LoadedAsset = UResourceManager::GetInstance().ForceLoad<UPhysicsAsset>(NormalizedFilePath);
-	if (LoadedAsset)
+	// 파일에서 JSON 로드
+	FWideString WidePath = UTF8ToWide(NormalizedFilePath);
+	JSON JsonHandle;
+	if (!FJsonSerializer::LoadJsonFromFile(JsonHandle, WidePath))
 	{
-		UE_LOG("[PhysicsAssetEditorBootstrap] LoadPhysicsAsset: 로드 성공: %s", NormalizedFilePath.c_str());
-	}
-	else
-	{
-		UE_LOG("[PhysicsAssetEditorBootstrap] LoadPhysicsAsset: 로드 실패: %s", NormalizedFilePath.c_str());
+		UE_LOG("[PhysicsAssetEditorBootstrap] LoadPhysicsAsset: 파일 로드 실패: %s", NormalizedFilePath.c_str());
+		return nullptr;
 	}
 
+	// 소스 FBX 경로 읽기
+	if (OutSourceFbxPath)
+	{
+		FJsonSerializer::ReadString(JsonHandle, "SourceFbxPath", *OutSourceFbxPath, "", false);
+	}
+
+	// 새 PhysicsAsset 객체 생성
+	UPhysicsAsset* LoadedAsset = NewObject<UPhysicsAsset>();
+	if (!LoadedAsset)
+	{
+		UE_LOG("[PhysicsAssetEditorBootstrap] LoadPhysicsAsset: PhysicsAsset 객체 생성 실패");
+		return nullptr;
+	}
+
+	// Bodies 배열 역직렬화 (새 형식: "Bodies", 구 형식: "BodySetups")
+	JSON BodiesArray;
+	bool bUsedOldBodyFormat = false;
+	if (FJsonSerializer::ReadArray(JsonHandle, "Bodies", BodiesArray, nullptr, false))
+	{
+		// 새 형식
+		for (size_t i = 0; i < BodiesArray.size(); ++i)
+		{
+			UBodySetup* Body = DeserializeBodySetup(BodiesArray.at(i));
+			if (Body)
+			{
+				LoadedAsset->Bodies.Add(Body);
+			}
+		}
+	}
+	else if (FJsonSerializer::ReadArray(JsonHandle, "BodySetups", BodiesArray, nullptr, false))
+	{
+		// 구 형식 (하위 호환성)
+		bUsedOldBodyFormat = true;
+		for (size_t i = 0; i < BodiesArray.size(); ++i)
+		{
+			UBodySetup* Body = DeserializeBodySetup(BodiesArray.at(i));
+			if (Body)
+			{
+				LoadedAsset->Bodies.Add(Body);
+			}
+		}
+		UE_LOG("[PhysicsAssetEditorBootstrap] LoadPhysicsAsset: 구 형식 BodySetups 로드됨");
+	}
+
+	// Constraints 배열 역직렬화 (새 형식: "Constraints", 구 형식: "ConstraintSetups")
+	JSON ConstraintsArray;
+	if (FJsonSerializer::ReadArray(JsonHandle, "Constraints", ConstraintsArray, nullptr, false))
+	{
+		// 새 형식
+		for (size_t i = 0; i < ConstraintsArray.size(); ++i)
+		{
+			FConstraintInstance Constraint = DeserializeConstraintInstance(ConstraintsArray.at(i));
+			LoadedAsset->Constraints.Add(Constraint);
+		}
+	}
+	else if (FJsonSerializer::ReadArray(JsonHandle, "ConstraintSetups", ConstraintsArray, nullptr, false))
+	{
+		// 구 형식 (하위 호환성) - ChildBodyIndex/ParentBodyIndex를 BoneName으로 변환
+		for (size_t i = 0; i < ConstraintsArray.size(); ++i)
+		{
+			const JSON& OldData = ConstraintsArray.at(i);
+			FConstraintInstance CI;
+
+			// 구 형식: ChildBodyIndex/ParentBodyIndex → 새 형식: ConstraintBone1/ConstraintBone2
+			int32 ChildBodyIndex = -1, ParentBodyIndex = -1;
+			FJsonSerializer::ReadInt32(OldData, "ChildBodyIndex", ChildBodyIndex, -1, false);
+			FJsonSerializer::ReadInt32(OldData, "ParentBodyIndex", ParentBodyIndex, -1, false);
+
+			// Body 인덱스로 BoneName 조회
+			if (ChildBodyIndex >= 0 && ChildBodyIndex < LoadedAsset->Bodies.Num())
+			{
+				CI.ConstraintBone1 = LoadedAsset->Bodies[ChildBodyIndex]->BoneName;
+			}
+			if (ParentBodyIndex >= 0 && ParentBodyIndex < LoadedAsset->Bodies.Num())
+			{
+				CI.ConstraintBone2 = LoadedAsset->Bodies[ParentBodyIndex]->BoneName;
+			}
+
+			// Position/Rotation 변환 (구 형식: Child/Parent, 새 형식: 1/2)
+			JSON ChildPosArray, ParentPosArray, ChildRotArray, ParentRotArray;
+			if (FJsonSerializer::ReadArray(OldData, "ChildPosition", ChildPosArray, nullptr, false) && ChildPosArray.size() >= 3)
+			{
+				CI.Position1 = FVector((float)ChildPosArray[0].ToFloat(), (float)ChildPosArray[1].ToFloat(), (float)ChildPosArray[2].ToFloat());
+			}
+			if (FJsonSerializer::ReadArray(OldData, "ParentPosition", ParentPosArray, nullptr, false) && ParentPosArray.size() >= 3)
+			{
+				CI.Position2 = FVector((float)ParentPosArray[0].ToFloat(), (float)ParentPosArray[1].ToFloat(), (float)ParentPosArray[2].ToFloat());
+			}
+			if (FJsonSerializer::ReadArray(OldData, "ChildRotation", ChildRotArray, nullptr, false) && ChildRotArray.size() >= 3)
+			{
+				CI.Rotation1 = FVector((float)ChildRotArray[0].ToFloat(), (float)ChildRotArray[1].ToFloat(), (float)ChildRotArray[2].ToFloat());
+			}
+			if (FJsonSerializer::ReadArray(OldData, "ParentRotation", ParentRotArray, nullptr, false) && ParentRotArray.size() >= 3)
+			{
+				CI.Rotation2 = FVector((float)ParentRotArray[0].ToFloat(), (float)ParentRotArray[1].ToFloat(), (float)ParentRotArray[2].ToFloat());
+			}
+
+			// Linear/Angular Motion 변환
+			int32 LinearX = 2, LinearY = 2, LinearZ = 2;  // 기본값: Locked
+			FJsonSerializer::ReadInt32(OldData, "LinearXMotion", LinearX, 2, false);
+			FJsonSerializer::ReadInt32(OldData, "LinearYMotion", LinearY, 2, false);
+			FJsonSerializer::ReadInt32(OldData, "LinearZMotion", LinearZ, 2, false);
+			CI.LinearXMotion = static_cast<ELinearConstraintMotion>(LinearX);
+			CI.LinearYMotion = static_cast<ELinearConstraintMotion>(LinearY);
+			CI.LinearZMotion = static_cast<ELinearConstraintMotion>(LinearZ);
+
+			int32 Swing1 = 1, Swing2 = 1, Twist = 1;  // 기본값: Limited
+			FJsonSerializer::ReadInt32(OldData, "Swing1Motion", Swing1, 1, false);
+			FJsonSerializer::ReadInt32(OldData, "Swing2Motion", Swing2, 1, false);
+			FJsonSerializer::ReadInt32(OldData, "TwistMotion", Twist, 1, false);
+			CI.Swing1Motion = static_cast<EAngularConstraintMotion>(Swing1);
+			CI.Swing2Motion = static_cast<EAngularConstraintMotion>(Swing2);
+			CI.TwistMotion = static_cast<EAngularConstraintMotion>(Twist);
+
+			// 각도 제한
+			FJsonSerializer::ReadFloat(OldData, "Swing1LimitDegrees", CI.Swing1LimitAngle, 45.0f, false);
+			FJsonSerializer::ReadFloat(OldData, "Swing2LimitDegrees", CI.Swing2LimitAngle, 45.0f, false);
+			FJsonSerializer::ReadFloat(OldData, "TwistLimitDegrees", CI.TwistLimitAngle, 45.0f, false);
+			FJsonSerializer::ReadFloat(OldData, "LinearLimit", CI.LinearLimit, 0.0f, false);
+
+			// 유효한 본 이름이 있는 경우에만 추가
+			if (!CI.ConstraintBone1.IsNone() && !CI.ConstraintBone2.IsNone())
+			{
+				LoadedAsset->Constraints.Add(CI);
+			}
+		}
+		UE_LOG("[PhysicsAssetEditorBootstrap] LoadPhysicsAsset: 구 형식 ConstraintSetups 로드됨 (%d개)", LoadedAsset->Constraints.Num());
+	}
+
+	UE_LOG("[PhysicsAssetEditorBootstrap] LoadPhysicsAsset: 로드 성공: %s (Bodies: %d, Constraints: %d)",
+		NormalizedFilePath.c_str(), LoadedAsset->Bodies.Num(), LoadedAsset->Constraints.Num());
 	return LoadedAsset;
 }
 
-// ────────────────────────────────────────────────────────────────
-// PhysicsAssetEditorState 헬퍼 메서드 구현
-// ────────────────────────────────────────────────────────────────
+// ============================================================================
+// Physics Asset 파일 스캔 함수들
+// ============================================================================
 
-ASkeletalMeshActor* PhysicsAssetEditorState::GetPreviewSkeletalActor() const
+void PhysicsAssetEditorBootstrap::GetAllPhysicsAssetPaths(TArray<FString>& OutPaths, TArray<FString>& OutDisplayNames)
 {
-	return static_cast<ASkeletalMeshActor*>(PreviewActor);
-}
+	OutPaths.Empty();
+	OutDisplayNames.Empty();
 
-USkeletalMeshComponent* PhysicsAssetEditorState::GetPreviewMeshComponent() const
-{
-	ASkeletalMeshActor* SkelActor = GetPreviewSkeletalActor();
-	return SkelActor ? SkelActor->GetSkeletalMeshComponent() : nullptr;
-}
+	// "없음" 옵션 추가
+	OutPaths.Add("");
+	OutDisplayNames.Add("None");
 
-void PhysicsAssetEditorState::HideGizmo()
-{
-	ASkeletalMeshActor* SkelActor = GetPreviewSkeletalActor();
-	if (SkelActor)
+	// Data/Physics 폴더 스캔
+	FString PhysicsDir = GDataDir + "/Physics";
+	std::filesystem::path SearchPath(UTF8ToWide(PhysicsDir));
+
+	if (!std::filesystem::exists(SearchPath))
 	{
-		SkelActor->EnsureViewerComponents();
-		if (UBoneAnchorComponent* Anchor = SkelActor->GetBoneGizmoAnchor())
+		return;
+	}
+
+	for (const auto& Entry : std::filesystem::recursive_directory_iterator(SearchPath))
+	{
+		if (Entry.is_regular_file())
 		{
-			Anchor->SetVisibility(false);
-			Anchor->SetEditability(false);
+			std::filesystem::path FilePath = Entry.path();
+			if (FilePath.extension() == ".physicsasset")
+			{
+				// 한글 경로 지원: wstring -> UTF-8 변환
+				FString FullPath = WideToUTF8(FilePath.wstring());
+				FString FileName = WideToUTF8(FilePath.filename().wstring());
+
+				// 경로 정규화
+				FullPath = NormalizePath(FullPath);
+
+				OutPaths.Add(FullPath);
+				OutDisplayNames.Add(FileName);
+			}
 		}
 	}
-	if (World)
+}
+
+void PhysicsAssetEditorBootstrap::GetCompatiblePhysicsAssetPaths(const FString& FbxPath, TArray<FString>& OutPaths, TArray<FString>& OutDisplayNames)
+{
+	OutPaths.Empty();
+	OutDisplayNames.Empty();
+
+	// "없음" 옵션 추가
+	OutPaths.Add("");
+	OutDisplayNames.Add("None");
+
+	if (FbxPath.empty())
 	{
-		World->GetSelectionManager()->ClearSelection();
+		// FBX 경로가 없으면 모든 Physics Asset 반환
+		TArray<FString> AllPaths, AllNames;
+		GetAllPhysicsAssetPaths(AllPaths, AllNames);
+
+		// "None" 제외하고 추가
+		for (int32 i = 1; i < AllPaths.Num(); ++i)
+		{
+			OutPaths.Add(AllPaths[i]);
+			OutDisplayNames.Add(AllNames[i]);
+		}
+		return;
+	}
+
+	// FBX 경로 정규화
+	FString NormalizedFbxPath = NormalizePath(FbxPath);
+
+	// Data/Physics 폴더 스캔
+	FString PhysicsDir = GDataDir + "/Physics";
+	std::filesystem::path SearchPath(UTF8ToWide(PhysicsDir));
+
+	if (!std::filesystem::exists(SearchPath))
+	{
+		return;
+	}
+
+	for (const auto& Entry : std::filesystem::recursive_directory_iterator(SearchPath))
+	{
+		if (Entry.is_regular_file())
+		{
+			std::filesystem::path FilePath = Entry.path();
+			if (FilePath.extension() == ".physicsasset")
+			{
+				// 한글 경로 지원: wstring -> UTF-8 변환
+				FString FullPath = NormalizePath(WideToUTF8(FilePath.wstring()));
+
+				// .physicsasset 파일에서 SourceFbxPath 읽기
+				FString SourceFbx;
+				FWideString WidePath = UTF8ToWide(FullPath);
+				JSON JsonHandle;
+
+				if (FJsonSerializer::LoadJsonFromFile(JsonHandle, WidePath))
+				{
+					FJsonSerializer::ReadString(JsonHandle, "SourceFbxPath", SourceFbx, "", false);
+					SourceFbx = NormalizePath(SourceFbx);
+
+					// FBX 경로가 매칭되면 추가
+					if (SourceFbx == NormalizedFbxPath)
+					{
+						FString FileName = WideToUTF8(FilePath.filename().wstring());
+						OutPaths.Add(FullPath);
+						OutDisplayNames.Add(FileName);
+					}
+				}
+			}
+		}
+	}
+
+	// 매칭되는 것이 없으면 모든 Physics Asset도 표시 (선택 가능하게)
+	if (OutPaths.Num() == 1)  // "None"만 있으면
+	{
+		TArray<FString> AllPaths, AllNames;
+		GetAllPhysicsAssetPaths(AllPaths, AllNames);
+
+		// "None" 제외하고 추가 (다른 메쉬용이라고 표시)
+		for (int32 i = 1; i < AllPaths.Num(); ++i)
+		{
+			OutPaths.Add(AllPaths[i]);
+			OutDisplayNames.Add(AllNames[i] + " (other)");
+		}
 	}
 }
 
-void PhysicsAssetEditorState::SelectBody(int32 BodyIndex)
+// ============================================================================
+// Physical Material 에셋 관리 함수들
+// ============================================================================
+
+bool PhysicsAssetEditorBootstrap::SavePhysicalMaterial(UPhysicalMaterial* Material, const FString& FilePath)
 {
-	SelectedBodyIndex = BodyIndex;
-	SelectedConstraintIndex = -1;
-	bBodySelectionMode = true;
-	bSelectionColorDirty = true;
+	if (!Material)
+	{
+		UE_LOG("[PhysicsAssetEditorBootstrap] SavePhysicalMaterial: Material이 nullptr입니다");
+		return false;
+	}
 
-	// 첫 번째 Primitive 자동 선택
-	SelectedPrimitive.Clear();
+	if (FilePath.empty())
+	{
+		UE_LOG("[PhysicsAssetEditorBootstrap] SavePhysicalMaterial: FilePath가 비어있습니다");
+		return false;
+	}
 
-	if (!EditingAsset || BodyIndex < 0 ||
-		BodyIndex >= static_cast<int32>(EditingAsset->BodySetups.size()))
+	// Root JSON Object
+	JSON JsonHandle = JSON::Make(JSON::Class::Object);
+
+	JsonHandle["Friction"] = Material->Friction;
+	JsonHandle["Restitution"] = Material->Restitution;
+
+	// 파일로 저장
+	FWideString WidePath = UTF8ToWide(FilePath);
+	if (!FJsonSerializer::SaveJsonToFile(JsonHandle, WidePath))
+	{
+		UE_LOG("[PhysicsAssetEditorBootstrap] SavePhysicalMaterial: 파일 저장 실패: %s", FilePath.c_str());
+		return false;
+	}
+
+	UE_LOG("[PhysicsAssetEditorBootstrap] SavePhysicalMaterial: 저장 성공: %s", FilePath.c_str());
+	return true;
+}
+
+UPhysicalMaterial* PhysicsAssetEditorBootstrap::LoadPhysicalMaterial(const FString& FilePath)
+{
+	if (FilePath.empty())
+	{
+		UE_LOG("[PhysicsAssetEditorBootstrap] LoadPhysicalMaterial: FilePath가 비어있습니다");
+		return nullptr;
+	}
+
+	// 경로 정규화
+	FString NormalizedFilePath = ResolveAssetRelativePath(NormalizePath(FilePath), "");
+
+	// 파일에서 JSON 로드
+	FWideString WidePath = UTF8ToWide(NormalizedFilePath);
+	JSON JsonHandle;
+	if (!FJsonSerializer::LoadJsonFromFile(JsonHandle, WidePath))
+	{
+		UE_LOG("[PhysicsAssetEditorBootstrap] LoadPhysicalMaterial: 파일 로드 실패: %s", NormalizedFilePath.c_str());
+		return nullptr;
+	}
+
+	// 새 PhysicalMaterial 객체 생성
+	UPhysicalMaterial* LoadedMaterial = NewObject<UPhysicalMaterial>();
+	if (!LoadedMaterial)
+	{
+		UE_LOG("[PhysicsAssetEditorBootstrap] LoadPhysicalMaterial: PhysicalMaterial 객체 생성 실패");
+		return nullptr;
+	}
+
+	FJsonSerializer::ReadFloat(JsonHandle, "Friction", LoadedMaterial->Friction, 0.5f, false);
+	FJsonSerializer::ReadFloat(JsonHandle, "Restitution", LoadedMaterial->Restitution, 0.3f, false);
+
+	UE_LOG("[PhysicsAssetEditorBootstrap] LoadPhysicalMaterial: 로드 성공: %s", NormalizedFilePath.c_str());
+	return LoadedMaterial;
+}
+
+void PhysicsAssetEditorBootstrap::GetAllPhysicalMaterialPaths(TArray<FString>& OutPaths, TArray<FString>& OutDisplayNames)
+{
+	OutPaths.Empty();
+	OutDisplayNames.Empty();
+
+	// "없음" 옵션 추가
+	OutPaths.Add("");
+	OutDisplayNames.Add("None");
+
+	// Data/Physics/Materials 폴더 스캔
+	FString MaterialsDir = GDataDir + "/Physics/Materials";
+	std::filesystem::path SearchPath(UTF8ToWide(MaterialsDir));
+
+	if (!std::filesystem::exists(SearchPath))
+	{
+		// 폴더가 없으면 생성
+		std::filesystem::create_directories(SearchPath);
 		return;
-
-	UBodySetup* Body = EditingAsset->BodySetups[BodyIndex];
-	if (!Body) return;
-
-	// 우선순위: Sphere -> Box -> Sphyl
-	if (!Body->AggGeom.SphereElems.IsEmpty())
-	{
-		SelectedPrimitive.PrimitiveType = EAggCollisionShape::Sphere;
-		SelectedPrimitive.PrimitiveIndex = 0;
 	}
-	else if (!Body->AggGeom.BoxElems.IsEmpty())
+
+	for (const auto& Entry : std::filesystem::recursive_directory_iterator(SearchPath))
 	{
-		SelectedPrimitive.PrimitiveType = EAggCollisionShape::Box;
-		SelectedPrimitive.PrimitiveIndex = 0;
-	}
-	else if (!Body->AggGeom.SphylElems.IsEmpty())
-	{
-		SelectedPrimitive.PrimitiveType = EAggCollisionShape::Sphyl;
-		SelectedPrimitive.PrimitiveIndex = 0;
+		if (Entry.is_regular_file())
+		{
+			std::filesystem::path FilePath = Entry.path();
+			if (FilePath.extension() == ".physmat")
+			{
+				// 한글 경로 지원: wstring -> UTF-8 변환
+				FString FullPath = WideToUTF8(FilePath.wstring());
+				FString FileName = WideToUTF8(FilePath.stem().wstring());  // 확장자 제외한 이름
+
+				// 경로 정규화
+				FullPath = NormalizePath(FullPath);
+
+				OutPaths.Add(FullPath);
+				OutDisplayNames.Add(FileName);
+			}
+		}
 	}
 }

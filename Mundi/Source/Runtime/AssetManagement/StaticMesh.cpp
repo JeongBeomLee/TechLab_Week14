@@ -727,6 +727,9 @@ void UStaticMesh::ResetPhysicsToDefault()
     BodySetup->AggGeom.TriangleMeshElems.Empty();
 
     // CollisionComplexity에 따라 생성
+    // TODO: TriangleMesh CookedData 캐싱이 필요하면 SavePhysicsCache/LoadPhysicsCache에 추가
+    //       현재는 UStaticMesh가 ResourceManager에 캐싱되므로 매번 쿠킹하지 않음
+    //       만약 메시 로드 시 쿠킹 오버헤드가 문제되면 Convex처럼 별도 캐시 파일 저장 고려
     if (BodySetup->CollisionComplexity == ECollisionComplexity::UseComplexAsSimple)
     {
         // TriangleMesh 생성

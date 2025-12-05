@@ -131,17 +131,15 @@ void UBodySetup::AddShapesToRigidActor_AssumesLocked(FBodyInstance* OwningInstan
             ScaledCenter.Y = ElemTM.Translation.Y * Scale3D.Y;
             ScaledCenter.Z = ElemTM.Translation.Z * Scale3D.Z;
 
-            // [중요] 회전 보정
-            // 언리얼: 캡슐 길이 방향 = Z축
-            // PhysX : 캡슐 길이 방향 = X축
-            // 따라서 로컬 회전에 "Z->X 90도 회전"을 추가해야 합니다.
-            
-            PxQuat UERot = U2PQuat(ElemTM.Rotation);
-            // Z축(0,0,1)을 X축(1,0,0)으로 보내는 회전: Y축 기준 -90도 or +90도
-            // (Unreal 좌표계 기준 Y축 회전)
-            PxQuat FixRot(PxHalfPi, PxVec3(0, 1, 0)); 
-            
-            PxTransform LocalPose(U2PVector(ScaledCenter), UERot * FixRot);
+            // [중요] 회전 보정 (Week13 방식)
+            // 엔진: 캡슐 길이 방향 = Z축
+            // PhysX: 캡슐 길이 방향 = X축
+            // 엔진 공간에서 Z→X 회전을 적용한 후 축변환
+            FQuat BaseRotation = FQuat::MakeFromEulerZYX(FVector(-90.0f, 0.0f, 0.0f));
+            FQuat UserRotation = ElemTM.Rotation;
+            FQuat FinalRotation = UserRotation * BaseRotation;
+
+            PxTransform LocalPose(U2PVector(ScaledCenter), U2PQuat(FinalRotation));
             NewShape->setLocalPose(LocalPose);
 
             NewShape->setFlag(PxShapeFlag::eSIMULATION_SHAPE, true);
@@ -266,7 +264,9 @@ void UBodySetup::DuplicateSubObjects()
 
 	// PhysicalMaterial은 리소스 참조이므로 포인터 공유 (복제 안함)
 	// AggGeom은 값 타입이므로 얕은 복사로 이미 복제됨
-	// 따라서 추가 처리 없음
+
+	// OwningMesh는 새 소유자가 설정해야 함 (원본 참조 방지)
+	OwningMesh = nullptr;
 }
 
 void UBodySetup::Serialize(const bool bInIsLoading, JSON& InOutHandle)
@@ -622,7 +622,7 @@ bool UBodySetup::RenderShapesUI(UBodySetup* BodySetup, bool& OutSaveRequested)
 	ImGui::SameLine();
 	if (ImGui::Button("Add Box"))
 	{
-		FKBoxElem NewBox(1.0f, 1.0f, 1.0f);
+		FKBoxElem NewBox(0.5f, 0.5f, 0.5f);
 		BodySetup->AggGeom.BoxElems.Add(NewBox);
 		bChanged = true;
 		OutSaveRequested = true;

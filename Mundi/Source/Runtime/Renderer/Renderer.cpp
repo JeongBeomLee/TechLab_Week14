@@ -40,6 +40,7 @@ URenderer::URenderer(D3D11RHI* InDevice) : RHIDevice(InDevice)
 {
 	InitializeLineBatch();
 	InitializeTriangleBatch();
+	InitializeDebugPrimitiveBatch();
 
 	// GPU 타이머 초기화 (스키닝 성능 측정용)
 	FSkinningStatManager::GetInstance().InitializeGPUTimer(RHIDevice->GetDevice());
@@ -693,4 +694,189 @@ void URenderer::ClearTriangleBatch()
 	TriangleBatchData->Indices.clear();
 
 	bTriangleBatchActive = false;
+}
+
+// ===== Debug Primitive Rendering System =====
+
+void URenderer::InitializeDebugPrimitiveBatch()
+{
+	// Load debug primitive shader
+	DebugPrimitiveShader = UResourceManager::GetInstance().Load<UShader>("Shaders/Debug/DebugPrimitive.hlsl");
+}
+
+void URenderer::BeginDebugPrimitiveBatch()
+{
+	bDebugPrimitiveBatchActive = true;
+
+	// Set render target with ID buffer for picking support
+	RHIDevice->OMSetRenderTargets(ERTVMode::SceneColorTargetWithId);
+
+	// Set blend state for transparency (SrcAlpha, InvSrcAlpha)
+	RHIDevice->OMSetBlendState(true);
+
+	// Set depth stencil state: depth test disabled for X-ray effect (always render on top)
+	RHIDevice->OMSetDepthStencilState(EComparisonFunc::Always);
+
+	// Set rasterizer state to solid fill
+	RHIDevice->RSSetState(ERasterizerMode::Solid);
+}
+
+void URenderer::DrawPrimitiveMesh(UStaticMesh* Mesh, const FMatrix& Transform, const FLinearColor& Color, uint32 UUID)
+{
+	if (!bDebugPrimitiveBatchActive || !Mesh || !DebugPrimitiveShader)
+		return;
+
+	// Set model matrix
+	FMatrix ModelInvTranspose = Transform.InverseAffine().Transpose();
+	RHIDevice->SetAndUpdateConstantBuffer(ModelBufferType(Transform, ModelInvTranspose));
+
+	// Set color (with alpha for transparency)
+	RHIDevice->SetAndUpdateConstantBuffer(ColorBufferType(Color, UUID));
+
+	// Prepare shader
+	RHIDevice->PrepareShader(DebugPrimitiveShader);
+
+	// Get vertex/index buffers
+	ID3D11Buffer* VertexBuffer = Mesh->GetVertexBuffer();
+	ID3D11Buffer* IndexBuffer = Mesh->GetIndexBuffer();
+
+	if (!VertexBuffer || !IndexBuffer)
+		return;
+
+	// Set vertex/index buffers
+	UINT stride = sizeof(FVertexDynamic);
+	UINT offset = 0;
+	RHIDevice->GetDeviceContext()->IASetVertexBuffers(0, 1, &VertexBuffer, &stride, &offset);
+	RHIDevice->GetDeviceContext()->IASetIndexBuffer(IndexBuffer, DXGI_FORMAT_R32_UINT, 0);
+	RHIDevice->GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+	// Draw
+	RHIDevice->GetDeviceContext()->DrawIndexed(Mesh->GetIndexCount(), 0, 0);
+}
+
+void URenderer::DrawDebugSphere(const FMatrix& Transform, const FLinearColor& Color, uint32 UUID)
+{
+	if (!bDebugPrimitiveBatchActive)
+		return;
+
+	UStaticMesh* SphereMesh = UResourceManager::GetInstance().GetOrCreatePrimitiveMesh("Sphere");
+	if (SphereMesh)
+	{
+		DrawPrimitiveMesh(SphereMesh, Transform, Color, UUID);
+	}
+}
+
+void URenderer::DrawDebugBox(const FMatrix& Transform, const FLinearColor& Color, uint32 UUID)
+{
+	if (!bDebugPrimitiveBatchActive)
+		return;
+
+	UStaticMesh* BoxMesh = UResourceManager::GetInstance().GetOrCreatePrimitiveMesh("Box");
+	if (BoxMesh)
+	{
+		DrawPrimitiveMesh(BoxMesh, Transform, Color, UUID);
+	}
+}
+
+void URenderer::DrawDebugCapsule(const FMatrix& Transform, float Radius, float HalfHeight, const FLinearColor& Color, uint32 UUID)
+{
+	if (!bDebugPrimitiveBatchActive)
+		return;
+
+	FVector Position(Transform.M[3][0], Transform.M[3][1], Transform.M[3][2]);
+	FQuat Rotation(Transform);
+
+	// 실린더 반높이 계산
+	float CylinderHalfHeight = HalfHeight - Radius;
+	if (CylinderHalfHeight < 0.0f) CylinderHalfHeight = 0.0f;
+
+	UStaticMesh* CapsuleMesh = UResourceManager::GetInstance().GetOrCreateDynamicCapsuleMesh(CylinderHalfHeight, Radius);
+	if (CapsuleMesh)
+	{
+		FMatrix CapsuleTransform = FMatrix::FromTRS(Position, Rotation, FVector::One());
+		DrawPrimitiveMesh(CapsuleMesh, CapsuleTransform, Color, UUID);
+	}
+}
+
+void URenderer::DrawDebugCone(const FMatrix& Transform, float Swing1Angle, float Swing2Angle, float Height, const FLinearColor& Color, uint32 UUID)
+{
+	if (!bDebugPrimitiveBatchActive)
+		return;
+
+	FVector Position(Transform.M[3][0], Transform.M[3][1], Transform.M[3][2]);
+	FQuat Rotation(Transform);
+
+	UStaticMesh* ConeMesh = UResourceManager::GetInstance().GetOrCreateEllipticalConeMesh(Swing1Angle, Swing2Angle);
+	if (ConeMesh)
+	{
+		FMatrix ConeTransform = FMatrix::FromTRS(Position, Rotation, FVector(Height, Height, Height));
+		DrawPrimitiveMesh(ConeMesh, ConeTransform, Color, UUID);
+	}
+}
+
+void URenderer::DrawDebugArc(const FMatrix& Transform, float TwistAngle, float Radius, const FLinearColor& Color, uint32 UUID)
+{
+	if (!bDebugPrimitiveBatchActive)
+		return;
+
+	FVector Position(Transform.M[3][0], Transform.M[3][1], Transform.M[3][2]);
+	FQuat Rotation(Transform);
+
+	UStaticMesh* ArcMesh = UResourceManager::GetInstance().GetOrCreateDynamicArcMesh(TwistAngle);
+	if (ArcMesh)
+	{
+		FMatrix ArcTransform = FMatrix::FromTRS(Position, Rotation, FVector(1.0f, Radius, Radius));
+		DrawPrimitiveMesh(ArcMesh, ArcTransform, Color, UUID);
+	}
+}
+
+void URenderer::DrawDebugArrow(const FMatrix& Transform, float Length, float HeadSize, const FLinearColor& Color, uint32 UUID)
+{
+	if (!bDebugPrimitiveBatchActive)
+		return;
+
+	FVector Position(Transform.M[3][0], Transform.M[3][1], Transform.M[3][2]);
+	FQuat Rotation(Transform);
+
+	UStaticMesh* BoxMesh = UResourceManager::GetInstance().GetOrCreatePrimitiveMesh("Box");
+	UStaticMesh* ConeMesh = UResourceManager::GetInstance().GetOrCreatePrimitiveMesh("Cone");
+	if (!BoxMesh || !ConeMesh)
+		return;
+
+	FVector ArrowDir = Rotation.RotateVector(FVector(1, 0, 0));
+
+	// 1. 축 (Shaft): 길이의 70%
+	float ShaftLength = Length * 0.7f;
+	float ShaftThickness = HeadSize * 0.15f;
+	{
+		FVector ShaftCenter = Position + ArrowDir * (ShaftLength * 0.5f);
+		FMatrix ShaftTransform = FMatrix::FromTRS(ShaftCenter, Rotation, FVector(ShaftLength * 0.5f, ShaftThickness, ShaftThickness));
+		DrawPrimitiveMesh(BoxMesh, ShaftTransform, Color, UUID);
+	}
+
+	// 2. 머리 (Head): 길이의 30%
+	float HeadLength = Length * 0.3f;
+	{
+		FVector HeadPosition = Position + ArrowDir * (ShaftLength + HeadLength);
+		FQuat FlipRot = FQuat::FromAxisAngle(FVector(0, 1, 0), PI);
+		FQuat HeadRot = Rotation * FlipRot;
+		FMatrix HeadTransform = FMatrix::FromTRS(HeadPosition, HeadRot, FVector(HeadLength, HeadSize, HeadSize));
+		DrawPrimitiveMesh(ConeMesh, HeadTransform, Color, UUID);
+	}
+}
+
+void URenderer::EndDebugPrimitiveBatch()
+{
+	if (!bDebugPrimitiveBatchActive)
+		return;
+
+	// Restore default states
+	RHIDevice->OMSetBlendState(false);
+	RHIDevice->OMSetDepthStencilState(EComparisonFunc::LessEqual);
+	RHIDevice->GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+	// Restore render target (without ID buffer)
+	RHIDevice->OMSetRenderTargets(ERTVMode::SceneColorTarget);
+
+	bDebugPrimitiveBatchActive = false;
 }

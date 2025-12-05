@@ -1,144 +1,117 @@
 #pragma once
 
-#include "FConstraintSetup.h"
-#include "PhysXSupport.h"
+#include "Vector.h"
+#include "Name.h"
+#include "ELinearConstraintMotion.h"
+#include "EAngularConstraintMotion.h"
+#include "FConstraintInstance.generated.h"
 
-struct FBodyInstance;
-class FPhysScene;
+// Forward declarations
+namespace physx { class PxD6Joint; }
+class FBodyInstance;
+class UPrimitiveComponent;
 
-/**
- * FConstraintInstance
- *
- * 두 FBodyInstance 간의 물리 제약 조건(Joint)을 관리하는 런타임 인스턴스
- * FConstraintSetup 데이터를 기반으로 PxD6Joint를 생성/관리
- */
+// ===== Constraint Instance =====
+// 두 본(Body) 사이의 물리 제약 조건
+// Ragdoll 관절 설정에 사용
+USTRUCT(DisplayName = "Constraint Instance", Description = "두 본 사이의 관절 제약 조건")
 struct FConstraintInstance
 {
+    GENERATED_REFLECTION_BODY()
 public:
-    FConstraintInstance();
+    // ===== Constraint Bodies =====
+    // 어떤 뼈와 어떤 뼈를 연결할지 (언리얼 규칙: 1=Child, 2=Parent)
+    UPROPERTY(EditAnywhere, Category = "Constraint")
+    FName ConstraintBone1;  // Child Bone (자손 본, 현재 본)
+
+    UPROPERTY(EditAnywhere, Category = "Constraint")
+    FName ConstraintBone2;  // Parent Bone (부모 본, 이전 본)
+
+    // ===== Linear Limits (이동 제한) =====
+    // Ragdoll은 뼈가 빠지면 안 되므로 보통 다 Locked
+    UPROPERTY(EditAnywhere, Category = "Linear Limits")
+    ELinearConstraintMotion LinearXMotion = ELinearConstraintMotion::Locked;
+
+    UPROPERTY(EditAnywhere, Category = "Linear Limits")
+    ELinearConstraintMotion LinearYMotion = ELinearConstraintMotion::Locked;
+
+    UPROPERTY(EditAnywhere, Category = "Linear Limits")
+    ELinearConstraintMotion LinearZMotion = ELinearConstraintMotion::Locked;
+
+    // 선형 제한 거리 (Limited일 때 사용)
+    UPROPERTY(EditAnywhere, Category = "Linear Limits")
+    float LinearLimit = 0.0f;
+
+    // ===== Angular Limits (회전 제한) =====
+    // PhysX D6 Joint 기준: Twist=X축, Swing1=Y축, Swing2=Z축
+
+    UPROPERTY(EditAnywhere, Category = "Angular Limits")
+    EAngularConstraintMotion TwistMotion = EAngularConstraintMotion::Limited;
+
+    UPROPERTY(EditAnywhere, Category = "Angular Limits")
+    EAngularConstraintMotion Swing1Motion = EAngularConstraintMotion::Limited;
+
+    UPROPERTY(EditAnywhere, Category = "Angular Limits")
+    EAngularConstraintMotion Swing2Motion = EAngularConstraintMotion::Limited;
+
+    // 각도 제한값 (Degrees)
+    UPROPERTY(EditAnywhere, Category = "Angular Limits")
+    float TwistLimitAngle = 45.0f;      // X축 회전 제한
+
+    UPROPERTY(EditAnywhere, Category = "Angular Limits")
+    float Swing1LimitAngle = 45.0f;     // Y축 회전 제한
+
+    UPROPERTY(EditAnywhere, Category = "Angular Limits")
+    float Swing2LimitAngle = 45.0f;     // Z축 회전 제한
+
+    // ===== Constraint Transform (Frame) =====
+    // Child Bone (Bone1) 공간에서의 조인트 위치 및 회전
+    UPROPERTY(EditAnywhere, Category = "Transform")
+    FVector Position1 = FVector::Zero();
+
+    UPROPERTY(EditAnywhere, Category = "Transform")
+    FVector Rotation1 = FVector::Zero();    // Euler Angles (Degrees)
+
+    // Parent Bone (Bone2) 공간에서의 조인트 위치 및 회전
+    UPROPERTY(EditAnywhere, Category = "Transform")
+    FVector Position2 = FVector::Zero();
+
+    UPROPERTY(EditAnywhere, Category = "Transform")
+    FVector Rotation2 = FVector::Zero();    // Euler Angles (Degrees)
+
+    // ===== Collision Settings (충돌 설정) =====
+    UPROPERTY(EditAnywhere, Category = "Collision")
+    bool bDisableCollision = true;
+
+    // ===== Motor Settings (Drive) =====
+    UPROPERTY(EditAnywhere, Category = "Motor")
+    bool bAngularMotorEnabled = false;
+
+    UPROPERTY(EditAnywhere, Category = "Motor")
+    float AngularMotorStrength = 0.0f;  // Stiffness (스프링 강도)
+
+    UPROPERTY(EditAnywhere, Category = "Motor")
+    float AngularMotorDamping = 0.0f;   // Damping (감쇠) - 떨림 방지
+
+    // ===== Runtime Members (런타임 전용, 직렬화 안 됨) =====
+    UPrimitiveComponent* OwnerComponent = nullptr;  // 소유자 컴포넌트
+    physx::PxD6Joint* ConstraintData = nullptr;     // PhysX Joint (런타임에 생성)
+
+    // ===== Runtime Methods =====
+    FConstraintInstance() = default;
     ~FConstraintInstance();
 
-    // 복사 방지 (PhysX 리소스 공유 방지)
-    FConstraintInstance(const FConstraintInstance&) = delete;
-    FConstraintInstance& operator=(const FConstraintInstance&) = delete;
+    // Joint 초기화 (두 FBodyInstance 사이에 Joint 생성)
+    // Body1 = Child Body, Body2 = Parent Body (언리얼 규칙)
+    void InitConstraint(FBodyInstance* Body1, FBodyInstance* Body2, UPrimitiveComponent* InOwnerComponent);
 
-    /**
-     * 제약 조건을 초기화합니다.
-     * @param Setup         제약 조건 설정 데이터
-     * @param ParentBody    부모 바디 인스턴스
-     * @param ChildBody     자식 바디 인스턴스
-     * @param InPhysScene   물리 씬
-     */
-    void InitConstraint(
-        const FConstraintSetup& Setup,
-        FBodyInstance* ParentBody,
-        FBodyInstance* ChildBody,
-        FPhysScene* InPhysScene
-    );
-
-    /**
-     * 제약 조건을 해제합니다.
-     */
+    // Joint 해제
     void TermConstraint();
 
-    /**
-     * 유효성 검사
-     */
-    bool IsValid() const { return Joint != nullptr; }
+    // Joint가 유효한지 확인
+    bool IsValidConstraintInstance() const { return ConstraintData != nullptr; }
 
-    /**
-     * PhysX Joint 반환
-     */
-    PxD6Joint* GetJoint() const { return Joint; }
+    // PhysX Joint 접근
+    physx::PxD6Joint* GetPxD6Joint() const { return ConstraintData; }
 
-    /**
-     * 제약 조건 설정 업데이트 (런타임에 제약 속성 변경 시)
-     */
-    void UpdateFromSetup(const FConstraintSetup& Setup);
-
-    /**
-     * 현재 조인트 각도 정보 가져오기 (degrees)
-     * @param OutTwist   X축 회전 (Twist)
-     * @param OutSwing1  Y축 회전 (Swing1)
-     * @param OutSwing2  Z축 회전 (Swing2)
-     */
-    void GetCurrentAngles(float& OutTwist, float& OutSwing1, float& OutSwing2) const;
-
-    /**
-     * 디버그: 현재 조인트 각도 로그 출력
-     */
-    void LogCurrentAngles(const FName& JointName) const;
-
-    /**
-     * 본 위치 기반으로 Frame 데이터를 계산하여 Setup에 저장합니다.
-     * 새 제약 조건 생성 시 호출
-     * @param OutSetup      계산된 Frame 데이터가 저장될 Setup
-     * @param ParentBody    부모 바디 인스턴스
-     * @param ChildBody     자식 바디 인스턴스
-     */
-    static void CalculateFramesFromBones(
-        FConstraintSetup& OutSetup,
-        FBodyInstance* ParentBody,
-        FBodyInstance* ChildBody
-    );
-
-private:
-    /**
-     * Position + 축 벡터 → PxTransform 변환 (Euler 손실 없음)
-     * @param Position   위치
-     * @param PriAxis    Primary axis (X/Twist)
-     * @param SecAxis    Secondary axis (Y)
-     */
-    static PxTransform ConvertAxesToPxTransform(
-        const FVector& Position,
-        const FVector& PriAxis,
-        const FVector& SecAxis
-    );
-
-    /**
-     * Position + Rotation(Euler) → PxTransform 변환 (deprecated, 축 벡터 방식 권장)
-     * @param Position          위치
-     * @param RotationDegrees   회전 (Roll, Pitch, Yaw in degrees)
-     */
-    static PxTransform ConvertToPxTransform(
-        const FVector& Position,
-        const FVector& RotationDegrees
-    );
-
-    /**
-     * AngularRotationOffset 적용
-     * @param BaseRotation      기본 회전
-     * @param OffsetDegrees     오프셋 (Roll, Pitch, Yaw in degrees)
-     */
-    static PxQuat ApplyAngularOffset(
-        const PxQuat& BaseRotation,
-        const FVector& OffsetDegrees
-    );
-
-private:
-    /**
-     * PxD6Joint 모션 설정 (BallAndSocket, Hinge 등)
-     */
-    void ConfigureJointMotion(const FConstraintSetup& Setup);
-
-    /**
-     * 각도 제한 설정
-     */
-    void ConfigureJointLimits(const FConstraintSetup& Setup);
-
-    /**
-     * 드라이브(스프링) 설정
-     */
-    void ConfigureJointDrive(const FConstraintSetup& Setup);
-
-private:
-    /** PhysX D6 Joint */
-    PxD6Joint* Joint = nullptr;
-
-    /** 소유 물리 씬 */
-    FPhysScene* PhysScene = nullptr;
-
-    /** 연결된 바디 인스턴스 (참조용) */
-    FBodyInstance* ParentBodyInstance = nullptr;
-    FBodyInstance* ChildBodyInstance = nullptr;
 };

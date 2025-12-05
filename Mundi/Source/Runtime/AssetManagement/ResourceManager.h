@@ -97,6 +97,22 @@ public:
 	void CreateTextBillboardMesh();
 	void CreateTextBillboardTexture();
 
+	// --- 프리미티브 메시 생성 (Debug Primitive 렌더링용) ---
+	UStaticMesh* CreateUnitSphereMesh(int32 Segments = 64, int32 Rings = 32);
+	UStaticMesh* CreateUnitCapsuleMesh(int32 Segments = 64, int32 Rings = 32);
+	UStaticMesh* CreateUnitBoxMesh();
+	UStaticMesh* CreateUnitConeMesh(int32 Segments = 32);
+	UStaticMesh* GetOrCreatePrimitiveMesh(const FString& PrimitiveName);
+
+	// 동적 부채꼴 메시 생성 (Twist Limit 시각화)
+	UStaticMesh* GetOrCreateDynamicArcMesh(float TwistAngle, int32 Segments = 32);
+
+	// 타원형 원뿔 메시 생성 (Swing Limit 시각화)
+	UStaticMesh* GetOrCreateEllipticalConeMesh(float Swing1Angle, float Swing2Angle, int32 Segments = 36);
+
+	// 동적 캡슐 메시 생성 (Physics Body 시각화)
+	UStaticMesh* GetOrCreateDynamicCapsuleMesh(float CylinderHalfHeight, float Radius, int32 Segments = 32, int32 Rings = 16);
+
 	// --- 캐시 관리 ---
 	FMeshBVH* GetMeshBVH(const FString& ObjPath);
 	FMeshBVH* GetOrBuildMeshBVH(const FString& ObjPath, const struct FStaticMesh* StaticMeshAsset);
