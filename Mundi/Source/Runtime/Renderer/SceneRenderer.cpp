@@ -91,15 +91,6 @@ void FSceneRenderer::Render()
 {
     if (!IsValid()) return;
 
-	// 스키닝 통계 리셋 및 GPU 시간 조회는 Renderer::BeginFrame()으로 이동됨
-	// 각 뷰어는 통계를 누적만 함
-
-	/*static bool Loaded = false;
-	if (!Loaded)
-	{
-		FSkeletalMeshData Skeletal = UFbxLoader::GetInstance().LoadFbxMesh("C:\\Program Files\\Autodesk\\Fbx\\Fbx SDK\\2020.3.7\\build\\vc143_x64_dll\\Debug\\sadface.fbx");
-		Loaded = true;
-	}*/
     // 뷰(View) 준비: 행렬, 절두체 등 프레임에 필요한 기본 데이터 계산
     PrepareView();
     // (Background is cleared per-path when binding service color)
@@ -142,6 +133,7 @@ void FSceneRenderer::Render()
 	{
 		// 디버그 요소는 Post Processing 적용하지 않음
 		// NOTE: RenderDebugPass()는 이미 투명 패스 전에 호출됨 (파티클과의 깊이 관계를 위해)
+		RenderDebugPass();
 		RenderEditorPrimitivesPass();	// 빌보드, 기타 화살표 출력 (상호작용, 피킹 O)
 
 		// 오버레이(Overlay) Primitive 렌더링
@@ -213,14 +205,11 @@ void FSceneRenderer::RenderLitPath()
 	RHIDevice->OMSetBlendState(false);  // 불투명: 블렌딩 OFF
 	RenderOpaquePass(View->RenderSettings->GetViewMode());
 
-	// 디버그 요소들(그리드, 선택 박스 등)을 투명 패스 전에 렌더링
-	// 깊이 버퍼에 기록하여 파티클과 올바른 깊이 관계 유지
-	if (!World->bPie)
-	{
-		RenderDebugPass();
-	}
-
 	RenderDecalPass();
+
+	// Translucent Pass (반투명: 깊이 쓰기 OFF, 블렌딩 ON)
+	RenderTranslucentPass(View->RenderSettings->GetViewMode());
+
 	RenderParticleSystemPass();
 }
 
@@ -315,13 +304,24 @@ void FSceneRenderer::RenderShadowMaps()
     FLightManager* LightManager = World->GetLightManager();
 	if (!LightManager) return;
 
-	// 2. 그림자 캐스터(Caster) 메시 수집
-	TArray<FMeshBatchElement> ShadowMeshBatches;
+	// 2. 그림자 캐스터(Caster) 메시 수집 (반투명 제외 - 깊이만 기록하므로 alpha 정보 표현 불가)
+	TArray<FMeshBatchElement> AllShadowBatches;
 	for (UMeshComponent* MeshComponent : Proxies.Meshes)
 	{
 		if (MeshComponent && MeshComponent->IsCastShadows() && MeshComponent->IsVisible())
 		{
-			MeshComponent->CollectMeshBatches(ShadowMeshBatches, View);
+			MeshComponent->CollectMeshBatches(AllShadowBatches, View);
+		}
+	}
+
+	// 불투명 배치만 필터링 (단일 패스 O(n))
+	TArray<FMeshBatchElement> ShadowMeshBatches;
+	ShadowMeshBatches.Reserve(AllShadowBatches.Num());
+	for (const FMeshBatchElement& Batch : AllShadowBatches)
+	{
+		if (Batch.RenderMode == EBatchRenderMode::Opaque)
+		{
+			ShadowMeshBatches.Add(Batch);
 		}
 	}
 
@@ -1004,29 +1004,73 @@ void FSceneRenderer::PerformFrustumCulling()
 void FSceneRenderer::RenderOpaquePass(EViewMode InRenderViewMode)
 {
 	// --- 1. 수집 (Collect) ---
-	MeshBatchElements.Empty();
+	TArray<FMeshBatchElement> AllBatches;
 	for (UMeshComponent* MeshComponent : Proxies.Meshes)
 	{
-		MeshComponent->CollectMeshBatches(MeshBatchElements, View);
+		MeshComponent->CollectMeshBatches(AllBatches, View);
 	}
 
 	for (UBillboardComponent* BillboardComponent : Proxies.Billboards)
 	{
-		BillboardComponent->CollectMeshBatches(MeshBatchElements, View);
+		BillboardComponent->CollectMeshBatches(AllBatches, View);
 	}
 
 	for (UTextRenderComponent* TextRenderComponent : Proxies.Texts)
 	{
 		// TODO: UTextRenderComponent도 CollectMeshBatches를 통해 FMeshBatchElement를 생성하도록 구현
-		//TextRenderComponent->CollectMeshBatches(MeshBatchElements, View);
+		//TextRenderComponent->CollectMeshBatches(AllBatches, View);
 	}
 
-	// --- 2. 정렬 (Sort) ---
+	// --- 2. RenderMode별로 분리 (Opaque / Translucent) ---
+	MeshBatchElements.Empty();
+	TranslucentBatchElements.Empty();
+	for (const FMeshBatchElement& Batch : AllBatches)
+	{
+		if (Batch.RenderMode == EBatchRenderMode::Opaque)
+		{
+			MeshBatchElements.Add(Batch);
+		}
+		else
+		{
+			TranslucentBatchElements.Add(Batch);
+		}
+	}
+
+	// --- 3. 정렬 (Sort) ---
 	MeshBatchElements.Sort();
 
-	// --- 3. 그리기 (Draw) ---
+	// --- 4. 그리기 (Draw) ---
 	// GPU 타이머는 Renderer::BeginFrame/EndFrame에서 프레임 레벨로 측정됨
 	DrawMeshBatches(MeshBatchElements, true);
+}
+
+void FSceneRenderer::RenderTranslucentPass(EViewMode InRenderViewMode)
+{
+	if (TranslucentBatchElements.IsEmpty())
+	{
+		return;
+	}
+
+	// Back-to-front 정렬 (반투명 렌더링을 위한 거리 기반 정렬)
+	FVector CameraPosition = View->ViewLocation;
+	TranslucentBatchElements.Sort([&CameraPosition](const FMeshBatchElement& A, const FMeshBatchElement& B)
+	{
+		FVector PosA = { A.WorldMatrix.M[3][0], A.WorldMatrix.M[3][1], A.WorldMatrix.M[3][2] };
+		FVector PosB = { B.WorldMatrix.M[3][0], B.WorldMatrix.M[3][1], B.WorldMatrix.M[3][2] };
+		return (PosA - CameraPosition).SizeSquared() > (PosB - CameraPosition).SizeSquared();
+	});
+
+	// 반투명 렌더 상태 설정: depth read-only, alpha blend, no culling
+	RHIDevice->RSSetState(ERasterizerMode::Solid_NoCull);
+	RHIDevice->OMSetDepthStencilState(EComparisonFunc::LessEqualReadOnly);
+	RHIDevice->OMSetBlendState(true);
+
+	DrawMeshBatches(TranslucentBatchElements, true);
+
+	// 상태 복구
+	RHIDevice->RSSetState(ERasterizerMode::Solid);
+	RHIDevice->OMSetDepthStencilState(EComparisonFunc::LessEqual);
+	RHIDevice->OMSetBlendState(false);
 }
 
 void FSceneRenderer::RenderDecalPass()
@@ -1298,17 +1342,21 @@ void FSceneRenderer::RenderPostProcessingPasses()
 			PostProcessModifiers.Add(FogPostProc);
 		}
 	}
-	if (0 < SceneGlobals.DOFs.Num())
+	for (UDOFComponent* DofComponent : SceneGlobals.DOFs)
 	{
-		UDOFComponent* DOFComp = SceneGlobals.DOFs[0];
-		if (DOFComp)
+		if (DofComponent && DofComponent->IsDepthOfFieldEnabled())
 		{
-			FPostProcessModifier DOFPostProc;
-			DOFPostProc.Type = EPostProcessEffectType::DOF;
-			DOFPostProc.bEnabled = DOFComp->IsActive() && DOFComp->IsVisible();
-			DOFPostProc.SourceObject = DOFComp;
-			DOFPostProc.Priority = -1;
-			PostProcessModifiers.Add(DOFPostProc);
+			// 카메라가 볼륨 안에 있는지 체크
+			if (DofComponent->IsInsideVolume(View->ViewLocation))
+			{
+				FPostProcessModifier DofPostProc;
+				DofPostProc.Type = EPostProcessEffectType::DOF;
+				DofPostProc.bEnabled = true;
+				DofPostProc.SourceObject = DofComponent;
+				DofPostProc.Priority = DofComponent->GetDofPriority();
+				DofPostProc.Weight = DofComponent->GetBlendWeight();
+				PostProcessModifiers.Add(DofPostProc);
+			}
 		}
 	}
 	

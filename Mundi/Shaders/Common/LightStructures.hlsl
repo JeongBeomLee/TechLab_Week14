@@ -23,7 +23,9 @@ struct FShadowMapData
 
 struct FAmbientLightInfo
 {
-    float4 Color;       // 16 bytes - FLinearColor (Intensity + Temperature 포함)
+    float4 AmbientColor;  // 16 bytes - La (Ambient Light Color)
+    float4 DiffuseColor;  // 16 bytes - Ld (Diffuse Light Color)
+    // Total: 32 bytes
 };
 
 struct FDirectionalLightInfo

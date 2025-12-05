@@ -2,6 +2,7 @@
 
 #include "Vector.h"
 #include "ActorComponent.h"
+#include "EBodyMobility.h"
 #include "USceneComponent.generated.h"
 
 // 부착 시 로컬을 유지할지, 월드를 유지할지
@@ -51,6 +52,10 @@ protected:
 public:
 
     // ===== Lua-Bindable Properties (Auto-moved from protected/private) =====
+
+    /** 컴포넌트의 이동성 (Static: 움직이지 않음, Movable: 이동 가능) */
+    UPROPERTY(EditAnywhere, Category="Transform")
+    EComponentMobility Mobility = EComponentMobility::Movable;
 
     UPROPERTY(EditAnywhere, Category="렌더링")
     bool bIsVisible = true;

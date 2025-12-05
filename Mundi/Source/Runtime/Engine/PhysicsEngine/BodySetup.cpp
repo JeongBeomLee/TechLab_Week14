@@ -1,9 +1,12 @@
-﻿#include "pch.h"
+#include "pch.h"
 #include "BodySetup.h"
 #include "BodyInstance.h"
+#include "StaticMesh.h"
 
 #include "PhysicalMaterial.h"
 #include "ConvexElem.h"
+#include "TriangleMeshElem.h"
+#include "TriangleMeshSource.h"
 #include "ImGui/imgui.h"
 
 UBodySetup::UBodySetup()
@@ -187,6 +190,51 @@ void UBodySetup::AddShapesToRigidActor_AssumesLocked(FBodyInstance* OwningInstan
             NewShape->release();
         }
     }
+
+    // ====================================================================
+    // 5. Triangle Mesh Elements (Static 전용)
+    // ====================================================================
+    // TriangleMesh는 Static Actor에서만 사용 가능
+    if (OwningInstance && OwningInstance->IsStatic())
+    {
+        for (FKTriangleMeshElem& TriMeshElem : AggGeom.TriangleMeshElems)
+        {
+            if (TriMeshElem.CollisionEnabled == ECollisionEnabled::NoCollision) continue;
+
+            // TriangleMesh가 없으면 CookedData로부터 생성 시도
+            if (!TriMeshElem.TriangleMesh && TriMeshElem.CookedData.Num() > 0)
+            {
+                TriMeshElem.CreateTriangleMeshFromCookedData();
+            }
+
+            if (!TriMeshElem.TriangleMesh)
+            {
+                UE_LOG("UBodySetup::AddShapesToRigidActor - Skipping invalid TriangleMeshElem (no mesh)");
+                continue;
+            }
+
+            PxTriangleMeshGeometry TriMeshGeom = TriMeshElem.GetPxGeometry(Scale3D);
+
+            PxShape* NewShape = GPhysXSDK->createShape(TriMeshGeom, *PhysMaterialToUse, true);
+            if (NewShape)
+            {
+                FTransform ElemTM = TriMeshElem.GetTransform();
+
+                FVector ScaledCenter;
+                ScaledCenter.X = ElemTM.Translation.X * Scale3D.X;
+                ScaledCenter.Y = ElemTM.Translation.Y * Scale3D.Y;
+                ScaledCenter.Z = ElemTM.Translation.Z * Scale3D.Z;
+
+                NewShape->setLocalPose(PxTransform(U2PVector(ScaledCenter), U2PQuat(ElemTM.Rotation)));
+
+                NewShape->setFlag(PxShapeFlag::eSIMULATION_SHAPE, true);
+                NewShape->setFlag(PxShapeFlag::eSCENE_QUERY_SHAPE, true);
+
+                PDestActor->attachShape(*NewShape);
+                NewShape->release();
+            }
+        }
+    }
 }
 
 void UBodySetup::AddBoxTest(const FVector& Extent)
@@ -216,7 +264,9 @@ void UBodySetup::DuplicateSubObjects()
 
 	// PhysicalMaterial은 리소스 참조이므로 포인터 공유 (복제 안함)
 	// AggGeom은 값 타입이므로 얕은 복사로 이미 복제됨
-	// 따라서 추가 처리 없음
+
+	// OwningMesh는 새 소유자가 설정해야 함 (원본 참조 방지)
+	OwningMesh = nullptr;
 }
 
 void UBodySetup::Serialize(const bool bInIsLoading, JSON& InOutHandle)
@@ -226,11 +276,19 @@ void UBodySetup::Serialize(const bool bInIsLoading, JSON& InOutHandle)
 
 	if (bInIsLoading)
 	{
+		// CollisionComplexity 로드
+		FString ComplexityStr;
+		FJsonSerializer::ReadString(InOutHandle, "CollisionComplexity", ComplexityStr, "UseSimple", false);
+		CollisionComplexity = (ComplexityStr == "UseComplexAsSimple")
+			? ECollisionComplexity::UseComplexAsSimple
+			: ECollisionComplexity::UseSimple;
+
 		// AggGeom 로드 (수동 처리)
 		AggGeom.BoxElems.Empty();
 		AggGeom.SphereElems.Empty();
 		AggGeom.SphylElems.Empty();
 		AggGeom.ConvexElems.Empty();
+		AggGeom.TriangleMeshElems.Empty();
 
 		JSON AggGeomJson;
 		if (FJsonSerializer::ReadObject(InOutHandle, "AggGeom", AggGeomJson, JSON(), false))
@@ -336,10 +394,74 @@ void UBodySetup::Serialize(const bool bInIsLoading, JSON& InOutHandle)
 					AggGeom.ConvexElems.Add(Convex);
 				}
 			}
+
+			// TriangleMesh Elements
+			JSON TriMeshElemsJson;
+			if (FJsonSerializer::ReadArray(AggGeomJson, "TriangleMeshElems", TriMeshElemsJson, JSON(), false))
+			{
+				for (int32 i = 0; i < static_cast<int32>(TriMeshElemsJson.size()); ++i)
+				{
+					const JSON& TriMeshJson = TriMeshElemsJson.at(i);
+					FKTriangleMeshElem TriMesh;
+
+					// Source (기본값: Mesh)
+					FString SourceStr;
+					FJsonSerializer::ReadString(TriMeshJson, "Source", SourceStr, "Mesh", false);
+					TriMesh.Source = (SourceStr == "Custom") ? ETriangleMeshSource::Custom : ETriangleMeshSource::Mesh;
+
+					// Transform
+					FVector Center;
+					FJsonSerializer::ReadVector(TriMeshJson, "Center", Center, FVector::Zero(), false);
+					FVector4 RotVec;
+					FJsonSerializer::ReadVector4(TriMeshJson, "Rotation", RotVec, FVector4(0, 0, 0, 1), false);
+					TriMesh.ElemTransform.Translation = Center;
+					TriMesh.ElemTransform.Rotation = FQuat(RotVec.X, RotVec.Y, RotVec.Z, RotVec.W);
+
+					// VertexData/IndexData (Source == Custom일 때만)
+					if (TriMesh.Source == ETriangleMeshSource::Custom)
+					{
+						JSON VertexDataJson;
+						if (FJsonSerializer::ReadArray(TriMeshJson, "VertexData", VertexDataJson, JSON(), false))
+						{
+							for (int32 j = 0; j < static_cast<int32>(VertexDataJson.size()); ++j)
+							{
+								FVector V;
+								V.X = VertexDataJson.at(j).at(0).ToFloat();
+								V.Y = VertexDataJson.at(j).at(1).ToFloat();
+								V.Z = VertexDataJson.at(j).at(2).ToFloat();
+								TriMesh.VertexData.Add(V);
+							}
+						}
+
+						JSON IndexDataJson;
+						if (FJsonSerializer::ReadArray(TriMeshJson, "IndexData", IndexDataJson, JSON(), false))
+						{
+							for (int32 j = 0; j < static_cast<int32>(IndexDataJson.size()); ++j)
+							{
+								TriMesh.IndexData.Add(static_cast<uint32>(IndexDataJson.at(j).ToInt()));
+							}
+						}
+
+						TriMesh.UpdateBounds();
+
+						// VertexData/IndexData로부터 TriangleMesh 생성
+						if (TriMesh.VertexData.Num() >= 3 && TriMesh.IndexData.Num() >= 3)
+						{
+							TriMesh.CreateTriangleMesh();
+						}
+					}
+					// Source == Mesh일 때는 StaticMesh에서 자동 생성
+
+					AggGeom.TriangleMeshElems.Add(TriMesh);
+				}
+			}
 		}
 	}
 	else
 	{
+		// CollisionComplexity 저장
+		InOutHandle["CollisionComplexity"] = (CollisionComplexity == ECollisionComplexity::UseComplexAsSimple)
+			? "UseComplexAsSimple" : "UseSimple";
 		// AggGeom 저장 (수동 처리)
 		JSON AggGeomJson = JSON::Make(JSON::Class::Object);
 
@@ -418,6 +540,50 @@ void UBodySetup::Serialize(const bool bInIsLoading, JSON& InOutHandle)
 		}
 		AggGeomJson["ConvexElems"] = ConvexElemsJson;
 
+		// TriangleMesh Elements
+		JSON TriMeshElemsJson = JSON::Make(JSON::Class::Array);
+		for (const FKTriangleMeshElem& TriMesh : AggGeom.TriangleMeshElems)
+		{
+			JSON TriMeshJson = JSON::Make(JSON::Class::Object);
+
+			// Source
+			TriMeshJson["Source"] = (TriMesh.Source == ETriangleMeshSource::Custom) ? "Custom" : "Mesh";
+
+			TriMeshJson["Center"] = FJsonSerializer::VectorToJson(TriMesh.ElemTransform.Translation);
+			TriMeshJson["Rotation"] = FJsonSerializer::Vector4ToJson(FVector4(
+				TriMesh.ElemTransform.Rotation.X,
+				TriMesh.ElemTransform.Rotation.Y,
+				TriMesh.ElemTransform.Rotation.Z,
+				TriMesh.ElemTransform.Rotation.W));
+
+			// VertexData/IndexData (Source == Custom일 때만 저장)
+			if (TriMesh.Source == ETriangleMeshSource::Custom)
+			{
+				JSON VertexDataJson = JSON::Make(JSON::Class::Array);
+				for (const FVector& V : TriMesh.VertexData)
+				{
+					JSON VJson = JSON::Make(JSON::Class::Array);
+					VJson.append(V.X);
+					VJson.append(V.Y);
+					VJson.append(V.Z);
+					VertexDataJson.append(VJson);
+				}
+				TriMeshJson["VertexData"] = VertexDataJson;
+
+				JSON IndexDataJson = JSON::Make(JSON::Class::Array);
+				for (uint32 Idx : TriMesh.IndexData)
+				{
+					IndexDataJson.append(static_cast<int32>(Idx));
+				}
+				TriMeshJson["IndexData"] = IndexDataJson;
+			}
+
+			// CookedData는 별도 바이너리 파일로 저장 (JSON에는 저장 안함)
+
+			TriMeshElemsJson.append(TriMeshJson);
+		}
+		AggGeomJson["TriangleMeshElems"] = TriMeshElemsJson;
+
 		InOutHandle["AggGeom"] = AggGeomJson;
 	}
 }
@@ -439,7 +605,8 @@ bool UBodySetup::RenderShapesUI(UBodySetup* BodySetup, bool& OutSaveRequested)
 	int32 BoxCount = BodySetup->AggGeom.BoxElems.Num();
 	int32 SphylCount = BodySetup->AggGeom.SphylElems.Num();
 	int32 ConvexCount = BodySetup->AggGeom.ConvexElems.Num();
-	int32 TotalShapes = SphereCount + BoxCount + SphylCount + ConvexCount;
+	int32 TriMeshCount = BodySetup->AggGeom.TriangleMeshElems.Num();
+	int32 TotalShapes = SphereCount + BoxCount + SphylCount + ConvexCount + TriMeshCount;
 
 	ImGui::Text("Total Shapes: %d", TotalShapes);
 
@@ -624,6 +791,46 @@ bool UBodySetup::RenderShapesUI(UBodySetup* BodySetup, bool& OutSaveRequested)
 		ImGui::PopID();
 	}
 
+	// TriangleMesh 렌더링
+	for (int32 i = 0; i < TriMeshCount; ++i)
+	{
+		ImGui::PushID(SphereCount + BoxCount + SphylCount + ConvexCount + i);
+		const FKTriangleMeshElem& TriMesh = BodySetup->AggGeom.TriangleMeshElems[i];
+
+		const char* SourceStr = (TriMesh.Source == ETriangleMeshSource::Mesh) ? "Mesh" : "Custom";
+		if (ImGui::TreeNode("TriangleMesh", "TriangleMesh [%d] (%s)", i, SourceStr))
+		{
+			ImGui::Text("Source: %s", SourceStr);
+			ImGui::Text("CookedData: %d bytes", TriMesh.CookedData.Num());
+			ImGui::Text("Vertices: %d", TriMesh.VertexData.Num());
+			ImGui::Text("Indices: %d", TriMesh.IndexData.Num());
+			if (ImGui::Button("Remove"))
+			{
+				BodySetup->AggGeom.TriangleMeshElems.RemoveAt(i);
+				bChanged = true;
+				OutSaveRequested = true;
+				ImGui::TreePop();
+				ImGui::PopID();
+				return bChanged;
+			}
+			ImGui::TreePop();
+		}
+		ImGui::PopID();
+	}
+
 	return bChanged;
 }
 
+void UBodySetup::OnPropertyChanged(const FProperty& Prop)
+{
+	UObject::OnPropertyChanged(Prop);
+
+	// CollisionComplexity 변경 시 충돌체 재생성
+	if (Prop.Name == "CollisionComplexity")
+	{
+		if (OwningMesh)
+		{
+			OwningMesh->RegenerateCollision();
+		}
+	}
+}

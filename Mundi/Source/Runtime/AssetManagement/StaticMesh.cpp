@@ -6,6 +6,9 @@
 #include "FBXLoader.h"
 #include "BodySetup.h"
 #include "ConvexElem.h"
+#include "TriangleMeshElem.h"
+#include "TriangleMeshSource.h"
+#include "ECollisionComplexity.h"
 #include "PhysicsCacheData.h"
 #include "WindowsBinReader.h"
 #include "WindowsBinWriter.h"
@@ -246,6 +249,16 @@ void UStaticMesh::CreateBodySetupIfNeeded()
     if (!BodySetup)
     {
         BodySetup = NewObject<UBodySetup>();
+        BodySetup->OwningMesh = this;
+    }
+}
+
+void UStaticMesh::SetBodySetup(UBodySetup* InBodySetup)
+{
+    BodySetup = InBodySetup;
+    if (BodySetup)
+    {
+        BodySetup->OwningMesh = this;
     }
 }
 
@@ -483,6 +496,44 @@ bool UStaticMesh::LoadPhysicsMetadata()
             }
         }
 
+        // TriangleMesh가 있으면 처리
+        if (!BodySetup->AggGeom.TriangleMeshElems.IsEmpty())
+        {
+            // Source == Mesh인 TriangleMesh에 메시 정점/인덱스 설정
+            for (FKTriangleMeshElem& TriMesh : BodySetup->AggGeom.TriangleMeshElems)
+            {
+                if (TriMesh.Source == ETriangleMeshSource::Mesh && StaticMeshAsset)
+                {
+                    // 메시 정점 추출
+                    TriMesh.VertexData.Empty();
+                    TriMesh.VertexData.Reserve(StaticMeshAsset->Vertices.size());
+                    for (const FNormalVertex& Vtx : StaticMeshAsset->Vertices)
+                    {
+                        TriMesh.VertexData.Add(Vtx.pos);
+                    }
+
+                    // 메시 인덱스 추출
+                    TriMesh.IndexData.Empty();
+                    TriMesh.IndexData.Reserve(StaticMeshAsset->Indices.size());
+                    for (uint32 Idx : StaticMeshAsset->Indices)
+                    {
+                        TriMesh.IndexData.Add(Idx);
+                    }
+                }
+
+                // CookedData가 있으면 TriangleMesh 생성
+                if (!TriMesh.TriangleMesh && TriMesh.CookedData.Num() > 0)
+                {
+                    TriMesh.CreateTriangleMeshFromCookedData();
+                }
+                // CookedData가 없으면 VertexData/IndexData에서 재쿠킹
+                else if (!TriMesh.TriangleMesh && TriMesh.VertexData.Num() >= 3 && TriMesh.IndexData.Num() >= 3)
+                {
+                    TriMesh.CreateTriangleMesh();
+                }
+            }
+        }
+
         return true;
     }
     catch (const std::exception& e)
@@ -673,8 +724,20 @@ void UStaticMesh::ResetPhysicsToDefault()
     BodySetup->AggGeom.BoxElems.Empty();
     BodySetup->AggGeom.SphylElems.Empty();
     BodySetup->AggGeom.ConvexElems.Empty();
+    BodySetup->AggGeom.TriangleMeshElems.Empty();
 
-    // 캐시에서 기본 Convex 로드 시도
+    // CollisionComplexity에 따라 생성
+    // TODO: TriangleMesh CookedData 캐싱이 필요하면 SavePhysicsCache/LoadPhysicsCache에 추가
+    //       현재는 UStaticMesh가 ResourceManager에 캐싱되므로 매번 쿠킹하지 않음
+    //       만약 메시 로드 시 쿠킹 오버헤드가 문제되면 Convex처럼 별도 캐시 파일 저장 고려
+    if (BodySetup->CollisionComplexity == ECollisionComplexity::UseComplexAsSimple)
+    {
+        // TriangleMesh 생성
+        CreateDefaultTriangleMeshIfNeeded();
+        return;
+    }
+
+    // UseSimple: 캐시에서 기본 Convex 로드 시도
     FString CachePath = GetPhysicsCachePath();
     if (!CachePath.empty() && std::filesystem::exists(CachePath))
     {
@@ -744,5 +807,113 @@ void UStaticMesh::ResetPhysicsToDefault()
     else
     {
         UE_LOG("[UStaticMesh] ResetPhysicsToDefault: Convex 생성 실패");
+    }
+}
+
+void UStaticMesh::CreateDefaultTriangleMeshIfNeeded()
+{
+    // 메시 데이터가 없으면 스킵
+    if (!StaticMeshAsset || StaticMeshAsset->Vertices.empty() || StaticMeshAsset->Indices.empty())
+    {
+        return;
+    }
+
+    // BodySetup 생성
+    CreateBodySetupIfNeeded();
+
+    // 이미 TriangleMesh가 있으면 스킵
+    if (!BodySetup->AggGeom.TriangleMeshElems.IsEmpty())
+    {
+        return;
+    }
+
+    // 메시 정점/인덱스 추출
+    TArray<FVector> MeshVertices;
+    MeshVertices.Reserve(StaticMeshAsset->Vertices.size());
+    for (const FNormalVertex& Vtx : StaticMeshAsset->Vertices)
+    {
+        MeshVertices.Add(Vtx.pos);
+    }
+
+    TArray<uint32> MeshIndices;
+    MeshIndices.Reserve(StaticMeshAsset->Indices.size());
+    for (uint32 Idx : StaticMeshAsset->Indices)
+    {
+        MeshIndices.Add(Idx);
+    }
+
+    // 최소 삼각형 1개 필요
+    if (MeshVertices.Num() < 3 || MeshIndices.Num() < 3)
+    {
+        UE_LOG("[UStaticMesh] TriangleMesh 생성 스킵: 정점/인덱스 부족");
+        return;
+    }
+
+    // TriangleMesh 생성
+    FKTriangleMeshElem NewTriMesh;
+    NewTriMesh.Source = ETriangleMeshSource::Mesh;
+    NewTriMesh.SetMeshData(MeshVertices, MeshIndices);
+
+    if (NewTriMesh.CreateTriangleMesh())
+    {
+        BodySetup->AggGeom.TriangleMeshElems.Add(NewTriMesh);
+        UE_LOG("[UStaticMesh] 기본 TriangleMesh 생성 성공: %s (정점 %d개, 삼각형 %d개)",
+               FilePath.c_str(), MeshVertices.Num(), MeshIndices.Num() / 3);
+
+        // 메타데이터 저장
+        SavePhysicsMetadata();
+    }
+    else
+    {
+        UE_LOG("[UStaticMesh] 기본 TriangleMesh 생성 실패: %s", FilePath.c_str());
+    }
+}
+
+void UStaticMesh::RegenerateCollision()
+{
+    // 메시 데이터가 없으면 스킵
+    if (!StaticMeshAsset || StaticMeshAsset->Vertices.empty())
+    {
+        return;
+    }
+
+    CreateBodySetupIfNeeded();
+
+    // Source::Mesh인 자동 생성 충돌체 제거
+    // Convex
+    for (int32 i = BodySetup->AggGeom.ConvexElems.Num() - 1; i >= 0; --i)
+    {
+        if (BodySetup->AggGeom.ConvexElems[i].Source == EConvexSource::Mesh)
+        {
+            BodySetup->AggGeom.ConvexElems.RemoveAt(i);
+        }
+    }
+    // TriangleMesh
+    for (int32 i = BodySetup->AggGeom.TriangleMeshElems.Num() - 1; i >= 0; --i)
+    {
+        if (BodySetup->AggGeom.TriangleMeshElems[i].Source == ETriangleMeshSource::Mesh)
+        {
+            BodySetup->AggGeom.TriangleMeshElems.RemoveAt(i);
+        }
+    }
+
+    // 수동 추가된 primitive가 남아있으면 자동 생성 안 함
+    if (BodySetup->AggGeom.GetElementCount() > 0)
+    {
+        UE_LOG("[UStaticMesh] RegenerateCollision: 수동 편집된 충돌체 유지");
+        SavePhysicsMetadata();
+        return;
+    }
+
+    // CollisionComplexity에 따라 재생성
+    if (BodySetup->CollisionComplexity == ECollisionComplexity::UseSimple)
+    {
+        // Convex 자동 생성
+        CreateDefaultConvexIfNeeded();
+    }
+    else  // UseComplexAsSimple
+    {
+        // TriangleMesh 자동 생성
+        CreateDefaultTriangleMeshIfNeeded();
     }
 }

@@ -88,8 +88,11 @@ public:
     /** 바디를 생성하기 위한 3D 스케일 */
     FVector Scale3D;
 
-    /** True일 경우, 물리 시뮬레이션을 수행한다 (False일 경우 kinematic/static). */
-    bool bSimulatePhysics;
+    /** True일 경우, 물리 시뮬레이션을 수행한다 (Movable일 때만 유효) */
+    bool bSimulatePhysics = false;
+
+    /** True일 경우, Kinematic 바디 (Movable + bSimulatePhysics일 때만 유효) */
+    bool bKinematic = false;
 
     /** 선형 댐핑 (이동에 대한 저항력) */
     float LinearDamping;
@@ -109,9 +112,6 @@ public:
     /** True일 경우, 랙돌 바디 (SyncComponentsToBodies에서 제외됨) */
     bool bIsRagdollBody = false;
 
-    /** True일 경우, Kinematic 바디 (애니메이션이 위치를 제어) */
-    bool bKinematic = false;
-
     /**
      * Kinematic 바디의 목표 트랜스폼을 설정합니다.
      * @param NewTransform 목표 트랜스폼
@@ -120,9 +120,16 @@ public:
 
     /**
      * Kinematic 모드를 활성화/비활성화합니다.
+     * Dynamic ↔ Kinematic 전환만 지원 (Static은 변경 불가)
      * @param bEnable true면 Kinematic 활성화
      */
     void SetKinematic(bool bEnable);
+
+    /** Static 바디 여부 확인 */
+    bool IsStatic() const;
+
+    /** Kinematic 바디 여부 확인 */
+    bool IsKinematic() const;
 
     /** 이 바디의 충돌 채널 */
     ECollisionChannel ObjectType = ECollisionChannel::WorldDynamic;

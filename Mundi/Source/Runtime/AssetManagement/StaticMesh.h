@@ -50,7 +50,7 @@ public:
     void CreateBodySetupIfNeeded();
 
     /** BodySetup을 설정합니다 */
-    void SetBodySetup(UBodySetup* InBodySetup) { BodySetup = InBodySetup; }
+    void SetBodySetup(UBodySetup* InBodySetup);
 
     /** Convex CookedData 캐시 파일 경로 (DerivedDataCache/xxx.physics.bin) */
     FString GetPhysicsCachePath() const;
@@ -72,6 +72,12 @@ public:
 
     /** BodySetup이 비어있으면 메시 정점으로부터 기본 Convex 생성 */
     void CreateDefaultConvexIfNeeded();
+
+    /** BodySetup이 비어있으면 메시로부터 기본 TriangleMesh 생성 */
+    void CreateDefaultTriangleMeshIfNeeded();
+
+    /** CollisionComplexity에 따라 충돌체 재생성 (수동 편집 존중) */
+    void RegenerateCollision();
 
     /** Physics를 기본값(캐시의 Convex)으로 리셋 */
     void ResetPhysicsToDefault();

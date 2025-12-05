@@ -167,8 +167,13 @@ void UVehicleMovementComponent::SetupVehicle()
     SetupDriveSimulationData(RigidActor);
 
     SetupFrictionPairs();
-    
+
     SetupBatchQuery();
+
+    // PVD 버그 회피: Shape가 PVD에 등록되려면 simulate/fetchResults 사이클이 필요
+    // 따라서 다음 프레임에 FilterData를 설정하도록 플래그만 설정
+    // (PhysX Issue #286: isInstanceValid assertion 방지)
+    bPendingFilterDataSetup = true;
 }
 
 void UVehicleMovementComponent::ReleaseVehicle()
@@ -190,23 +195,21 @@ void UVehicleMovementComponent::ReleaseVehicle()
 
 void UVehicleMovementComponent::SetupWheelShape(physx::PxRigidDynamic* RigidActor)
 {
+    // 기존 Shape들 (차체)을 PendingChassisShapes에 저장 (FilterData는 나중에 설정)
     const PxU32 NumShapes = RigidActor->getNbShapes();
-    TArray<PxShape*> Shapes;
-    Shapes.SetNum(NumShapes);
-    RigidActor->getShapes(Shapes.GetData(), NumShapes);
+    PendingChassisShapes.SetNum(NumShapes);
+    RigidActor->getShapes(PendingChassisShapes.GetData(), NumShapes);
 
-    for (PxShape* Shape : Shapes)
-    {
-        PxFilterData QueryFilterData = Shape->getQueryFilterData();
-        QueryFilterData.word3 = VEHICLE_SURFACE_TYPE_CHASSIS;
-        Shape->setQueryFilterData(QueryFilterData);
-    }
+    // NOTE: setQueryFilterData는 FinalizeShapeFilterData()에서 호출
+    // PVD 연결 시 isInstanceValid assertion 방지를 위해 지연 설정
 
     PxMaterial* WheelMat = GPhysicalMaterial ? GPhysicalMaterial->GetPxMaterial() : nullptr;
     if (!WheelMat)
     {
         return;
     }
+
+    PendingWheelShapes.Empty();
 
     for (int32 i = 0; i < MAX_WHEELS; i++)
     {
@@ -221,17 +224,45 @@ void UVehicleMovementComponent::SetupWheelShape(physx::PxRigidDynamic* RigidActo
                 PxVec3 Position = U2PVector(WheelSetups[i].BoneOffset + WheelSetups[i].VisualOffset);
                 NewWheelShape->setLocalPose(PxTransform(Position));
 
-                PxFilterData QueryData = NewWheelShape->getQueryFilterData();
-                QueryData.word3 = VEHICLE_SURFACE_TYPE_CHASSIS;
-                NewWheelShape->setQueryFilterData(QueryData);
+                // NOTE: setQueryFilterData는 FinalizeShapeFilterData()에서 호출
                 NewWheelShape->setFlag(PxShapeFlag::eSIMULATION_SHAPE, false);
                 NewWheelShape->setFlag(PxShapeFlag::eSCENE_QUERY_SHAPE, false);
 
-                NewWheelShape->setContactOffset(0.02f); 
+                NewWheelShape->setContactOffset(0.02f);
                 NewWheelShape->setRestOffset(0.0f);
+
+                PendingWheelShapes.Add(NewWheelShape);
             }
         }
     }
+}
+
+void UVehicleMovementComponent::FinalizeShapeFilterData()
+{
+    // 차체 Shape들에 FilterData 설정
+    for (PxShape* Shape : PendingChassisShapes)
+    {
+        if (Shape)
+        {
+            PxFilterData QueryFilterData = Shape->getQueryFilterData();
+            QueryFilterData.word3 = VEHICLE_SURFACE_TYPE_CHASSIS;
+            Shape->setQueryFilterData(QueryFilterData);
+        }
+    }
+
+    // 휠 Shape들에 FilterData 설정
+    for (PxShape* Shape : PendingWheelShapes)
+    {
+        if (Shape)
+        {
+            PxFilterData QueryData = Shape->getQueryFilterData();
+            QueryData.word3 = VEHICLE_SURFACE_TYPE_CHASSIS;
+            Shape->setQueryFilterData(QueryData);
+        }
+    }
+
+    PendingChassisShapes.Empty();
+    PendingWheelShapes.Empty();
 }
 
 void UVehicleMovementComponent::SetupWheelSimulationData(physx::PxRigidDynamic* RigidActor)
@@ -464,6 +495,14 @@ void UVehicleMovementComponent::TickComponent(float DeltaSeconds)
             SetupVehicle();
         }
         return;
+    }
+
+    // PVD 버그 회피: Shape 생성 후 simulate/fetchResults 사이클이 지난 뒤 FilterData 설정
+    // 이 시점이면 PVD가 새 Shape들을 인식했으므로 안전하게 설정 가능
+    if (bPendingFilterDataSetup)
+    {
+        FinalizeShapeFilterData();
+        bPendingFilterDataSetup = false;
     }
 
     // DeltaTime이 0이면 PxVehicleUpdates에서 NaN 발생 가능 (0으로 나누기)

@@ -9,5 +9,6 @@ enum class EAggCollisionShape : uint8
     Convex,
     TaperedCapsule,
     LevelSet,
+    TriangleMesh,
     Unknown
 };

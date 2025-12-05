@@ -129,6 +129,12 @@ void UStaticMeshComponent::CollectMeshBatches(TArray<FMeshBatchElement>& OutMesh
 		BatchElement.ObjectID = InternalIndex;
 		BatchElement.PrimitiveTopology = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 
+		// FBX에서 가져온 Transparency 값이 있으면 반투명 렌더링 모드로 설정
+		if (MaterialToUse->GetMaterialInfo().Transparency > 0.0f)
+		{
+			BatchElement.RenderMode = EBatchRenderMode::Translucent;
+		}
+
 		OutMeshBatchElements.Add(BatchElement);
 	}
 }

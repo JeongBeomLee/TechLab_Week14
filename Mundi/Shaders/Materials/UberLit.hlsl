@@ -224,7 +224,7 @@ PS_INPUT mainVS(VS_INPUT Input)
         baseColor.a = 1.0f;  // 알파가 올바르게 설정되도록 보장
     }
 
-    // Ambient light (OBJ/MTL 표준: La × Ka)
+    // Ambient light (확장 모델: La × Ka + Ld × Kd)
     // 하이브리드 접근: Ka가 (0,0,0) 또는 (1,1,1)이면 Kd(baseColor) 사용
     float3 Ka = bHasMaterial ? Material.AmbientColor : baseColor.rgb;
     bool bIsDefaultKa = all(abs(Ka) < 0.01f) || all(abs(Ka - 1.0f) < 0.01f);
@@ -232,7 +232,7 @@ PS_INPUT mainVS(VS_INPUT Input)
     {
         Ka = baseColor.rgb;
     }
-    finalColor += CalculateAmbientLight(AmbientLight, Ka);
+    finalColor += CalculateAmbientLight(AmbientLight, Ka, baseColor.rgb);
 
     // Directional light (diffuse + specular) - 그림자 제외
     FDirectionalLightInfo dirLightNoShadow = DirectionalLight;
@@ -423,7 +423,7 @@ PS_OUTPUT mainPS(PS_INPUT Input)
 
     float3 litColor = float3(0.0f, 0.0f, 0.0f);
 
-    // Ambient light (OBJ/MTL 표준: La × Ka)
+    // Ambient light (확장 모델: La × Ka + Ld × Kd)
     // 하이브리드 접근: Ka가 (0,0,0) 또는 (1,1,1)이면 Kd(baseColor) 사용
     float3 Ka = bHasMaterial ? Material.AmbientColor : baseColor.rgb;
     bool bIsDefaultKa = all(abs(Ka) < 0.01f) || all(abs(Ka - 1.0f) < 0.01f);
@@ -431,7 +431,7 @@ PS_OUTPUT mainPS(PS_INPUT Input)
     {
         Ka = baseColor.rgb;
     }
-    litColor += CalculateAmbientLight(AmbientLight, Ka);
+    litColor += CalculateAmbientLight(AmbientLight, Ka, baseColor.rgb);
 
     // Directional light (diffuse만)
     litColor += CalculateDirectionalLight(DirectionalLight, Input.WorldPos, ViewPos.xyz, normal, float3(0, 0, 0), baseColor, false, 0.0f, g_ShadowAtlas2D, g_ShadowSample);
@@ -540,7 +540,7 @@ PS_OUTPUT mainPS(PS_INPUT Input)
     {
         Ka = baseColor.rgb;
     }
-    litColor += CalculateAmbientLight(AmbientLight, Ka);
+    litColor += CalculateAmbientLight(AmbientLight, Ka, baseColor.rgb);
 
     // Directional light (diffuse + specular)
     float3 DirectionalLightColor = CalculateDirectionalLight(DirectionalLight, Input.WorldPos, ViewPos.xyz, normal, viewDir, baseColor, true, specPower, g_ShadowAtlas2D, g_ShadowSample);

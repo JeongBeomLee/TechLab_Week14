@@ -16,6 +16,10 @@ public:
 	virtual ~UAmbientLightComponent() override;
 
 public:
+	// Diffuse 채널에 적용되는 강도 (0 = Ambient만, 1 = Diffuse에도 동일하게 적용)
+	UPROPERTY(EditAnywhere, Category="Light", Range="0.0, 1.0", Tooltip="Diffuse 채널에 적용되는 Ambient Light 강도")
+	float DiffuseIntensity = 0.0f;
+
 	// Light Info
 	FAmbientLightInfo GetLightInfo() const;
 

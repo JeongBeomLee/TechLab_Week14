@@ -51,6 +51,7 @@ void UMainToolbarWidget::LoadToolbarIcons()
     IconParticle = UResourceManager::GetInstance().Load<UTexture>("Data/Icon/Toolbar_Particle.png");
     IconPhysicsAsset = UResourceManager::GetInstance().Load<UTexture>("Data/Icon/Toolbar_PhysicsAsset.png");
     IconPhysicalMaterial = UResourceManager::GetInstance().Load<UTexture>("Data/Icon/PhysicalMaterial_64.png");
+    LogoTexture = UResourceManager::GetInstance().Load<UTexture>("Data/Icon/Mundi_Logo.png");
 }
 
 void UMainToolbarWidget::RenderToolbar()
@@ -134,6 +135,22 @@ void UMainToolbarWidget::RenderToolbar()
         // PIE 제어 버튼들
         ImGui::SameLine(0, 12.0f);
         RenderPIEButtons();
+
+        // 로고를 오른쪽에 배치
+        if (LogoTexture && LogoTexture->GetShaderResourceView())
+        {
+            const float LogoHeight = ToolbarHeight * 0.9f;  // 툴바 높이의 70%
+            const float LogoWidth = LogoHeight * 3.42f;     // 820:240 비율
+            const float RightPadding = 16.0f;
+            const float VerticalOffset = 2.0f;
+
+            ImVec2 logoPos;
+            logoPos.x = ImGui::GetWindowWidth() - LogoWidth - RightPadding;
+            logoPos.y = (ToolbarHeight - LogoHeight) / 2.0f + VerticalOffset;
+
+            ImGui::SetCursorPos(logoPos);
+            ImGui::Image((void*)LogoTexture->GetShaderResourceView(), ImVec2(LogoWidth, LogoHeight));
+        }
     }
     ImGui::End();
 }

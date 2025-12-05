@@ -1,4 +1,4 @@
-#include "pch.h"
+﻿#include "pch.h"
 #include "PhysScene.h"
 
 #include "BodyInstance.h"
@@ -139,10 +139,21 @@ void FPhysScene::DeferReleaseActor(PxActor* InActor)
 {
     if (!InActor) { return; }
 
-    InActor->userData = nullptr;
+    {
+        std::lock_guard<std::mutex> Lock(DeferredAddMutex);
+        if (DeferredAddQueue.Contains(InActor))
+        {
+            DeferredAddQueue.Remove(InActor);
+            InActor->release();
+            return;
+        }
+    }
 
-    std::lock_guard<std::mutex> Lock(DeferredReleaseMutex);
-    DeferredReleaseQueue.Add(InActor);
+    InActor->userData = nullptr;
+    {
+        std::lock_guard<std::mutex> Lock(DeferredReleaseMutex);
+        DeferredReleaseQueue.Add(InActor);
+    }
 }
 
 void FPhysScene::FlushDeferredReleases()

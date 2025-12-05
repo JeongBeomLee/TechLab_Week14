@@ -58,8 +58,9 @@ struct FShadowRenderRequest
 
 struct FAmbientLightInfo
 {
-    FLinearColor Color;     // 16 bytes - Color already includes Intensity and Temperature
-    // Total: 16 bytes
+    FLinearColor AmbientColor;  // 16 bytes - La (Ambient Light Color)
+    FLinearColor DiffuseColor;  // 16 bytes - Ld (Diffuse Light Color)
+    // Total: 32 bytes
 };
 
 struct FDirectionalLightInfo

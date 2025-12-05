@@ -133,8 +133,8 @@ float3 CalculateParticleLighting(
 {
     float3 litColor = float3(0.0f, 0.0f, 0.0f);
 
-    // 1. Ambient Light
-    litColor += CalculateAmbientLight(AmbientLight, baseColor.rgb);
+    // 1. Ambient Light (La × Ka + Ld × Kd)
+    litColor += CalculateAmbientLight(AmbientLight, baseColor.rgb, baseColor.rgb);
 
     // 2. Directional Light (기존 함수 사용 - 섀도우 포함)
     litColor += CalculateDirectionalLight(

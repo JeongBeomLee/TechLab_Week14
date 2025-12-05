@@ -83,6 +83,7 @@ SViewportWindow::~SViewportWindow()
 	IconCollision = nullptr;
 	IconAntiAliasing = nullptr;
 	IconTile = nullptr;
+	IconDepthOfField = nullptr;
 
 	IconSingleToMultiViewport = nullptr;
 	IconMultiToSingleViewport = nullptr;
@@ -470,6 +471,8 @@ void SViewportWindow::LoadToolbarIcons(ID3D11Device* Device)
 
 	IconRagdoll = NewObject<UTexture>();
 	IconRagdoll->Load(GDataDir + "/Icon/Viewport_Ragdoll.png", Device);
+	IconDepthOfField = NewObject<UTexture>();
+	IconDepthOfField->Load(GDataDir + "/Icon/Viewport_DepthOfField.png", Device);
 
 	// 뷰포트 레이아웃 전환 아이콘 로드
 	IconSingleToMultiViewport = NewObject<UTexture>();
@@ -2074,6 +2077,24 @@ void SViewportWindow::RenderShowFlagDropdownMenu()
 		if (ImGui::IsItemHovered())
 		{
 			ImGui::SetTooltip("GPU 스키닝을 사용합니다. (비활성화 시 CPU 스키닝)");
+		}
+
+		// Depth of Field
+		bool bDepthOfField = RenderSettings.IsShowFlagEnabled(EEngineShowFlags::SF_DOF);
+		if (ImGui::Checkbox("##Depth Of Field", &bDepthOfField))
+		{
+			RenderSettings.ToggleShowFlag(EEngineShowFlags::SF_DOF);
+		}
+		ImGui::SameLine();
+		if (IconDepthOfField && IconDepthOfField->GetShaderResourceView())
+		{
+			ImGui::Image((void*)IconDepthOfField->GetShaderResourceView(), IconSize);
+			ImGui::SameLine(0, 4);
+		}
+		ImGui::Text(" 피사계 심도");
+		if (ImGui::IsItemHovered())
+		{
+			ImGui::SetTooltip("피사계 심도 기능을 사용합니다.");
 		}
 
 		ImGui::PopStyleColor(3);

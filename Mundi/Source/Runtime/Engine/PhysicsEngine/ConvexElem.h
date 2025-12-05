@@ -70,13 +70,17 @@ struct FKConvexElem : public FKShapeElem
     {
         if (this != &Other)
         {
+            // 기존 ConvexMesh 해제 (메모리 누수 방지)
+            ReleaseConvexMesh();
+
             FKShapeElem::operator=(Other);
+            Source = Other.Source;
             VertexData = Other.VertexData;
             IndexData = Other.IndexData;
             ElemTransform = Other.ElemTransform;
             ElemBox = Other.ElemBox;
             CookedData = Other.CookedData;
-            // ConvexMesh는 복사하지 않음
+            // ConvexMesh는 복사하지 않음, CookedData에서 재생성 필요
         }
         return *this;
     }

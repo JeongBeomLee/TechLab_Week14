@@ -14,8 +14,9 @@ FAmbientLightInfo UAmbientLightComponent::GetLightInfo() const
 {
 	FAmbientLightInfo Info;
 	// Use GetLightColorWithIntensity() to include Temperature + Intensity
-	Info.Color = GetLightColorWithIntensity();
-	// Optimized: No padding needed (16 bytes perfect alignment)
+	FLinearColor BaseColor = GetLightColorWithIntensity();
+	Info.AmbientColor = BaseColor;  // La: Ambient 채널용
+	Info.DiffuseColor = BaseColor * DiffuseIntensity;  // Ld: Diffuse 채널용 (DiffuseIntensity로 조절)
 	return Info;
 }
 

@@ -67,14 +67,17 @@ uint GetTileDataOffset(uint tileIndex)
 // 기본 조명 계산 함수
 //================================================================================================
 
-// Ambient Light 계산 (OBJ/MTL 표준)
-// 공식: Ambient = La × Ka
-// 주의: light.Color (La)는 이미 Intensity와 Temperature가 포함됨
-// ambientColor: 재질의 Ambient Color (Ka) - Diffuse Color가 아님!
-float3 CalculateAmbientLight(FAmbientLightInfo light, float3 ambientColor)
+// Ambient Light 계산 (확장된 모델)
+// 공식: Ambient = (La × Ka) + (Ld × Kd)
+// La: Ambient Light Color, Ka: Material Ambient Color
+// Ld: Diffuse Light Color, Kd: Material Diffuse Color (baseColor)
+float3 CalculateAmbientLight(FAmbientLightInfo light, float3 ambientColor, float3 diffuseColor)
 {
-    // OBJ/MTL 표준: La × Ka
-    return light.Color.rgb * ambientColor;
+    // Ambient 채널: La × Ka
+    float3 ambientTerm = light.AmbientColor.rgb * ambientColor;
+    // Diffuse 채널: Ld × Kd (DiffuseIntensity로 조절됨)
+    float3 diffuseTerm = light.DiffuseColor.rgb * diffuseColor;
+    return ambientTerm + diffuseTerm;
 }
 
 // Diffuse Light 계산 (Lambert)
@@ -838,8 +841,8 @@ float3 CalculateAllLights(
 {
     float3 litColor = float3(0, 0, 0);
 
-    // Ambient (비재질 오브젝트는 Ka = Kd 가정)
-    litColor += CalculateAmbientLight(AmbientLight, baseColor.rgb);
+    // Ambient (비재질 오브젝트는 Ka = Kd 가정) (La × Ka + Ld × Kd)
+    litColor += CalculateAmbientLight(AmbientLight, baseColor.rgb, baseColor.rgb);
 
     litColor += CalculateDirectionalLight(
         DirectionalLight,

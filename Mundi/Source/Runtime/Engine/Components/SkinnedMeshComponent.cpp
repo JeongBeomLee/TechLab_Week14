@@ -256,6 +256,12 @@ void USkinnedMeshComponent::CollectMeshBatches(TArray<FMeshBatchElement>& OutMes
           BatchElement.BoneMatricesBuffer = nullptr;
        }
 
+       // FBX에서 가져온 Transparency 값이 있으면 반투명 렌더링 모드로 설정
+       if (MaterialToUse->GetMaterialInfo().Transparency > 0.0f)
+       {
+          BatchElement.RenderMode = EBatchRenderMode::Translucent;
+       }
+
        OutMeshBatchElements.Add(BatchElement);
     }
 }

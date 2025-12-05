@@ -164,4 +164,20 @@ private:
 
     /** [더미 버퍼] "TouchBuffer is NULL" 에러 방지용 (사용은 안함) */
     physx::PxRaycastHit* BatchQueryTouchBuffer;
+
+    // ====================================================================
+    // Deferred Filter Data (PVD 버그 회피용)
+    // ====================================================================
+
+    /** 휠 Shape들 (FilterData 지연 설정용) */
+    TArray<physx::PxShape*> PendingWheelShapes;
+
+    /** 차체 Shape들 (FilterData 지연 설정용) */
+    TArray<physx::PxShape*> PendingChassisShapes;
+
+    /** 다음 프레임에 FilterData 설정이 필요한지 여부 (PVD 버그 회피) */
+    bool bPendingFilterDataSetup = false;
+
+    /** Scene 등록 후 FilterData 설정 */
+    void FinalizeShapeFilterData();
 };
