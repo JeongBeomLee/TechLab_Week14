@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "PhysXSupport.h"
 
@@ -46,7 +46,7 @@ public:
     bool bPushDynamicObjects = true;
 
     /** 밀기 힘 배율 */
-    float PushForceScale = 500.0f;
+    float PushForceScale = 0.001f;
 
 private:
     /** 소유 물리 씬 */

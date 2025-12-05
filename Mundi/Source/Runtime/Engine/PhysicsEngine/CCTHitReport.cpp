@@ -1,4 +1,4 @@
-#include "pch.h"
+﻿#include "pch.h"
 #include "CCTHitReport.h"
 
 #include "PhysScene.h"
@@ -9,7 +9,7 @@
 
 FCCTHitReport::FCCTHitReport(FPhysScene* InOwnerScene)
     : bPushDynamicObjects(true)
-    , PushForceScale(500.0f)
+    , PushForceScale(5.0f)
     , OwnerScene(InOwnerScene)
 {
 }

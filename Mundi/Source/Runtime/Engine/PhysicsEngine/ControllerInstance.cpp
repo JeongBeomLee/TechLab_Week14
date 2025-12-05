@@ -26,7 +26,8 @@ void FCCTSettings::SetDefaults()
     StepOffset = 0.45f;
     SlopeLimit = 0.707f;  // cos(45도)
     ContactOffset = 0.1f;
-    UpDirection = PxVec3(0, 0, 1);
+    // PhysX는 Y-up 좌표계이므로 UpDirection은 (0, 1, 0)
+    UpDirection = PxVec3(0, 1, 0);
     NonWalkableMode = PxControllerNonWalkableMode::ePREVENT_CLIMBING_AND_FORCE_SLIDING;
 }
 
@@ -126,9 +127,10 @@ void FControllerInstance::InitController(UCapsuleComponent* InCapsule, UCharacte
     Desc.upDirection = Settings.UpDirection;
     Desc.nonWalkableMode = Settings.NonWalkableMode;
 
-    // 초기 위치 (프로젝트가 cm 단위 직접 사용)
+    // 초기 위치 - 에디터(Z-up) → PhysX(Y-up) 좌표 변환 적용
     FVector WorldPos = InCapsule->GetWorldLocation();
-    Desc.position = PxExtendedVec3(WorldPos.X, WorldPos.Y, WorldPos.Z);
+    // U2PVector 변환: (X, Y, Z) → (Y, Z, -X)
+    Desc.position = PxExtendedVec3(WorldPos.Y, WorldPos.Z, -WorldPos.X);
 
     // Material (기본 마찰/반발 계수로 생성)
     PxMaterial* DefaultMaterial = GPhysXSDK->createMaterial(0.5f, 0.5f, 0.1f);
@@ -224,8 +226,8 @@ void FControllerInstance::SetPosition(const FVector& NewPosition)
         return;
     }
 
-    // 프로젝트가 cm 단위 직접 사용 (변환 없음)
-    PxExtendedVec3 PxPos(NewPosition.X, NewPosition.Y, NewPosition.Z);
+    // 에디터(Z-up) → PhysX(Y-up) 좌표 변환: (X, Y, Z) → (Y, Z, -X)
+    PxExtendedVec3 PxPos(NewPosition.Y, NewPosition.Z, -NewPosition.X);
     Controller->setPosition(PxPos);
 }
 
@@ -237,11 +239,11 @@ FVector FControllerInstance::GetPosition() const
     }
 
     PxExtendedVec3 PxPos = Controller->getPosition();
-    // 프로젝트가 cm 단위 직접 사용 (변환 없음)
+    // PhysX(Y-up) → 에디터(Z-up) 좌표 변환: (x, y, z) → (-z, x, y)
     return FVector(
+        static_cast<float>(-PxPos.z),
         static_cast<float>(PxPos.x),
-        static_cast<float>(PxPos.y),
-        static_cast<float>(PxPos.z)
+        static_cast<float>(PxPos.y)
     );
 }
 
@@ -253,11 +255,11 @@ FVector FControllerInstance::GetFootPosition() const
     }
 
     PxExtendedVec3 PxPos = Controller->getFootPosition();
-    // 프로젝트가 cm 단위 직접 사용 (변환 없음)
+    // PhysX(Y-up) → 에디터(Z-up) 좌표 변환: (x, y, z) → (-z, x, y)
     return FVector(
+        static_cast<float>(-PxPos.z),
         static_cast<float>(PxPos.x),
-        static_cast<float>(PxPos.y),
-        static_cast<float>(PxPos.z)
+        static_cast<float>(PxPos.y)
     );
 }
 
