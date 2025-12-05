@@ -1,4 +1,4 @@
-#include "pch.h"
+﻿#include "pch.h"
 #include "PhysicsAssetEditorBootstrap.h"
 #include "ViewerState.h"
 #include "CameraActor.h"
@@ -181,7 +181,7 @@ ViewerState* PhysicsAssetEditorBootstrap::CreateViewerState(const char* Name, UW
 			{
 				FloorMeshComp->SetStaticMesh("Data/Model/bathroomFloor.fbx");
 				// 바닥 위치 및 스케일 조정 (Y=0 평면에 맞춤, Z방향 더 넓게)
-				State->FloorMeshActor->SetActorLocation(FVector(0.f, 0.f, 0.f));
+				State->FloorMeshActor->SetActorLocation(FVector(0.f, 0.f, -0.5f));
 				State->FloorMeshActor->SetActorScale(FVector(30.f, 30.f, 1.f));  // Z방향 더 넓게
 			}
 		}

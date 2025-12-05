@@ -4469,6 +4469,10 @@ void SPhysicsAssetEditorWindow::RenderToolsPanel()
                     FPhysScene* PhysScene = PhysState->World->GetPhysicsScene();
                     if (PhysScene)
                     {
+                        // 이전 시뮬레이션에서 DeferReleaseActor로 큐에 쌓인 액터들을
+                        // 새 시뮬레이션 시작 전에 완전히 해제
+                        PhysScene->FlushDeferredReleases();
+
                         PreviewComp->InitRagdoll(PhysScene);
                         PreviewComp->SetPhysicsMode(EPhysicsMode::Ragdoll);
                         UE_LOG("[PhysicsAssetEditor] 시뮬레이션 시작: %d bodies, %d constraints",

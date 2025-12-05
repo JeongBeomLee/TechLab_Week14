@@ -455,7 +455,7 @@ bool UBodySetup::RenderShapesUI(UBodySetup* BodySetup, bool& OutSaveRequested)
 	ImGui::SameLine();
 	if (ImGui::Button("Add Box"))
 	{
-		FKBoxElem NewBox(1.0f, 1.0f, 1.0f);
+		FKBoxElem NewBox(0.5f, 0.5f, 0.5f);
 		BodySetup->AggGeom.BoxElems.Add(NewBox);
 		bChanged = true;
 		OutSaveRequested = true;
