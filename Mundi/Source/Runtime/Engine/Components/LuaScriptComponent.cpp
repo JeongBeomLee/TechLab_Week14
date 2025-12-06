@@ -47,6 +47,20 @@ void ULuaScriptComponent::BeginPlay()
 	FGameObject* Obj = Owner->GetGameObject();
 	Env["Obj"] = Obj;
 
+	// Input 전역 객체 주입 (각 Environment마다)
+	UInputManager* InputMgr = &UInputManager::GetInstance();
+	UE_LOG("[Lua] InputManager pointer: %p", (void*)InputMgr);
+
+	if (InputMgr)
+	{
+		Env["Input"] = InputMgr;
+		UE_LOG("[Lua] Input successfully injected into Environment");
+	}
+	else
+	{
+		UE_LOG("[Lua][ERROR] InputManager is nullptr!");
+	}
+
 	Env["StartCoroutine"] = [LuaVM, this](sol::function f) {
 		sol::state_view L = LuaVM->GetState();
 		
@@ -70,14 +84,12 @@ void ULuaScriptComponent::BeginPlay()
 		return;
 	}
 
-	// InputManger 주입
-	(*Lua)["InputManager"] = &UInputManager::GetInstance(); 
 	// 함수 캐시
-	FuncBeginPlay = FLuaManager::GetFunc(Env, "BeginPlay");
-	FuncTick      = FLuaManager::GetFunc(Env, "Tick");
+	FuncBeginPlay = FLuaManager::GetFunc(Env, "OnBeginPlay");
+	FuncTick      = FLuaManager::GetFunc(Env, "Update");  // 루아 스크립트는 Update 함수 사용
 	FuncOnBeginOverlap = FLuaManager::GetFunc(Env, "OnBeginOverlap");
 	FuncOnEndOverlap = FLuaManager::GetFunc(Env, "OnEndOverlap");
-	FuncEndPlay		  =	FLuaManager::GetFunc(Env, "EndPlay");
+	FuncEndPlay		  =	FLuaManager::GetFunc(Env, "OnEndPlay");
 	
 	if (FuncBeginPlay.valid()) {
 		auto Result = FuncBeginPlay();

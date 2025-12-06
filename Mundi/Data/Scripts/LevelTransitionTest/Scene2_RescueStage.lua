@@ -89,27 +89,27 @@ function Update(dt)
     end
 
     -- [1] 키: 사람 구출
-    if Input.IsKeyPressed(Keycode.Alpha1) then
+    if Input:IsKeyPressed(Keycode.Alpha1) then
         RescuePerson()
     end
 
     -- [2] 키: 플레이어 강화
-    if Input.IsKeyPressed(Keycode.Alpha2) then
+    if Input:IsKeyPressed(Keycode.Alpha2) then
         EnhancePlayer()
     end
 
     -- [3] 키: GameInstance 정보 출력
-    if Input.IsKeyPressed(Keycode.Alpha3) then
+    if Input:IsKeyPressed(Keycode.Alpha3) then
         PrintGameInstanceInfo()
     end
 
     -- [4] 키: 최종 통계 저장
-    if Input.IsKeyPressed(Keycode.Alpha4) then
+    if Input:IsKeyPressed(Keycode.Alpha4) then
         SaveFinalStatistics()
     end
 
     -- [Space] 키: 엔딩으로 전환
-    if Input.IsKeyPressed(Keycode.Space) then
+    if Input:IsKeyPressed(Keycode.Space) then
         TransitionToEnding()
     end
 end
@@ -303,7 +303,7 @@ function TransitionToEnding()
     print("═══════════════════════════════════════════════════════")
 
     -- 엔딩 씬으로 전환
-    TransitionToLevel("Data/Scenes/TEST2.scene")
+    TransitionToLevel("Data/Scenes/TEST.scene")
 
     -- 테스트용 메시지
     print("[Scene2] NOTE: Create Scene3_Ending.scene to test full flow")

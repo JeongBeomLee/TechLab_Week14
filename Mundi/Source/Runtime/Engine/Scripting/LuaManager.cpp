@@ -147,6 +147,85 @@ FLuaManager::FLuaManager()
     MouseButton["Middle"] = EMouseButton::MiddleButton;
     MouseButton["XButton1"] = EMouseButton::XButton1;
     MouseButton["XButton2"] = EMouseButton::XButton2;
+
+    // KeyCode enum 바인딩 (Windows Virtual Key Codes)
+    sol::table KeyCode = Lua->create_table("Keycode");
+    // 숫자 키 (메인 키보드)
+    KeyCode["Alpha0"] = '0';
+    KeyCode["Alpha1"] = '1';
+    KeyCode["Alpha2"] = '2';
+    KeyCode["Alpha3"] = '3';
+    KeyCode["Alpha4"] = '4';
+    KeyCode["Alpha5"] = '5';
+    KeyCode["Alpha6"] = '6';
+    KeyCode["Alpha7"] = '7';
+    KeyCode["Alpha8"] = '8';
+    KeyCode["Alpha9"] = '9';
+
+    // 알파벳 키
+    KeyCode["A"] = 'A';
+    KeyCode["B"] = 'B';
+    KeyCode["C"] = 'C';
+    KeyCode["D"] = 'D';
+    KeyCode["E"] = 'E';
+    KeyCode["F"] = 'F';
+    KeyCode["G"] = 'G';
+    KeyCode["H"] = 'H';
+    KeyCode["I"] = 'I';
+    KeyCode["J"] = 'J';
+    KeyCode["K"] = 'K';
+    KeyCode["L"] = 'L';
+    KeyCode["M"] = 'M';
+    KeyCode["N"] = 'N';
+    KeyCode["O"] = 'O';
+    KeyCode["P"] = 'P';
+    KeyCode["Q"] = 'Q';
+    KeyCode["R"] = 'R';
+    KeyCode["S"] = 'S';
+    KeyCode["T"] = 'T';
+    KeyCode["U"] = 'U';
+    KeyCode["V"] = 'V';
+    KeyCode["W"] = 'W';
+    KeyCode["X"] = 'X';
+    KeyCode["Y"] = 'Y';
+    KeyCode["Z"] = 'Z';
+
+    // 특수 키
+    KeyCode["Space"] = VK_SPACE;
+    KeyCode["Enter"] = VK_RETURN;
+    KeyCode["Escape"] = VK_ESCAPE;
+    KeyCode["Tab"] = VK_TAB;
+    KeyCode["Backspace"] = VK_BACK;
+    KeyCode["Delete"] = VK_DELETE;
+    KeyCode["Insert"] = VK_INSERT;
+
+    // 방향키
+    KeyCode["Left"] = VK_LEFT;
+    KeyCode["Right"] = VK_RIGHT;
+    KeyCode["Up"] = VK_UP;
+    KeyCode["Down"] = VK_DOWN;
+
+    // 기능키
+    KeyCode["F1"] = VK_F1;
+    KeyCode["F2"] = VK_F2;
+    KeyCode["F3"] = VK_F3;
+    KeyCode["F4"] = VK_F4;
+    KeyCode["F5"] = VK_F5;
+    KeyCode["F6"] = VK_F6;
+    KeyCode["F7"] = VK_F7;
+    KeyCode["F8"] = VK_F8;
+    KeyCode["F9"] = VK_F9;
+    KeyCode["F10"] = VK_F10;
+    KeyCode["F11"] = VK_F11;
+    KeyCode["F12"] = VK_F12;
+
+    // 수정자 키
+    KeyCode["LeftShift"] = VK_LSHIFT;
+    KeyCode["RightShift"] = VK_RSHIFT;
+    KeyCode["LeftControl"] = VK_LCONTROL;
+    KeyCode["RightControl"] = VK_RCONTROL;
+    KeyCode["LeftAlt"] = VK_LMENU;
+    KeyCode["RightAlt"] = VK_RMENU;
     
     Lua->set_function("print", sol::overload(                             
         [](const FString& msg) {                                          

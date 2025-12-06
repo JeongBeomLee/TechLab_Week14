@@ -55,22 +55,22 @@ function Update(dt)
     end
 
     -- [1] 키: 아이템 수집
-    if Input.IsKeyPressed(Keycode.Alpha1) then
+    if Input:IsKeyPressed(Keycode.Alpha1) then
         CollectItem("Key")
     end
 
     -- [2] 키: 플레이어 상태 저장
-    if Input.IsKeyPressed(Keycode.Alpha2) then
+    if Input:IsKeyPressed(Keycode.Alpha2) then
         SavePlayerState()
     end
 
     -- [3] 키: GameInstance 정보 출력
-    if Input.IsKeyPressed(Keycode.Alpha3) then
+    if Input:IsKeyPressed(Keycode.Alpha3) then
         PrintGameInstanceInfo()
     end
 
     -- [Space] 키: 씬 전환
-    if Input.IsKeyPressed(Keycode.Space) then
+    if Input:IsKeyPressed(Keycode.Space) then
         TransitionToNextScene()
     end
 end
