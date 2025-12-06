@@ -242,6 +242,13 @@ void FPhysScene::InitPhysScene()
     // PhysX는 Y-up 좌표계이므로 중력은 -Y 방향
     SceneDesc.gravity = PxVec3(0.0f, -9.81f, 0.0f);
 
+    // 바운스 임계 속도: 이 속도 이하에서는 물체가 튀어오르지 않음
+    // 기본값이 낮아서 바닥에 있는 물체가 미세하게 튀는 문제 방지
+    SceneDesc.bounceThresholdVelocity = 2.0f;
+
+    // Solver iteration 증가로 안정성 향상 (기본값: position=4, velocity=1)
+    SceneDesc.solverType = PxSolverType::eTGS;  // TGS solver가 더 안정적
+
     SimEventCallback = new FPhysXSimEventCallback(this);
     SceneDesc.simulationEventCallback = SimEventCallback;
 
