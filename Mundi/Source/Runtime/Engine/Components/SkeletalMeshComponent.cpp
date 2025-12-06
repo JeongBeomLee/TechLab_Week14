@@ -88,6 +88,18 @@ void USkeletalMeshComponent::TickComponent(float DeltaTime)
         // 물리가 본을 제어
         if (bRagdollInitialized)
         {
+            // 컴포넌트 위치를 루트 본의 물리 바디 위치로 업데이트
+            if (bUpdateComponentLocationFromRagdoll && RagdollRootBoneIndex >= 0 && RagdollRootBoneIndex < Bodies.Num())
+            {
+                FBodyInstance* RootBody = Bodies[RagdollRootBoneIndex];
+                if (RootBody && RootBody->IsValidBodyInstance())
+                {
+                    FTransform RootBodyTransform = RootBody->GetUnrealWorldTransform();
+                    // 위치만 업데이트 (회전/스케일은 유지)
+                    SetWorldLocation(RootBodyTransform.Translation);
+                }
+            }
+
             SyncBonesFromPhysics();
         }
         break;

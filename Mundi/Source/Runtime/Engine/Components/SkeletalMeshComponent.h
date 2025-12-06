@@ -299,4 +299,12 @@ public:
 
     /** 선택 여부와 관계없이 항상 Physics Debug 렌더링 (에디터용) */
     bool bAlwaysRenderPhysicsDebug = false;
+
+    /** 래그돌 모드에서 컴포넌트 위치를 특정 본의 물리 바디를 따라 업데이트할지 여부 */
+    UPROPERTY(EditAnywhere, Category="Physics")
+    bool bUpdateComponentLocationFromRagdoll = true;
+
+    /** 래그돌 모드에서 따라갈 본 인덱스 (기본값 0 = 루트 본, pelvis 등) */
+    UPROPERTY(EditAnywhere, Category="Physics")
+    int32 RagdollRootBoneIndex = 0;
 };
