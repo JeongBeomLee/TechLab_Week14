@@ -90,6 +90,7 @@ void ULuaScriptComponent::BeginPlay()
 	FuncOnBeginOverlap = FLuaManager::GetFunc(Env, "OnBeginOverlap");
 	FuncOnEndOverlap = FLuaManager::GetFunc(Env, "OnEndOverlap");
 	FuncEndPlay		  =	FLuaManager::GetFunc(Env, "OnEndPlay");
+	FuncOnAnimNotify = FLuaManager::GetFunc(Env, "OnAnimNotify");
 	
 	if (FuncBeginPlay.valid()) {
 		auto Result = FuncBeginPlay();
@@ -216,6 +217,22 @@ void ULuaScriptComponent::OnHit(UPrimitiveComponent* MyComp, UPrimitiveComponent
 	}
 }
 
+void ULuaScriptComponent::OnAnimNotify(const FString& NotifyName)
+{
+	if (FuncOnAnimNotify.valid())
+	{
+		auto Result = FuncOnAnimNotify(NotifyName);
+		if (!Result.valid())
+		{
+			sol::error Err = Result;
+			UE_LOG("[Lua][error] %s\n", Err.what());
+#ifdef _EDITOR
+			GEngine.EndPIE();
+#endif
+		}
+	}
+}
+
 void ULuaScriptComponent::TickComponent(float DeltaTime)
 {
 	// Lua 리소스가 이미 정리된 경우 무시
@@ -293,6 +310,7 @@ void ULuaScriptComponent::CleanupLuaResources()
 	FuncOnEndOverlap = sol::nil;
 	FuncOnHit = sol::nil;
 	FuncEndPlay = sol::nil;
+	FuncOnAnimNotify = sol::nil;
 	Env = sol::nil;
 	Lua = nullptr;
 

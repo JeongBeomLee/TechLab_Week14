@@ -62,6 +62,9 @@ private:
     /** 현재 프레임의 이동 방향 (회전 계산용) */
     FVector CurrentMovementDirection;
 
+    /** Lua 스크립트 컴포넌트 (애니메이션 제어용) */
+    ULuaScriptComponent* LuaScript;
+
     //USound* SorrySound;
     //USound* HitSound;
 };

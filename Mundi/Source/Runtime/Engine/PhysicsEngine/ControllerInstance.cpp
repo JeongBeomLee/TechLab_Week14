@@ -133,9 +133,10 @@ void FControllerInstance::InitController(UCapsuleComponent* InCapsule, UCharacte
     // U2PVector 변환: (X, Y, Z) → (Y, Z, -X)
     Desc.position = PxExtendedVec3(WorldPos.Y, WorldPos.Z, -WorldPos.X);
 
-    // Material (기본 마찰/반발 계수로 생성)
-    PxMaterial* DefaultMaterial = GPhysXSDK->createMaterial(0.5f, 0.5f, 0.1f);
-    Desc.material = DefaultMaterial;
+    // Material (캐릭터용: 높은 마찰, 반발 없음 - 미끄러짐 방지)
+    // staticFriction=1.0, dynamicFriction=1.0, restitution=0.0
+    PxMaterial* CharacterMaterial = GPhysXSDK->createMaterial(1.0f, 1.0f, 0.0f);
+    Desc.material = CharacterMaterial;
 
     // 콜백 설정
     Desc.reportCallback = InPhysScene->GetCCTHitReport();

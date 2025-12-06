@@ -1418,6 +1418,9 @@
     <ClCompile Include="Generated\UItemComponent.generated.cpp">
       <Filter>Generated</Filter>
     </ClCompile>
+    <ClCompile Include="Generated\UBoneSocketComponent.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Generated\AActor.generated.h">
@@ -2986,6 +2989,9 @@
     </ClInclude>
     <ClInclude Include="Generated\ATimerTrigger.generated.h">
     <ClInclude Include="Generated\UItemComponent.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UBoneSocketComponent.generated.h">
       <Filter>Generated</Filter>
     </ClInclude>
   </ItemGroup>
