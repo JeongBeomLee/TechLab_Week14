@@ -163,6 +163,10 @@ public:
 
     bool CanEverTick() const { return bCanEverTick; }
 	bool CanTickInEditor() const { return bTickInEditor; }
+
+    // ───── 레벨 전환 관련 ─────────────────────────
+    // Persistent Actor 개념 제거됨 - 모든 액터는 씬 전환 시 삭제됨
+
     // ───── 충돌 관련 ─────────────────────────  
     void OnBeginOverlap(UPrimitiveComponent* MyComp, UPrimitiveComponent* OtherComp);
     void OnEndOverlap(UPrimitiveComponent* MyComp, UPrimitiveComponent* OtherComp);

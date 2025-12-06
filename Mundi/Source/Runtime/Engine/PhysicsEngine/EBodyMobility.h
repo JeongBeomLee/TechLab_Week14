@@ -9,7 +9,7 @@
  *   - 물리: PxRigidStatic, TriangleMesh 허용
  * - Movable: 이동 가능
  *   - 렌더링: 실시간 라이팅/그림자
- *   - 물리: PxRigidDynamic, bSimulatePhysics/bKinematic에 따라 동작
+ *   - 물리: PxRigidDynamic, bSimulatePhysics에 따라 Dynamic/Kinematic 동작
  */
 UENUM()
 enum class EComponentMobility : uint8

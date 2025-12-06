@@ -11,6 +11,7 @@
 #include "Source/Runtime/Engine/Cloth/ClothManager.h"
 #include "FbxLoader.h"
 #include "PhysicalMaterialLoader.h"
+#include "GameInstance.h"
 #include <sol/sol.hpp>
 
 float UGameEngine::ClientWidth = 1024.0f;
@@ -232,6 +233,10 @@ bool UGameEngine::Startup(HINSTANCE hInstance)
         UE_LOG("Warning: Failed to load startup scene: %s (continuing with empty world)", StartupScenePath.c_str());
     }
 
+    // GameInstance 생성 (PIE 세션 동안 유지)
+    GameInstance = NewObject<UGameInstance>();
+    UE_LOG("[info] GameEngine: GameInstance created");
+
     // World Settings 기반 GameMode 생성 및 모든 액터 BeginPlay 호출
     GWorld->BeginPlay();
 
@@ -357,6 +362,14 @@ void UGameEngine::MainLoop()
 
 void UGameEngine::Shutdown()
 {
+    // GameInstance 삭제
+    if (GameInstance)
+    {
+        ObjectFactory::DeleteObject(GameInstance);
+        GameInstance = nullptr;
+        UE_LOG("[info] GameEngine: GameInstance destroyed");
+    }
+
     // 월드부터 삭제해야 DeleteAll 때 문제가 없음
     for (FWorldContext WorldContext : WorldContexts)
     {

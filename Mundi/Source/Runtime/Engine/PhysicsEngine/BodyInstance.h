@@ -63,6 +63,20 @@ struct FBodyInstance
      */
     void AddTorque(const FVector& Torque, bool bAccelChange = false);
 
+    /**
+     * 바디에 순간 충격량을 더한다.
+     * @param Impulse 충격량
+     * @param bVelChange true면 질량 무시 (속도 변화), false면 충격량
+     */
+    void AddImpulse(const FVector& Impulse, bool bVelChange = true);
+
+    /**
+     * 바디에 각 충격량을 더한다.
+     * @param Impulse 각 충격량
+     * @param bVelChange true면 질량 무시 (속도 변화), false면 충격량
+     */
+    void AddAngularImpulse(const FVector& Impulse, bool bVelChange = true);
+
     /** 동적 바디여부 확인*/
     bool IsDynamic() const;
     
@@ -88,11 +102,11 @@ public:
     /** 바디를 생성하기 위한 3D 스케일 */
     FVector Scale3D;
 
-    /** True일 경우, 물리 시뮬레이션을 수행한다 (Movable일 때만 유효) */
+    /** True일 경우, 물리 시뮬레이션을 수행한다 (Movable일 때만 유효)
+     *  - true: Dynamic 바디 (물리 시뮬레이션)
+     *  - false: Kinematic 바디 (사용자 직접 제어)
+     */
     bool bSimulatePhysics = false;
-
-    /** True일 경우, Kinematic 바디 (Movable + bSimulatePhysics일 때만 유효) */
-    bool bKinematic = false;
 
     /** 선형 댐핑 (이동에 대한 저항력) */
     float LinearDamping;
@@ -111,6 +125,9 @@ public:
 
     /** True일 경우, 랙돌 바디 (SyncComponentsToBodies에서 제외됨) */
     bool bIsRagdollBody = false;
+
+    /** 커맨드 큐 내부에서 바디 인스턴스의 수명 추적용 (복사되면 안 됨) */
+    std::shared_ptr<bool> LifeHandle;
 
     /**
      * Kinematic 바디의 목표 트랜스폼을 설정합니다.

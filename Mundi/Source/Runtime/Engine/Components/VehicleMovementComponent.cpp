@@ -353,8 +353,17 @@ void UVehicleMovementComponent::SetupDriveSimulationData(physx::PxRigidDynamic* 
     if (PWheelsSimData)
     {
         PVehicleDrive = PxVehicleDrive4W::allocate(4);
-    
+
         PVehicleDrive->setup(GPhysXSDK, RigidActor, *PWheelsSimData, DriveSimData, 0);
+
+        // setup() 성공 여부 확인 - getRigidDynamicActor()가 유효한 포인터를 반환해야 함
+        if (PVehicleDrive->getRigidDynamicActor() != RigidActor)
+        {
+            UE_LOG("[Vehicle Error] PxVehicleDrive4W::setup() 실패 - RigidActor가 올바르게 설정되지 않음");
+            PVehicleDrive->free();
+            PVehicleDrive = nullptr;
+            return;
+        }
 
         PVehicleDrive->mDriveDynData.setUseAutoGears(true);
         PVehicleDrive->mDriveDynData.forceGearChange(PxVehicleGearsData::eFIRST);

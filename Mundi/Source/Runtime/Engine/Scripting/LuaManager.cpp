@@ -9,6 +9,8 @@
 #include "CameraActor.h"
 #include "CameraComponent.h"
 #include "PlayerCameraManager.h"
+#include "GameInstance.h"
+#include "GameEngine.h"
 #include <tuple>
 
 sol::object MakeCompProxy(sol::state_view SolState, UObject* Instance, UClass* Class) {
@@ -145,6 +147,85 @@ FLuaManager::FLuaManager()
     MouseButton["Middle"] = EMouseButton::MiddleButton;
     MouseButton["XButton1"] = EMouseButton::XButton1;
     MouseButton["XButton2"] = EMouseButton::XButton2;
+
+    // KeyCode enum 바인딩 (Windows Virtual Key Codes)
+    sol::table KeyCode = Lua->create_table("Keycode");
+    // 숫자 키 (메인 키보드)
+    KeyCode["Alpha0"] = '0';
+    KeyCode["Alpha1"] = '1';
+    KeyCode["Alpha2"] = '2';
+    KeyCode["Alpha3"] = '3';
+    KeyCode["Alpha4"] = '4';
+    KeyCode["Alpha5"] = '5';
+    KeyCode["Alpha6"] = '6';
+    KeyCode["Alpha7"] = '7';
+    KeyCode["Alpha8"] = '8';
+    KeyCode["Alpha9"] = '9';
+
+    // 알파벳 키
+    KeyCode["A"] = 'A';
+    KeyCode["B"] = 'B';
+    KeyCode["C"] = 'C';
+    KeyCode["D"] = 'D';
+    KeyCode["E"] = 'E';
+    KeyCode["F"] = 'F';
+    KeyCode["G"] = 'G';
+    KeyCode["H"] = 'H';
+    KeyCode["I"] = 'I';
+    KeyCode["J"] = 'J';
+    KeyCode["K"] = 'K';
+    KeyCode["L"] = 'L';
+    KeyCode["M"] = 'M';
+    KeyCode["N"] = 'N';
+    KeyCode["O"] = 'O';
+    KeyCode["P"] = 'P';
+    KeyCode["Q"] = 'Q';
+    KeyCode["R"] = 'R';
+    KeyCode["S"] = 'S';
+    KeyCode["T"] = 'T';
+    KeyCode["U"] = 'U';
+    KeyCode["V"] = 'V';
+    KeyCode["W"] = 'W';
+    KeyCode["X"] = 'X';
+    KeyCode["Y"] = 'Y';
+    KeyCode["Z"] = 'Z';
+
+    // 특수 키
+    KeyCode["Space"] = VK_SPACE;
+    KeyCode["Enter"] = VK_RETURN;
+    KeyCode["Escape"] = VK_ESCAPE;
+    KeyCode["Tab"] = VK_TAB;
+    KeyCode["Backspace"] = VK_BACK;
+    KeyCode["Delete"] = VK_DELETE;
+    KeyCode["Insert"] = VK_INSERT;
+
+    // 방향키
+    KeyCode["Left"] = VK_LEFT;
+    KeyCode["Right"] = VK_RIGHT;
+    KeyCode["Up"] = VK_UP;
+    KeyCode["Down"] = VK_DOWN;
+
+    // 기능키
+    KeyCode["F1"] = VK_F1;
+    KeyCode["F2"] = VK_F2;
+    KeyCode["F3"] = VK_F3;
+    KeyCode["F4"] = VK_F4;
+    KeyCode["F5"] = VK_F5;
+    KeyCode["F6"] = VK_F6;
+    KeyCode["F7"] = VK_F7;
+    KeyCode["F8"] = VK_F8;
+    KeyCode["F9"] = VK_F9;
+    KeyCode["F10"] = VK_F10;
+    KeyCode["F11"] = VK_F11;
+    KeyCode["F12"] = VK_F12;
+
+    // 수정자 키
+    KeyCode["LeftShift"] = VK_LSHIFT;
+    KeyCode["RightShift"] = VK_RSHIFT;
+    KeyCode["LeftControl"] = VK_LCONTROL;
+    KeyCode["RightControl"] = VK_RCONTROL;
+    KeyCode["LeftAlt"] = VK_LMENU;
+    KeyCode["RightAlt"] = VK_RMENU;
     
     Lua->set_function("print", sol::overload(                             
         [](const FString& msg) {                                          
@@ -357,6 +438,79 @@ FLuaManager::FLuaManager()
     RegisterComponentProxy(*Lua);
     ExposeGlobalFunctions();
     ExposeAllComponentsToLua();
+
+    // ════════════════════════════════════════════════════════════════════════
+    // 레벨 전환 시스템 바인딩
+    // ════════════════════════════════════════════════════════════════════════
+
+    // GameInstance 바인딩
+    Lua->new_usertype<UGameInstance>("GameInstance",
+        sol::no_constructor,
+
+        // 아이템 관리
+        "AddItem", &UGameInstance::AddItem,
+        "GetItemCount", &UGameInstance::GetItemCount,
+        "RemoveItem", &UGameInstance::RemoveItem,
+        "HasItem", &UGameInstance::HasItem,
+        "ClearItems", &UGameInstance::ClearItems,
+
+        // 플레이어 상태
+        "SetPlayerHealth", &UGameInstance::SetPlayerHealth,
+        "GetPlayerHealth", &UGameInstance::GetPlayerHealth,
+        "SetPlayerScore", &UGameInstance::SetPlayerScore,
+        "GetPlayerScore", &UGameInstance::GetPlayerScore,
+        "SetPlayerName", &UGameInstance::SetPlayerName,
+        "GetPlayerName", &UGameInstance::GetPlayerName,
+        "SetRescuedCount", &UGameInstance::SetRescuedCount,
+        "GetRescuedCount", &UGameInstance::GetRescuedCount,
+        "ResetPlayerData", &UGameInstance::ResetPlayerData,
+
+        // 범용 키-값 저장소
+        "SetInt", &UGameInstance::SetInt,
+        "GetInt", &UGameInstance::GetInt,
+        "SetFloat", &UGameInstance::SetFloat,
+        "GetFloat", &UGameInstance::GetFloat,
+        "SetString", &UGameInstance::SetString,
+        "GetString", &UGameInstance::GetString,
+        "SetBool", &UGameInstance::SetBool,
+        "GetBool", &UGameInstance::GetBool,
+        "HasKey", &UGameInstance::HasKey,
+        "ClearAll", &UGameInstance::ClearAll,
+
+        // 디버그
+        "PrintDebugInfo", &UGameInstance::PrintDebugInfo
+    );
+
+    // 전역 함수: GetGameInstance()
+    SharedLib.set_function("GetGameInstance",
+        []() -> UGameInstance*
+        {
+            if (!GWorld)
+            {
+                UE_LOG("[Lua][error] GetGameInstance: GWorld is null");
+                return nullptr;
+            }
+            return GWorld->GetGameInstance();
+        }
+    );
+
+    // 전역 함수: TransitionToLevel()
+    SharedLib.set_function("TransitionToLevel",
+        [](const FString& LevelPathUTF8)
+        {
+            UE_LOG("[Lua] TransitionToLevel called from Lua with path: %s", LevelPathUTF8.c_str());
+
+            if (!GWorld)
+            {
+                UE_LOG("[Lua][error] TransitionToLevel: GWorld is null");
+                return;
+            }
+
+            FWideString LevelPathWide = UTF8ToWide(LevelPathUTF8);
+            UE_LOG("[Lua] Calling GWorld->TransitionToLevel");
+            GWorld->TransitionToLevel(LevelPathWide);
+        }
+    );
 
     // 위 등록 마친 뒤 fall back 설정 : Shared lib의 fall back은 G
     sol::table MetaTableShared = Lua->create_table();

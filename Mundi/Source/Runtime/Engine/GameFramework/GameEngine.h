@@ -6,6 +6,7 @@ class D3D11RHI;
 class UWorld;
 class FViewport;
 class UClothManager;
+class UGameInstance;
 
 class UGameEngine final
 {
@@ -26,6 +27,9 @@ public:
     D3D11RHI* GetRHIDevice() { return &RHIDevice; }
     UWorld* GetDefaultWorld();
     const TArray<FWorldContext>& GetWorldContexts() { return WorldContexts; }
+
+    /** GameInstance 접근자 (PIE 세션 동안 유지됨) */
+    UGameInstance* GetGameInstance() const { return GameInstance; }
 
     void AddWorldContext(const FWorldContext& InWorldContext)
     {
@@ -55,6 +59,9 @@ private:
 
     // Cloth 시뮬레이션 매니저
     UClothManager* ClothManager = nullptr;
+
+    // GameInstance (PIE 세션 동안 유지)
+    UGameInstance* GameInstance = nullptr;
 
     //월드 핸들
     TArray<FWorldContext> WorldContexts;

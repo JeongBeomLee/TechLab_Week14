@@ -582,8 +582,8 @@ void USkeletalMeshComponent::InitRagdoll(FPhysScene* InPhysScene)
         NewBody->AngularDamping = 0.05f;
         NewBody->bIsRagdollBody = true;    // 랙돌 바디 표시
 
-        // Kinematic 모드 설정 (애니메이션이 물리를 제어)
-        NewBody->bKinematic = (PhysicsMode == EPhysicsMode::Kinematic);
+        // bSimulatePhysics 설정 (Kinematic 모드면 false, Ragdoll이면 true)
+        NewBody->bSimulatePhysics = (PhysicsMode != EPhysicsMode::Kinematic);
 
         // 래그돌 바디는 PhysicsBody 채널 사용
         // PhysicsBody는 Pawn(캡슐)과 충돌하지 않음

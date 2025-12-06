@@ -70,13 +70,9 @@ void AActor::Tick(float DeltaSeconds)
 
 	for (UActorComponent* Comp : OwnedComponents)
 	{
-		if (Comp && Comp->IsComponentTickEnabled())
+		// CRITICAL: PendingDestroy 체크 추가 (레벨 전환 중 삭제된 컴포넌트 방지)
+		if (Comp && !Comp->IsPendingDestroy() && Comp->IsComponentTickEnabled())
 		{
-			/*USkeletalMeshComponent* SkekeletalComponent = Cast<USkeletalMeshComponent>(Comp);
-			if (SkekeletalComponent) {
-				SkekeletalComponent->TickComponent(DeltaSeconds);
-				continue; 
-			}*/
 			// 에디터 모드일 때 컴포넌트별 bTickInEditor 체크 (Preview World 포함)
 			bool bShouldTick = World->bPie || Comp->CanTickInEditor() || World->IsPreviewWorld();
 

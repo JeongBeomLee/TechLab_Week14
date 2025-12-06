@@ -57,6 +57,14 @@ public:
     /** 대기중인 액터 해제를 일괄적으로 처리한다. */
     void FlushDeferredReleases();
 
+    /** * 물리 명령을 큐에 등록한다.
+     * 주로 액터가 아직 씬에 등록되지 않았을 때(초기화 시점) 사용한다.
+     */
+    void EnqueueCommand(std::function<void()> InCommand);
+
+    /** 등록된 모든 물리 명령을 실행한다. */
+    void FlushCommands();
+
     // ==================================================================================
     // Character Controller (CCT) Interface
     // ==================================================================================
@@ -223,6 +231,12 @@ private:
     
     /** 시뮬레이션 중 액터 해제 큐 접근용 뮤텍스 */
     std::mutex DeferredReleaseMutex;
+
+    /** 물리 커맨드 큐 */
+    TArray<std::function<void()>> CommandQueue;
+
+    /** 커맨드 큐 접근용 뮤텍스 */
+    std::mutex CommandMutex;
 
     /** 시뮬레이션이 종료되고 처리될 충돌 정보 큐 */
     TArray<FCollisionNotifyInfo> PendingCollisionNotifies;

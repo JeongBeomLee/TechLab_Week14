@@ -6,6 +6,7 @@ class D3D11RHI;
 class UWorld;
 class FAudioDevice;
 class UClothManager;
+class UGameInstance;
 
 struct FWorldContext
 {
@@ -42,6 +43,9 @@ public:
     UWorld* GetDefaultWorld();
     const TArray<FWorldContext>& GetWorldContexts() { return WorldContexts; }
 
+    /** GameInstance 접근자 (PIE Only) */
+    UGameInstance* GetGameInstance() const { return GameInstance; }
+
     void AddWorldContext(const FWorldContext& InWorldContext)
     {
         WorldContexts.push_back(InWorldContext);
@@ -64,10 +68,13 @@ private:
     HWND HWnd = nullptr;
 
     //디바이스 리소스 및 렌더러
-    D3D11RHI RHIDevice; 
+    D3D11RHI RHIDevice;
     UClothManager* ClothManager;
     std::unique_ptr<URenderer> Renderer;
-    
+
+    // GameInstance (PIE 세션 동안 유지)
+    UGameInstance* GameInstance = nullptr;
+
     //월드 핸들
     TArray<FWorldContext> WorldContexts;
      

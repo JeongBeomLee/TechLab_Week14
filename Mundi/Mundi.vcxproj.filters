@@ -1659,6 +1659,10 @@
     <ClCompile Include="Generated\FDecalFadeProperty.generated.cpp">
       <Filter>Generated</Filter>
     </ClCompile>
+    <ClCompile Include="Generated\UGameInstance.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\ALevelTransitionManager.generated.cpp">
     <ClCompile Include="Generated\FKTriangleMeshElem.generated.cpp">
     <ClCompile Include="Source\Runtime\Engine\Components\ClothComponent.cpp" />
     <ClCompile Include="Source\Runtime\Engine\Cloth\NvClothEnvironment.cpp" />
@@ -3598,6 +3602,10 @@
       <Filter>Generated</Filter>
     </ClInclude>
     <ClInclude Include="Source\Runtime\Engine\Components\DecalFadeTypes.h" />
+    <ClInclude Include="Generated\UGameInstance.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\ALevelTransitionManager.generated.h">
     <ClInclude Include="Generated\FKTriangleMeshElem.generated.h">
       <Filter>Generated</Filter>
     </ClInclude>
