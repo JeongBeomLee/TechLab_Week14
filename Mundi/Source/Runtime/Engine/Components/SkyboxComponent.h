@@ -7,15 +7,15 @@ class UTexture;
 class UShader;
 class UStaticMesh;
 
-// 6면 스카이박스 면 인덱스
+// 6면 스카이박스 면 인덱스 (LH Z-up: +X=Forward, +Y=Right, +Z=Up)
 enum class ESkyboxFace : uint8
 {
 	Front = 0,   // +X
 	Back = 1,    // -X
-	Top = 2,     // +Y
-	Bottom = 3,  // -Y
-	Right = 4,   // +Z
-	Left = 5     // -Z
+	Top = 2,     // +Z
+	Bottom = 3,  // -Z
+	Right = 4,   // +Y
+	Left = 5     // -Y
 };
 
 UCLASS(DisplayName="스카이박스 컴포넌트", Description="6면 스카이박스를 렌더링합니다")
