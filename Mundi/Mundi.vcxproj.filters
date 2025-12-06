@@ -1676,6 +1676,9 @@
     <ClCompile Include="Generated\AFirefighterCharacter.generated.cpp">
       <Filter>Generated</Filter>
     </ClCompile>
+    <ClCompile Include="Generated\USkyboxComponent.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Source\Runtime\AssetManagement\LinesBatch.h" />
@@ -3621,6 +3624,9 @@
       <Filter>Generated</Filter>
     </ClInclude>
     <ClInclude Include="Generated\AFirefighterCharacter.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\USkyboxComponent.generated.h">
       <Filter>Generated</Filter>
     </ClInclude>
   </ItemGroup>
