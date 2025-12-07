@@ -338,12 +338,11 @@ FTransform USkeletalMeshComponent::GetBoneWorldTransform(int32 BoneIndex)
 {
     if (CurrentComponentSpacePose.Num() > BoneIndex && BoneIndex >= 0)
     {
-        // RenderDebugVolume과 동일한 방식: Matrix 곱셈
-        FMatrix ComponentToWorld = GetWorldMatrix();
-        FMatrix BoneWorldMatrix = CurrentComponentSpacePose[BoneIndex].ToMatrix() * ComponentToWorld;
-        FTransform Result(BoneWorldMatrix);
+        // 트랜스폼 연산 사용 (행렬 곱셈 대신)
+        // 행렬 곱셈 후 FTransform 변환 시 스케일이 잘못 추출되는 문제 방지
+        FTransform ComponentWorldTransform = GetWorldTransform();
+        FTransform Result = ComponentWorldTransform.GetWorldTransform(CurrentComponentSpacePose[BoneIndex]);
 
-        // TODO: Leaf 노드 본에서 Scale3D가 0이 되는 근본 원인 분석 필요
         // Scale3D가 0인 경우 (1,1,1)로 보정 (유효하지 않은 Scale 방지)
         if (Result.Scale3D.X == 0.0f) Result.Scale3D.X = 1.0f;
         if (Result.Scale3D.Y == 0.0f) Result.Scale3D.Y = 1.0f;
@@ -926,16 +925,27 @@ void USkeletalMeshComponent::SyncBonesFromPhysics()
         }
 
         const int32 ParentIndex = Skeleton->Bones[BoneIndex].ParentIndex;
+        FTransform LocalPose;
+
         if (ParentIndex == -1)
         {
             // 루트 본: 컴포넌트 기준 로컬
-            CurrentLocalSpacePose[BoneIndex] = ComponentWorldTransform.GetRelativeTransform(BodyWorldTransforms[BoneIndex]);
+            LocalPose = ComponentWorldTransform.GetRelativeTransform(BodyWorldTransforms[BoneIndex]);
         }
         else
         {
             // 자식 본: 부모의 물리 월드 트랜스폼 기준
-            CurrentLocalSpacePose[BoneIndex] = BodyWorldTransforms[ParentIndex].GetRelativeTransform(BodyWorldTransforms[BoneIndex]);
+            LocalPose = BodyWorldTransforms[ParentIndex].GetRelativeTransform(BodyWorldTransforms[BoneIndex]);
         }
+
+        // 스케일은 GetRelativeTransform에서 잘못 계산될 수 있으므로 (균일 스케일이면 1,1,1이 됨)
+        // RefPose의 원래 스케일을 유지
+        if (BoneIndex < RefPose.Num())
+        {
+            LocalPose.Scale3D = RefPose[BoneIndex].Scale3D;
+        }
+
+        CurrentLocalSpacePose[BoneIndex] = LocalPose;
     }
 
     // 포즈 재계산
