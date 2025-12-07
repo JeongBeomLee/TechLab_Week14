@@ -18,6 +18,8 @@
 #include "World.h"
 #include "PhysScene.h"
 #include "FireActor.h"
+#include "EPhysicsMode.h"
+#include "PhysicsAsset.h"
 
 AFirefighterCharacter::AFirefighterCharacter()
 	: bOrientRotationToMovement(true)
@@ -40,6 +42,13 @@ AFirefighterCharacter::AFirefighterCharacter()
 		MeshComponent->SetupAttachment(CapsuleComponent);
 		MeshComponent->SetRelativeLocation(FVector(0.0f, 0.0f, -1.05f));
 		MeshComponent->SetSkeletalMesh(GDataDir + "/firefighter/Firefighter_Without_Cloth.fbx");
+
+		// PhysicsAsset 설정 (랙돌용)
+		UPhysicsAsset* PhysAsset = UResourceManager::GetInstance().Load<UPhysicsAsset>("Data/Physics/Firefighter.physicsasset");
+		if (PhysAsset)
+		{
+			MeshComponent->SetPhysicsAsset(PhysAsset);
+		}
 	}
 
 	// LuaScriptComponent 생성 (애니메이션 제어용)
@@ -200,6 +209,12 @@ void AFirefighterCharacter::Tick(float DeltaSeconds)
 
 	// Super::Tick에서 Component들의 Tick이 호출됨 (SpringArm 포함)
 	Super::Tick(DeltaSeconds);
+
+	// 데미지 쿨타임 타이머 업데이트
+	if (DamageCooldownTimer > 0.0f)
+	{
+		DamageCooldownTimer -= DeltaSeconds;
+	}
 }
 
 void AFirefighterCharacter::SetupPlayerInputComponent(UInputComponent* InInputComponent)
@@ -387,5 +402,57 @@ void AFirefighterCharacter::FireWaterMagic(float DamageAmount)
 			FireActor->ApplyWaterDamage(DamageAmount);
 			UE_LOG("FireActor->ApplyWaterDamage");
 		}
+	}
+}
+
+void AFirefighterCharacter::TakeDamage(float DamageAmount)
+{
+	// 이미 죽었거나 쿨타임 중이면 무시
+	if (bIsDead || DamageCooldownTimer > 0.0f)
+	{
+		return;
+	}
+
+	// 데미지 적용
+	Health -= DamageAmount;
+	DamageCooldownTimer = DamageCooldown;
+
+	UE_LOG("TakeDamage: %.1f damage, Health: %.1f/%.1f", DamageAmount, Health, MaxHealth);
+
+	// 체력이 0 이하면 사망
+	if (Health <= 0.0f)
+	{
+		Health = 0.0f;
+		Die();
+	}
+}
+
+void AFirefighterCharacter::Die()
+{
+	if (bIsDead)
+	{
+		return;
+	}
+
+	bIsDead = true;
+	UE_LOG("Firefighter died! Activating ragdoll...");
+
+	// 이동 비활성화
+	if (CharacterMovement)
+	{
+		CharacterMovement->MaxWalkSpeed = 0.0f;
+	}
+
+	// 캡슐 충돌 비활성화 (랙돌이 땅에 끼지 않도록)
+	if (CapsuleComponent)
+	{
+		CapsuleComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	}
+
+	// 스켈레탈 메쉬 랙돌 활성화
+	if (MeshComponent)
+	{
+		// 랙돌 모드로 전환 (물리가 본을 제어)
+		MeshComponent->SetPhysicsMode(EPhysicsMode::Ragdoll);
 	}
 }

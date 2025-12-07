@@ -76,6 +76,22 @@ public:
     UPROPERTY(LuaBind, DisplayName="WaterMagicRange")
     float WaterMagicRange = 14.0f;
 
+    // ────────────────────────────────────────────────
+    // 데미지 및 사망 시스템
+    // ────────────────────────────────────────────────
+
+    /** 데미지를 받음 (쿨타임 적용) */
+    UFUNCTION(LuaBind, DisplayName="TakeDamage")
+    void TakeDamage(float DamageAmount);
+
+    /** 사망 여부 */
+    UPROPERTY(LuaBind, DisplayName="bIsDead")
+    bool bIsDead = false;
+
+    /** 데미지 쿨타임 (초) */
+    UPROPERTY(LuaBind, DisplayName="DamageCooldown")
+    float DamageCooldown = 0.5f;
+
 protected:
     ~AFirefighterCharacter() override;
 
@@ -139,6 +155,12 @@ private:
 
     /** 물 마법 파티클 컴포넌트 */
     UParticleSystemComponent* WaterMagicParticle;
+
+    /** 데미지 쿨타임 타이머 */
+    float DamageCooldownTimer = 0.0f;
+
+    /** 사망 처리 */
+    void Die();
 
     //USound* SorrySound;
     //USound* HitSound;
