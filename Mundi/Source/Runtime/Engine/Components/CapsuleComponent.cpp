@@ -65,11 +65,18 @@ void UCapsuleComponent::SetCapsuleSize(float InRadius, float InHalfHeight, bool 
 
 		UpdateBodySetup();
 
-		// CCT 모드이거나 RigidBody가 있으면 물리 상태 재생성
-		if (BodyInstance.IsValidBodyInstance() || ControllerInstance != nullptr)
+		// RigidBody 또는 CCT가 활성화된 경우 물리 상태 재생성
+		// 단, World와 PhysScene이 유효한 경우에만 (종료 시점 안전성)
+		bool bHasPhysicsState = BodyInstance.IsValidBodyInstance() || ControllerInstance != nullptr;
+		if (bHasPhysicsState)
 		{
-			OnDestroyPhysicsState();
-			OnCreatePhysicsState();
+			UWorld* World = GetWorld();
+			FPhysScene* PhysScene = World ? World->GetPhysicsScene() : nullptr;
+			if (World && PhysScene)
+			{
+				OnDestroyPhysicsState();
+				OnCreatePhysicsState();
+			}
 		}
 
 		if (bUpdateBoundsNow)
