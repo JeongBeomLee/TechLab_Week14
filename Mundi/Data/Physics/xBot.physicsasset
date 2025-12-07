@@ -4,36 +4,36 @@
         "BoxElems" : [],
         "SphereElems" : [],
         "SphylElems" : [{
-            "Center" : [0.000000, 0.000000, 0.000000],
+            "Center" : [-0.043828, 0.000000, -0.034486],
             "CollisionEnabled" : 3,
             "Length" : 0.122189,
             "Name" : "mixamorig:Hips_sphyl",
-            "Radius" : 0.050912,
-            "Rotation" : [0.707107, 0.000000, 0.000000, 0.707107]
+            "Radius" : 0.120000,
+            "Rotation" : [0.707107, -0.000000, 0.000000, 0.707107]
           }]
       },
       "AngularDamping" : 0.100000,
       "BoneName" : "mixamorig:Hips",
       "LinearDamping" : 0.100000,
-      "MassInKg" : 1.547792,
+      "MassInKg" : 12.765930,
       "PhysMaterialPath" : ""
     }, {
       "AggGeom" : {
         "BoxElems" : [],
         "SphereElems" : [],
         "SphylElems" : [{
-            "Center" : [0.000000, 0.000000, 0.000000],
+            "Center" : [-0.000000, -0.000000, -0.019092],
             "CollisionEnabled" : 3,
             "Length" : 0.120032,
             "Name" : "mixamorig:Spine_sphyl",
-            "Radius" : 0.050013,
-            "Rotation" : [0.707107, -0.000000, -0.000000, 0.707107]
+            "Radius" : 0.100000,
+            "Rotation" : [0.707107, -0.000000, 0.000000, 0.707107]
           }]
       },
       "AngularDamping" : 0.100000,
       "BoneName" : "mixamorig:Spine",
       "LinearDamping" : 0.100000,
-      "MassInKg" : 1.467249,
+      "MassInKg" : 10.000000,
       "PhysMaterialPath" : ""
     }, {
       "AggGeom" : {
@@ -44,50 +44,50 @@
             "CollisionEnabled" : 3,
             "Length" : 0.111865,
             "Name" : "mixamorig:Spine1_sphyl",
-            "Radius" : 0.046610,
+            "Radius" : 0.080000,
             "Rotation" : [0.707107, -0.000000, -0.000000, 0.707107]
           }]
       },
       "AngularDamping" : 0.100000,
       "BoneName" : "mixamorig:Spine1",
       "LinearDamping" : 0.100000,
-      "MassInKg" : 1.187673,
+      "MassInKg" : 10.000000,
       "PhysMaterialPath" : ""
     }, {
       "AggGeom" : {
         "BoxElems" : [],
         "SphereElems" : [],
         "SphylElems" : [{
-            "Center" : [0.000000, 0.000000, 0.000000],
+            "Center" : [-0.000000, 0.000000, 0.017929],
             "CollisionEnabled" : 3,
-            "Length" : 0.202384,
+            "Length" : 0.100000,
             "Name" : "mixamorig:Spine2_sphyl",
             "Radius" : 0.084327,
-            "Rotation" : [0.707107, -0.000000, -0.000000, 0.707107]
+            "Rotation" : [0.707107, -0.000000, 0.000000, 0.707107]
           }]
       },
       "AngularDamping" : 0.100000,
       "BoneName" : "mixamorig:Spine2",
       "LinearDamping" : 0.100000,
-      "MassInKg" : 7.033009,
+      "MassInKg" : 10.000000,
       "PhysMaterialPath" : ""
     }, {
       "AggGeom" : {
         "BoxElems" : [],
         "SphereElems" : [],
         "SphylElems" : [{
-            "Center" : [0.014205, 0.000000, 0.046710],
+            "Center" : [0.020267, -0.000000, 0.066642],
             "CollisionEnabled" : 3,
-            "Length" : 0.117173,
+            "Length" : 0.070000,
             "Name" : "mixamorig:Neck_sphyl",
-            "Radius" : 0.068351,
-            "Rotation" : [0.000000, -0.989125, -0.000000, 0.147079]
+            "Radius" : 0.050000,
+            "Rotation" : [-0.000000, -0.989125, 0.000000, 0.147079]
           }]
       },
       "AngularDamping" : 0.100000,
       "BoneName" : "mixamorig:Neck",
       "LinearDamping" : 0.100000,
-      "MassInKg" : 3.057301,
+      "MassInKg" : 1.073378,
       "PhysMaterialPath" : ""
     }, {
       "AggGeom" : {
@@ -112,18 +112,18 @@
         "BoxElems" : [],
         "SphereElems" : [],
         "SphylElems" : [{
-            "Center" : [0.000000, -0.000000, 0.054191],
+            "Center" : [-0.000000, -0.000000, 0.077448],
             "CollisionEnabled" : 3,
             "Length" : 0.086705,
             "Name" : "mixamorig:RightShoulder_sphyl",
-            "Radius" : 0.032515,
+            "Radius" : 0.060000,
             "Rotation" : [-0.000000, 1.000000, 0.000000, -0.000000]
           }]
       },
       "AngularDamping" : 0.100000,
       "BoneName" : "mixamorig:RightShoulder",
       "LinearDamping" : 0.100000,
-      "MassInKg" : 0.431959,
+      "MassInKg" : 1.885389,
       "PhysMaterialPath" : ""
     }, {
       "AggGeom" : {
@@ -184,18 +184,18 @@
         "BoxElems" : [],
         "SphereElems" : [],
         "SphylElems" : [{
-            "Center" : [0.000000, 0.000000, 0.054189],
+            "Center" : [0.000000, 0.000000, 0.081736],
             "CollisionEnabled" : 3,
             "Length" : 0.086702,
             "Name" : "mixamorig:LeftShoulder_sphyl",
-            "Radius" : 0.032513,
+            "Radius" : 0.060000,
             "Rotation" : [-0.000000, 1.000000, 0.000000, -0.000000]
           }]
       },
       "AngularDamping" : 0.100000,
       "BoneName" : "mixamorig:LeftShoulder",
       "LinearDamping" : 0.100000,
-      "MassInKg" : 0.431903,
+      "MassInKg" : 1.885355,
       "PhysMaterialPath" : ""
     }, {
       "AggGeom" : {
