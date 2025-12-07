@@ -77,15 +77,13 @@ void UCharacterMovementComponent::TickComponent(float DeltaTime)
 	// 고정 시간 스텝 적용
 	PhysicsAccumulator += DeltaTime;
 
-	// 최대 누적 시간 제한 (프레임 드랍 시 너무 많은 반복 방지)
-	const float MaxAccumulator = FixedPhysicsStep * 8.0f;
-	if (PhysicsAccumulator > MaxAccumulator)
-	{
-		PhysicsAccumulator = MaxAccumulator;
-	}
+	// 최대 반복 횟수 제한 (프레임 드랍 시 연쇄 렉 방지)
+	// 3회 = 50ms 이상 지연 시 나머지는 버림 (슬로우모션 효과)
+	constexpr int32 MaxIterations = 3;
+	int32 IterationCount = 0;
 
 	// 고정 시간 스텝으로 물리 업데이트
-	while (PhysicsAccumulator >= FixedPhysicsStep)
+	while (PhysicsAccumulator >= FixedPhysicsStep && IterationCount < MaxIterations)
 	{
 		// 1. 속도 업데이트 (입력, 마찰, 가속)
 		UpdateVelocity(FixedPhysicsStep);
@@ -140,6 +138,13 @@ void UCharacterMovementComponent::TickComponent(float DeltaTime)
 		}
 
 		PhysicsAccumulator -= FixedPhysicsStep;
+		++IterationCount;
+	}
+
+	// 최대 반복에 도달했으면 남은 누적 시간 버림 (연쇄 렉 방지)
+	if (IterationCount >= MaxIterations && PhysicsAccumulator >= FixedPhysicsStep)
+	{
+		PhysicsAccumulator = 0.0f;
 	}
 
 	// 입력 초기화

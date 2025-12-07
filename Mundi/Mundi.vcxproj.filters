@@ -1439,6 +1439,7 @@
     <ClCompile Include="Generated\AItemTestGameMode.generated.cpp">
       <Filter>Generated</Filter>
     </ClCompile>
+    <ClCompile Include="Generated\AItemCollectGameMode.generated.cpp">
     <ClCompile Include="Generated\AFireActor.generated.cpp">
       <Filter>Generated</Filter>
     </ClCompile>
@@ -3050,6 +3051,7 @@
     <ClInclude Include="Generated\AItemTestGameMode.generated.h">
       <Filter>Generated</Filter>
     </ClInclude>
+    <ClInclude Include="Generated\AItemCollectGameMode.generated.h">
     <ClInclude Include="Generated\AFireActor.generated.h">
       <Filter>Generated</Filter>
     </ClInclude>

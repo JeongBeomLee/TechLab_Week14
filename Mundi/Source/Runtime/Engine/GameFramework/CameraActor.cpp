@@ -108,10 +108,8 @@ void ACameraActor::SyncRotationCache()
 
 ACameraActor::~ACameraActor()
 {
-    if (CameraComponent)
-    {
-        ObjectFactory::DeleteObject(CameraComponent);
-    }
+    // 컴포넌트는 AActor::DestroyAllComponents()에서 정리됨
+    // 직접 DeleteObject 호출 시 이중 삭제로 크래시 발생
     CameraComponent = nullptr;
 }
 

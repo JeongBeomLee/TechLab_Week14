@@ -27,10 +27,10 @@ AFirefighterCharacter::AFirefighterCharacter()
 	, ItemPickupScript(nullptr)
 	, WaterMagicParticle(nullptr)
 {
-	// 캡슐 크기 설정
+	// 캡슐 크기 설정 (기본 스케일 1.0 기준)
 	if (CapsuleComponent)
 	{
-		CapsuleComponent->SetCapsuleSize(0.25f, 1.0f);
+		CapsuleComponent->SetCapsuleSize(0.33f, 1.0f);
 	}
 
 	// SkeletalMeshComponent 생성 (애니메이션)
@@ -38,7 +38,7 @@ AFirefighterCharacter::AFirefighterCharacter()
 	if (MeshComponent && CapsuleComponent)
 	{
 		MeshComponent->SetupAttachment(CapsuleComponent);
-		MeshComponent->SetRelativeLocation(FVector(0.0f, 0.0f, -1.25f));
+		MeshComponent->SetRelativeLocation(FVector(0.0f, 0.0f, -1.05f));
 		MeshComponent->SetSkeletalMesh(GDataDir + "/firefighter/Firefighter_Without_Cloth.fbx");
 	}
 
@@ -273,6 +273,52 @@ void AFirefighterCharacter::MoveRightCamera(float Value)
 
 	// 이동 입력 추가
 	AddMovementInput(Right, Value);
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// 스케일 설정
+// ────────────────────────────────────────────────────────────────────────────
+
+void AFirefighterCharacter::SetCharacterScale(float Scale)
+{
+	CharacterScale = Scale;
+
+	// 기본 수치 (스케일 1.0 기준)
+	constexpr float BaseCapsuleRadius = 0.33f;
+	constexpr float BaseCapsuleHalfHeight = 1.0f;
+	constexpr float BaseMeshOffsetZ = -1.05f;
+	constexpr float BaseSpringArmLength = 10.0f;
+	constexpr float BaseItemDetectionRadius = 2.0f;
+
+	// 1. CapsuleComponent 크기 설정 (PhysX CCT용)
+	if (CapsuleComponent)
+	{
+		CapsuleComponent->SetCapsuleSize(
+			BaseCapsuleRadius * Scale,
+			BaseCapsuleHalfHeight * Scale
+		);
+	}
+
+	// 2. MeshComponent 스케일 및 오프셋 설정
+	if (MeshComponent)
+	{
+		MeshComponent->SetRelativeScale(FVector(Scale, Scale, Scale));
+		MeshComponent->SetRelativeLocation(FVector(0.0f, 0.0f, BaseMeshOffsetZ * Scale));
+	}
+
+	// 3. SpringArmComponent 길이 설정
+	if (SpringArmComponent)
+	{
+		SpringArmComponent->SetTargetArmLength(BaseSpringArmLength * Scale);
+	}
+
+	// 4. ItemDetectionSphere 반경 설정
+	if (ItemDetectionSphere)
+	{
+		ItemDetectionSphere->SetSphereRadius(BaseItemDetectionRadius * Scale);
+	}
+
+	UE_LOG("[info] FirefighterCharacter::SetCharacterScale - Scale set to %.2f", Scale);
 }
 
 void AFirefighterCharacter::PlayFireSuitEquipEffect()
