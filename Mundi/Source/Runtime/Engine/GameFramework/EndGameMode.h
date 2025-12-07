@@ -81,16 +81,16 @@ public:
      * 효과음 경로
      */
     UPROPERTY(EditAnywhere)
-    FString CheckSoundPath = "Data/Audio/check.wav";
+    FString CheckSoundPath = "Data/Audio/EndingScene/check.wav";
 
     UPROPERTY(EditAnywhere)
-    FString StampSoundPath = "Data/Audio/stamp.wav";
+    FString StampSoundPath = "Data/Audio/EndingScene/stamp.wav";
 
     UPROPERTY(EditAnywhere)
-    FString TypingSoundPath = "Data/Audio/typing.wav";
+    FString TypingSoundPath = "Data/Audio/EndingScene/typing.wav";
 
     UPROPERTY(EditAnywhere)
-    FString ButtonSoundPath = "Data/Audio/button.wav";
+    FString ButtonSoundPath = "Data/Audio/EndingScene/button.wav";
 
     /**
      * 성공 판정 기준 구조 인원 수

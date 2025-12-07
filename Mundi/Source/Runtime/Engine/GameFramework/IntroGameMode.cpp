@@ -21,18 +21,14 @@ void AIntroGameMode::BeginPlay()
 {
     Super::BeginPlay();
 
-    UE_LOG("[info] IntroGameMode: BeginPlay");
-
     // LevelTransitionManager에 NextLevel 설정
     if (GetWorld())
     {
         for (AActor* Actor : GetWorld()->GetActors())
         {
-            ALevelTransitionManager* Manager = dynamic_cast<ALevelTransitionManager*>(Actor);
-            if (Manager)
+            if (ALevelTransitionManager* Manager = Cast<ALevelTransitionManager>(Actor))
             {
                 Manager->SetNextLevel(NextScenePath);
-                UE_LOG("[info] IntroGameMode: Set NextLevel -> %ls", NextScenePath.c_str());
                 break;
             }
         }
@@ -40,7 +36,6 @@ void AIntroGameMode::BeginPlay()
 
     // 입력 모드를 UIOnly로 설정 (마우스 클릭만 허용, 키보드/카메라 입력 차단)
     UInputManager::GetInstance().SetInputMode(EInputMode::UIOnly);
-    UE_LOG("[info] IntroGameMode: Input mode set to UIOnly (mouse clicks only)");
 
     // 사운드 초기화
     InitializeSounds();
@@ -55,30 +50,18 @@ void AIntroGameMode::EndPlay()
 
     // 다른 씬으로 전환 시 입력 모드를 GameAndUI로 복원
     UInputManager::GetInstance().SetInputMode(EInputMode::GameAndUI);
-    UE_LOG("[info] IntroGameMode: Input mode restored to GameAndUI");
 
     ClearUI();
 }
 
 void AIntroGameMode::InitializeSounds()
 {
-    UE_LOG("[info] IntroGameMode: Loading sounds...");
-
     ButtonSound = UResourceManager::GetInstance().Load<USound>(ButtonSoundPath);
-
-    if (!ButtonSound)
-        UE_LOG("[warning] IntroGameMode: Failed to load button sound: %s", ButtonSoundPath.c_str());
-    else
-        UE_LOG("[info] IntroGameMode: Button sound loaded: %s", ButtonSoundPath.c_str());
 }
 
 void AIntroGameMode::InitializeUI()
 {
-    if (!SGameHUD::Get().IsInitialized())
-    {
-        UE_LOG("[warning] IntroGameMode: GameHUD not initialized");
-        return;
-    }
+    if (!SGameHUD::Get().IsInitialized()) { return; }
 
     // 타이틀 이미지 (2816 x 1536 이미지, 비율 유지하며 적절한 크기로 표시)
     // 화면 중상단 (Y: 0.25)
@@ -128,40 +111,29 @@ void AIntroGameMode::InitializeUI()
         .SetPivot(0.5f, 0.5f)
         .SetOffset(230.f, 0.f)        // 오른쪽으로 230px (버튼 너비 400 + 여백 60 / 2)
         .SetSize(400.f, 220.f);
-
-    UE_LOG("[info] IntroGameMode: UI initialized");
 }
 
 void AIntroGameMode::OnStartButtonClicked()
 {
-    UE_LOG("[info] IntroGameMode: Start button clicked");
-
     // World를 통해 안전하게 LevelTransitionManager 접근
-    if (!GEngine.IsPIEActive())
-        return;
+    if (!GEngine.IsPIEActive()) { return; }
 
     for (const auto& Context : GEngine.GetWorldContexts())
     {
         if (Context.WorldType == EWorldType::Game && Context.World)
         {
             // IntroGameMode 인스턴스 찾아서 버튼 사운드 재생
-            AIntroGameMode* IntroGameMode = dynamic_cast<AIntroGameMode*>(Context.World->GetGameMode());
+            AIntroGameMode* IntroGameMode = Cast<AIntroGameMode>(Context.World->GetGameMode());
             if (IntroGameMode && IntroGameMode->ButtonSound)
             {
-                UE_LOG("[info] IntroGameMode: Playing button click sound");
                 FAudioDevice::PlaySound3D(IntroGameMode->ButtonSound, FVector::Zero(), 1.0f, false);
             }
 
             for (AActor* Actor : Context.World->GetActors())
             {
-                ALevelTransitionManager* Manager = dynamic_cast<ALevelTransitionManager*>(Actor);
-                if (Manager)
+                if (ALevelTransitionManager* Manager = Cast<ALevelTransitionManager>(Actor))
                 {
-                    if (Manager->IsTransitioning())
-                    {
-                        UE_LOG("[warning] IntroGameMode: Already transitioning, ignoring button click");
-                        return;
-                    }
+                    if (Manager->IsTransitioning()) { return; }
 
                     Manager->TransitionToNextLevel();
                     return;
@@ -170,14 +142,10 @@ void AIntroGameMode::OnStartButtonClicked()
             break;
         }
     }
-
-    UE_LOG("[error] IntroGameMode: LevelTransitionManager not found!");
 }
 
 void AIntroGameMode::OnQuitButtonClicked()
 {
-    UE_LOG("[info] IntroGameMode: Quit button clicked");
-
     // World를 통해 안전하게 IntroGameMode 접근하여 버튼 사운드 재생
     if (GEngine.IsPIEActive())
     {
@@ -185,10 +153,9 @@ void AIntroGameMode::OnQuitButtonClicked()
         {
             if (Context.WorldType == EWorldType::Game && Context.World)
             {
-                AIntroGameMode* IntroGameMode = dynamic_cast<AIntroGameMode*>(Context.World->GetGameMode());
+                AIntroGameMode* IntroGameMode = Cast<AIntroGameMode>(Context.World->GetGameMode());
                 if (IntroGameMode && IntroGameMode->ButtonSound)
                 {
-                    UE_LOG("[info] IntroGameMode: Playing button click sound");
                     FAudioDevice::PlaySound3D(IntroGameMode->ButtonSound, FVector::Zero(), 1.0f, false);
                 }
                 break;
@@ -201,8 +168,7 @@ void AIntroGameMode::OnQuitButtonClicked()
 
 void AIntroGameMode::ClearUI()
 {
-    if (!SGameHUD::Get().IsInitialized())
-        return;
+    if (!SGameHUD::Get().IsInitialized()) { return; }
 
     if (TitleWidget)
     {
@@ -221,6 +187,4 @@ void AIntroGameMode::ClearUI()
         SGameHUD::Get().RemoveWidget(QuitButton);
         QuitButton.Reset();
     }
-
-    UE_LOG("[info] IntroGameMode: UI cleared");
 }

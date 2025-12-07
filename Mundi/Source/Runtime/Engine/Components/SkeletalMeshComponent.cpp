@@ -469,6 +469,11 @@ void USkeletalMeshComponent::ResetToAnimationPose()
     ForceRecomputePose();
 }
 
+void USkeletalMeshComponent::SaveCurrentPoseAsBase()
+{
+    BaseAnimationPose = CurrentLocalSpacePose;
+}
+
 void USkeletalMeshComponent::TriggerAnimNotify(const FAnimNotifyEvent& NotifyEvent)
 {
     AActor* Owner = GetOwner();

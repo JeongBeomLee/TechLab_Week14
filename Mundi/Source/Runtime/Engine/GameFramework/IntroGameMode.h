@@ -31,7 +31,7 @@ public:
      * 다음 씬 경로 (게임 시작 버튼 클릭 시 이동)
      */
     UPROPERTY(EditAnywhere)
-    FWideString NextScenePath = L"Data/Scenes/ItemCollect.scene";
+    FWideString NextScenePath = L"Data/Scenes/FireDispatch.scene";
 
     /**
      * 게임 시작 버튼 텍스트

@@ -106,6 +106,13 @@ public:
      */
     void ResetToAnimationPose();
 
+    /**
+     * @brief 현재 포즈(CurrentLocalSpacePose)를 BaseAnimationPose로 저장
+     * 래그돌 포즈에서 애니메이션으로 블렌딩할 때 사용
+     */
+    UFUNCTION(LuaBind, DisplayName="SaveCurrentPoseAsBase")
+    void SaveCurrentPoseAsBase();
+
     TArray<FTransform> RefPose;
     TArray<FTransform> BaseAnimationPose;
 
@@ -178,6 +185,7 @@ public:
      * @brief 물리 모드 설정
      * @param NewMode Animation: 물리 없음, Kinematic: 애니메이션+충돌, Ragdoll: 래그돌
      */
+    UFUNCTION(LuaBind, DisplayName="SetPhysicsMode")
     void SetPhysicsMode(EPhysicsMode NewMode);
 
     /**
