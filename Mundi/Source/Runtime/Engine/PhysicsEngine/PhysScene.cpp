@@ -633,6 +633,60 @@ bool FPhysScene::Raycast(const FVector& Origin, const FVector& Direction, float 
     return false;
 }
 
+bool FPhysScene::RaycastSingle(const FVector& Origin, const FVector& Direction, float MaxDistance,
+                                FHitResult& OutHit,
+                                AActor* IgnoreActor) const
+{
+    if (!PhysXScene)
+    {
+        return false;
+    }
+
+    OutHit.Init();
+
+    PxVec3 PxOrigin = U2PVector(Origin);
+    PxVec3 PxDirection = U2PVector(Direction.GetNormalized());
+
+    PxRaycastBuffer Hit;
+    bool bHit = false;
+
+    if (IgnoreActor)
+    {
+        FIgnoreActorFilterCallback FilterCallback(IgnoreActor);
+        PxQueryFilterData FilterData;
+        FilterData.flags = PxQueryFlag::eDYNAMIC | PxQueryFlag::eSTATIC | PxQueryFlag::ePREFILTER;
+
+        bHit = PhysXScene->raycast(PxOrigin, PxDirection, MaxDistance, Hit, PxHitFlag::eDEFAULT, FilterData, &FilterCallback);
+    }
+    else
+    {
+        bHit = PhysXScene->raycast(PxOrigin, PxDirection, MaxDistance, Hit);
+    }
+
+    if (bHit && Hit.hasBlock)
+    {
+        OutHit.bBlockingHit = true;
+        OutHit.Distance = Hit.block.distance;
+        OutHit.ImpactPoint = P2UVector(Hit.block.position);
+        OutHit.ImpactNormal = P2UVector(Hit.block.normal);
+
+        // 히트한 액터/컴포넌트 정보 추출
+        if (Hit.block.actor && Hit.block.actor->userData)
+        {
+            FBodyInstance* BodyInstance = static_cast<FBodyInstance*>(Hit.block.actor->userData);
+            if (BodyInstance && BodyInstance->OwnerComponent)
+            {
+                OutHit.Component = BodyInstance->OwnerComponent;
+                OutHit.Actor = BodyInstance->OwnerComponent->GetOwner();
+            }
+        }
+
+        return true;
+    }
+
+    return false;
+}
+
 // ==================================================================================
 // Sweep Interface Implementation
 // ==================================================================================
@@ -876,4 +930,122 @@ void FPhysScene::DestroyController(FControllerInstance* InController)
     delete InController;
 
     UE_LOG("[PhysX CCT] Controller 해제 완료");
+}
+
+// ==================================================================================
+// Convex / Geometry Sweep Implementation
+// ==================================================================================
+
+bool FPhysScene::SweepSingleConvex(const FKConvexElem& ConvexElem,
+                                    const FVector& Start, const FVector& End,
+                                    const FQuat& Rotation, const FVector& Scale3D,
+                                    FHitResult& OutHit,
+                                    AActor* IgnoreActor) const
+{
+    if (!ConvexElem.ConvexMesh)
+    {
+        UE_LOG("[PhysX Sweep] SweepSingleConvex 실패: ConvexMesh가 nullptr");
+        return false;
+    }
+
+    PxConvexMeshGeometry ConvexGeom = ConvexElem.GetPxGeometry(Scale3D);
+
+    // Convex 요소의 로컬 변환을 적용
+    FQuat FinalRotation = Rotation * ConvexElem.ElemTransform.Rotation;
+
+    return SweepSingleInternal(ConvexGeom, Start, End, FinalRotation, OutHit, IgnoreActor);
+}
+
+bool FPhysScene::SweepSingleGeometry(const PxGeometry& Geometry,
+                                      const FVector& Start, const FVector& End,
+                                      const FQuat& Rotation,
+                                      FHitResult& OutHit,
+                                      AActor* IgnoreActor) const
+{
+    return SweepSingleInternal(Geometry, Start, End, Rotation, OutHit, IgnoreActor);
+}
+
+// ==================================================================================
+// Overlap Implementation
+// ==================================================================================
+
+bool FPhysScene::OverlapAnyGeometry(const PxGeometry& Geometry,
+                                     const FVector& Position, const FQuat& Rotation,
+                                     AActor* IgnoreActor) const
+{
+    if (!PhysXScene)
+    {
+        return false;
+    }
+
+    PxTransform Pose(U2PVector(Position), U2PQuat(Rotation));
+
+    // ANY_HIT 플래그로 빠른 체크 (하나라도 겹치면 즉시 반환)
+    PxOverlapBuffer Hit;
+    PxQueryFilterData FilterData;
+    FilterData.flags = PxQueryFlag::eDYNAMIC | PxQueryFlag::eSTATIC | PxQueryFlag::eANY_HIT;
+
+    if (IgnoreActor)
+    {
+        FilterData.flags |= PxQueryFlag::ePREFILTER;
+        FIgnoreActorFilterCallback FilterCallback(IgnoreActor);
+        return PhysXScene->overlap(Geometry, Pose, Hit, FilterData, &FilterCallback);
+    }
+    else
+    {
+        return PhysXScene->overlap(Geometry, Pose, Hit, FilterData);
+    }
+}
+
+bool FPhysScene::OverlapAnyConvex(const FKConvexElem& ConvexElem,
+                                   const FVector& Position, const FQuat& Rotation,
+                                   const FVector& Scale3D,
+                                   AActor* IgnoreActor) const
+{
+    if (!ConvexElem.ConvexMesh)
+    {
+        UE_LOG("[PhysX Overlap] OverlapAnyConvex 실패: ConvexMesh가 nullptr");
+        return false;
+    }
+
+    PxConvexMeshGeometry ConvexGeom = ConvexElem.GetPxGeometry(Scale3D);
+
+    // Convex 요소의 로컬 변환을 적용
+    FQuat FinalRotation = Rotation * ConvexElem.ElemTransform.Rotation;
+
+    return OverlapAnyGeometry(ConvexGeom, Position, FinalRotation, IgnoreActor);
+}
+
+bool FPhysScene::OverlapAnyTriangleMesh(const FKTriangleMeshElem& TriMeshElem,
+                                         const FVector& Position, const FQuat& Rotation,
+                                         const FVector& Scale3D,
+                                         AActor* IgnoreActor) const
+{
+    if (!TriMeshElem.TriangleMesh)
+    {
+        UE_LOG("[PhysX Overlap] OverlapAnyTriangleMesh 실패: TriangleMesh가 nullptr");
+        return false;
+    }
+
+    PxTriangleMeshGeometry TriMeshGeom = TriMeshElem.GetPxGeometry(Scale3D);
+
+    // Triangle Mesh 요소의 로컬 변환을 적용
+    FQuat FinalRotation = Rotation * TriMeshElem.ElemTransform.Rotation;
+
+    return OverlapAnyGeometry(TriMeshGeom, Position, FinalRotation, IgnoreActor);
+}
+
+bool FPhysScene::OverlapAnyBox(const FVector& Position,
+                                const FVector& HalfExtent, const FQuat& Rotation,
+                                AActor* IgnoreActor) const
+{
+    PxBoxGeometry BoxGeom(U2PVector(HalfExtent));
+    return OverlapAnyGeometry(BoxGeom, Position, Rotation, IgnoreActor);
+}
+
+bool FPhysScene::OverlapAnySphere(const FVector& Position, float Radius,
+                                   AActor* IgnoreActor) const
+{
+    PxSphereGeometry SphereGeom(Radius);
+    return OverlapAnyGeometry(SphereGeom, Position, FQuat::Identity(), IgnoreActor);
 }

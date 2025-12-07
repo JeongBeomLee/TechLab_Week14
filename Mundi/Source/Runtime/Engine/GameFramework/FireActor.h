@@ -53,7 +53,7 @@ public:
 
 	/** 데미지 양 */
 	UPROPERTY(LuaBind, DisplayName = "DamagePerSecond")
-	float DamagePerSecond = 10.0f;
+	float DamagePerSecond = 50.0f;
 
 	/** 불 반경 */
 	UPROPERTY(LuaBind, DisplayName = "FireRadius")

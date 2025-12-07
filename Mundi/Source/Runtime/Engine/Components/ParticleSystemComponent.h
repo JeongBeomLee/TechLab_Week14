@@ -178,6 +178,9 @@ private:
 	void ClearEmitterInstances();
 	void UpdateRenderData();
 
+	// 파티클 시스템 비활성화 중 (새 파티클 스폰 억제, 기존 파티클은 자연 소멸)
+	bool bDeactivating = false;
+
 	// === 테스트용 리소스 (디버그 함수에서 생성, Component가 소유) ===
 	float TestTime = 0.0f;
 	UParticleSystem* TestTemplate = nullptr;

@@ -553,8 +553,9 @@ void UParticleSystemComponent::CreateDebugRibbonParticleSystem()
 
 void UParticleSystemComponent::OnUnregister()
 {
-	// 이미터 인스턴스 정리
-	DeactivateSystem();
+	// 이미터 인스턴스 즉시 정리 (컴포넌트 해제 시에는 페이드 아웃 없이 즉시 클리어)
+	ClearEmitterInstances();
+	bDeactivating = false;
 
 	// 렌더 데이터 정리
 	for (int32 i = 0; i < EmitterRenderData.Num(); i++)
@@ -675,12 +676,22 @@ void UParticleSystemComponent::TickComponent(float DeltaTime)
 	ClearEvents();
 
 	// 모든 이미터 인스턴스 틱
+	// bDeactivating이면 새 파티클 스폰 억제 (기존 파티클은 자연 소멸)
+	int32 TotalActiveParticles = 0;
 	for (FParticleEmitterInstance* Instance : EmitterInstances)
 	{
 		if (Instance)
 		{
-			Instance->Tick(DeltaTime, false);
+			Instance->Tick(DeltaTime, bDeactivating);
+			TotalActiveParticles += Instance->ActiveParticles;
 		}
+	}
+
+	// 비활성화 중이고 모든 파티클이 소멸했으면 정리
+	if (bDeactivating && TotalActiveParticles == 0)
+	{
+		ClearEmitterInstances();
+		bDeactivating = false;
 	}
 
 	// 렌더 데이터 업데이트
@@ -818,6 +829,9 @@ void UParticleSystemComponent::DispatchEventsToReceivers()
 
 void UParticleSystemComponent::ActivateSystem()
 {
+	// 비활성화 중이었다면 플래그 리셋
+	bDeactivating = false;
+
 	if (Template)
 	{
 		InitializeEmitterInstances();
@@ -826,7 +840,9 @@ void UParticleSystemComponent::ActivateSystem()
 
 void UParticleSystemComponent::DeactivateSystem()
 {
-	ClearEmitterInstances();
+	// 즉시 클리어 대신 비활성화 플래그 설정
+	// 새 파티클 스폰을 억제하고 기존 파티클은 자연 소멸하도록 함
+	bDeactivating = true;
 }
 
 void UParticleSystemComponent::ResetParticles()

@@ -268,6 +268,8 @@ function Update(DeltaTime)
         if State.MovementComp then
             State.MovementComp.MaxWalkSpeed = 0
         end
+        -- C++ 변수 설정 (회전 허용용)
+        State.Character:SetUsingWaterMagic(true)
 
         -- 오른쪽 마우스 누르고 있고 소화 게이지가 남아있으면 계속 사용
         local bRightMouseDown = Input:IsMouseButtonDown(1)  -- RButton = 1
@@ -292,6 +294,7 @@ function Update(DeltaTime)
             -- 물 마법 종료 조건: 마우스 놓음 또는 소화 게이지 0
             print("[FirefighterController] WaterMagic ending (gauge=" .. tostring(extinguishGauge) .. ", mouseDown=" .. tostring(bRightMouseDown) .. ")")
             State.bIsUsingWaterMagic = false
+            State.Character:SetUsingWaterMagic(false)  -- C++ 변수도 리셋
             State.bWaterMagicEnding = true
             State.StateMachine:SetState(STATE_WATERMAGIC_END, 0.15)
             -- 파티클 중지
