@@ -3,6 +3,8 @@
 #include <mutex>
 
 #include "PhysXSupport.h"
+#include "ConvexElem.h"
+#include "TriangleMeshElem.h"
 
 class FPhysXSimEventCallback;
 class FCCTHitReport;
@@ -173,6 +175,39 @@ public:
                         FHitResult& OutHit,
                         AActor* IgnoreActor = nullptr) const;
 
+    /**
+     * @brief Convex Mesh 형태로 스윕하여 첫 번째 히트를 반환
+     * @param ConvexElem Convex 요소 (유효한 ConvexMesh가 있어야 함)
+     * @param Start 시작 위치
+     * @param End 끝 위치
+     * @param Rotation 회전
+     * @param Scale3D 스케일
+     * @param OutHit 히트 결과 (출력)
+     * @param IgnoreActor 무시할 액터 (nullptr이면 무시 안 함)
+     * @return 히트 여부
+     */
+    bool SweepSingleConvex(const FKConvexElem& ConvexElem,
+                           const FVector& Start, const FVector& End,
+                           const FQuat& Rotation, const FVector& Scale3D,
+                           FHitResult& OutHit,
+                           AActor* IgnoreActor = nullptr) const;
+
+    /**
+     * @brief 임의의 PxGeometry로 스윕하여 첫 번째 히트를 반환 (고급 사용)
+     * @param Geometry PhysX 지오메트리
+     * @param Start 시작 위치
+     * @param End 끝 위치
+     * @param Rotation 회전
+     * @param OutHit 히트 결과 (출력)
+     * @param IgnoreActor 무시할 액터 (nullptr이면 무시 안 함)
+     * @return 히트 여부
+     */
+    bool SweepSingleGeometry(const PxGeometry& Geometry,
+                             const FVector& Start, const FVector& End,
+                             const FQuat& Rotation,
+                             FHitResult& OutHit,
+                             AActor* IgnoreActor = nullptr) const;
+
     // ==================================================================================
     // Overlap / Penetration Interface
     // ==================================================================================
@@ -191,6 +226,69 @@ public:
                                    float Radius, float HalfHeight,
                                    FVector& OutMTD, float& OutPenetrationDepth,
                                    AActor* IgnoreActor = nullptr) const;
+
+    /**
+     * @brief 임의의 지오메트리가 다른 물체와 겹치는지 확인 (빠른 체크)
+     * @param Geometry PhysX 지오메트리
+     * @param Position 위치
+     * @param Rotation 회전
+     * @param IgnoreActor 무시할 액터
+     * @return 겹침이 있으면 true
+     */
+    bool OverlapAnyGeometry(const PxGeometry& Geometry,
+                            const FVector& Position, const FQuat& Rotation,
+                            AActor* IgnoreActor = nullptr) const;
+
+    /**
+     * @brief Convex가 다른 물체와 겹치는지 확인
+     * @param ConvexElem Convex 요소
+     * @param Position 위치
+     * @param Rotation 회전
+     * @param Scale3D 스케일
+     * @param IgnoreActor 무시할 액터
+     * @return 겹침이 있으면 true
+     */
+    bool OverlapAnyConvex(const FKConvexElem& ConvexElem,
+                          const FVector& Position, const FQuat& Rotation,
+                          const FVector& Scale3D,
+                          AActor* IgnoreActor = nullptr) const;
+
+    /**
+     * @brief Triangle Mesh가 다른 물체와 겹치는지 확인
+     * @param TriMeshElem Triangle Mesh 요소
+     * @param Position 위치
+     * @param Rotation 회전
+     * @param Scale3D 스케일
+     * @param IgnoreActor 무시할 액터
+     * @return 겹침이 있으면 true
+     * @note Triangle Mesh는 PhysX에서 sweep은 불가능하지만 overlap은 가능
+     */
+    bool OverlapAnyTriangleMesh(const FKTriangleMeshElem& TriMeshElem,
+                                const FVector& Position, const FQuat& Rotation,
+                                const FVector& Scale3D,
+                                AActor* IgnoreActor = nullptr) const;
+
+    /**
+     * @brief 박스가 다른 물체와 겹치는지 확인
+     * @param Position 위치
+     * @param HalfExtent 박스 반크기
+     * @param Rotation 회전
+     * @param IgnoreActor 무시할 액터
+     * @return 겹침이 있으면 true
+     */
+    bool OverlapAnyBox(const FVector& Position,
+                       const FVector& HalfExtent, const FQuat& Rotation,
+                       AActor* IgnoreActor = nullptr) const;
+
+    /**
+     * @brief 스피어가 다른 물체와 겹치는지 확인
+     * @param Position 위치
+     * @param Radius 반경
+     * @param IgnoreActor 무시할 액터
+     * @return 겹침이 있으면 true
+     */
+    bool OverlapAnySphere(const FVector& Position, float Radius,
+                          AActor* IgnoreActor = nullptr) const;
 
     /** 실제 시뮬레이션 로직을 수행한다 (에디터에서 직접 호출 가능). */
     void TickPhysScene(float DeltaTime);
