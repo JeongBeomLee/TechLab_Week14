@@ -127,6 +127,19 @@ public:
                  FVector& OutHitLocation, FVector& OutHitNormal, float& OutHitDistance,
                  AActor* IgnoreActor = nullptr) const;
 
+    /**
+     * @brief 레이캐스트를 수행하여 FHitResult로 반환 (액터 정보 포함)
+     * @param Origin 레이 시작점
+     * @param Direction 레이 방향 (정규화됨)
+     * @param MaxDistance 최대 거리
+     * @param OutHit 히트 결과 (출력, 액터/컴포넌트 정보 포함)
+     * @param IgnoreActor 무시할 액터 (nullptr이면 무시 안 함)
+     * @return 히트 여부
+     */
+    bool RaycastSingle(const FVector& Origin, const FVector& Direction, float MaxDistance,
+                       FHitResult& OutHit,
+                       AActor* IgnoreActor = nullptr) const;
+
     // ==================================================================================
     // Sweep Interface (Shape Cast)
     // ==================================================================================

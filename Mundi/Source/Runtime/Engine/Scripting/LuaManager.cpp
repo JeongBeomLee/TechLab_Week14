@@ -15,6 +15,7 @@
 #include "RenderManager.h"
 #include "Renderer.h"
 #include "PrimitiveComponent.h"
+#include "PhysScene.h"
 #include <tuple>
 
 sol::object MakeCompProxy(sol::state_view SolState, UObject* Instance, UClass* Class) {
@@ -823,6 +824,130 @@ FLuaManager::FLuaManager()
             {
                 Renderer->ClearHighlights();
             }
+        }
+    );
+
+    // ==================================================================================
+    // Physics Helper 테이블
+    // ==================================================================================
+    sol::table Physics = Lua->create_table();
+    SharedLib["Physics"] = Physics;
+
+    // OverlapBox: 박스 영역에 물체가 있는지 확인
+    Physics.set_function("OverlapBox",
+        [](const FVector& Position, const FVector& HalfExtent) -> bool
+        {
+            if (!GWorld) return false;
+            FPhysScene* PhysScene = GWorld->GetPhysicsScene();
+            if (!PhysScene) return false;
+            return PhysScene->OverlapAnyBox(Position, HalfExtent, FQuat::Identity(), nullptr);
+        }
+    );
+
+    // OverlapBoxRotated: 회전된 박스 영역에 물체가 있는지 확인
+    Physics.set_function("OverlapBoxRotated",
+        [](const FVector& Position, const FVector& HalfExtent, const FVector& EulerRotation) -> bool
+        {
+            if (!GWorld) return false;
+            FPhysScene* PhysScene = GWorld->GetPhysicsScene();
+            if (!PhysScene) return false;
+            FQuat Rotation = FQuat::MakeFromEulerZYX(EulerRotation);
+            return PhysScene->OverlapAnyBox(Position, HalfExtent, Rotation, nullptr);
+        }
+    );
+
+    // OverlapSphere: 구 영역에 물체가 있는지 확인
+    Physics.set_function("OverlapSphere",
+        [](const FVector& Position, float Radius) -> bool
+        {
+            if (!GWorld) return false;
+            FPhysScene* PhysScene = GWorld->GetPhysicsScene();
+            if (!PhysScene) return false;
+            return PhysScene->OverlapAnySphere(Position, Radius, nullptr);
+        }
+    );
+
+    // Raycast: 레이캐스트 수행 (액터 정보 포함)
+    Physics.set_function("Raycast",
+        [this](const FVector& Origin, const FVector& Direction, float MaxDistance) -> sol::table
+        {
+            sol::table Result = Lua->create_table();
+            Result["bHit"] = false;
+
+            if (!GWorld) return Result;
+            FPhysScene* PhysScene = GWorld->GetPhysicsScene();
+            if (!PhysScene) return Result;
+
+            FHitResult HitResult;
+            bool bHit = PhysScene->RaycastSingle(Origin, Direction, MaxDistance, HitResult, nullptr);
+
+            Result["bHit"] = bHit;
+            if (bHit)
+            {
+                Result["Location"] = HitResult.ImpactPoint;
+                Result["Normal"] = HitResult.ImpactNormal;
+                Result["Distance"] = HitResult.Distance;
+
+                // 히트한 액터의 GameObject 반환
+                AActor* HitActor = HitResult.Actor.Get();
+                if (HitActor && !HitActor->IsPendingDestroy())
+                {
+                    Result["Actor"] = HitActor->GetGameObject();
+                    Result["ActorTag"] = HitActor->Tag;
+                }
+            }
+            return Result;
+        }
+    );
+
+    // SweepBox: 박스 형태로 스윕
+    Physics.set_function("SweepBox",
+        [this](const FVector& Start, const FVector& End, const FVector& HalfExtent) -> sol::table
+        {
+            sol::table Result = Lua->create_table();
+            Result["bHit"] = false;
+
+            if (!GWorld) return Result;
+            FPhysScene* PhysScene = GWorld->GetPhysicsScene();
+            if (!PhysScene) return Result;
+
+            FHitResult HitResult;
+            bool bHit = PhysScene->SweepSingleBox(Start, End, HalfExtent, FQuat::Identity(),
+                                                   HitResult, nullptr);
+
+            Result["bHit"] = bHit;
+            if (bHit)
+            {
+                Result["Location"] = HitResult.ImpactPoint;
+                Result["Normal"] = HitResult.ImpactNormal;
+                Result["Distance"] = HitResult.Distance;
+            }
+            return Result;
+        }
+    );
+
+    // SweepSphere: 구 형태로 스윕
+    Physics.set_function("SweepSphere",
+        [this](const FVector& Start, const FVector& End, float Radius) -> sol::table
+        {
+            sol::table Result = Lua->create_table();
+            Result["bHit"] = false;
+
+            if (!GWorld) return Result;
+            FPhysScene* PhysScene = GWorld->GetPhysicsScene();
+            if (!PhysScene) return Result;
+
+            FHitResult HitResult;
+            bool bHit = PhysScene->SweepSingleSphere(Start, End, Radius, HitResult, nullptr);
+
+            Result["bHit"] = bHit;
+            if (bHit)
+            {
+                Result["Location"] = HitResult.ImpactPoint;
+                Result["Normal"] = HitResult.ImpactNormal;
+                Result["Distance"] = HitResult.Distance;
+            }
+            return Result;
         }
     );
 

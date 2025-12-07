@@ -633,6 +633,60 @@ bool FPhysScene::Raycast(const FVector& Origin, const FVector& Direction, float 
     return false;
 }
 
+bool FPhysScene::RaycastSingle(const FVector& Origin, const FVector& Direction, float MaxDistance,
+                                FHitResult& OutHit,
+                                AActor* IgnoreActor) const
+{
+    if (!PhysXScene)
+    {
+        return false;
+    }
+
+    OutHit.Init();
+
+    PxVec3 PxOrigin = U2PVector(Origin);
+    PxVec3 PxDirection = U2PVector(Direction.GetNormalized());
+
+    PxRaycastBuffer Hit;
+    bool bHit = false;
+
+    if (IgnoreActor)
+    {
+        FIgnoreActorFilterCallback FilterCallback(IgnoreActor);
+        PxQueryFilterData FilterData;
+        FilterData.flags = PxQueryFlag::eDYNAMIC | PxQueryFlag::eSTATIC | PxQueryFlag::ePREFILTER;
+
+        bHit = PhysXScene->raycast(PxOrigin, PxDirection, MaxDistance, Hit, PxHitFlag::eDEFAULT, FilterData, &FilterCallback);
+    }
+    else
+    {
+        bHit = PhysXScene->raycast(PxOrigin, PxDirection, MaxDistance, Hit);
+    }
+
+    if (bHit && Hit.hasBlock)
+    {
+        OutHit.bBlockingHit = true;
+        OutHit.Distance = Hit.block.distance;
+        OutHit.ImpactPoint = P2UVector(Hit.block.position);
+        OutHit.ImpactNormal = P2UVector(Hit.block.normal);
+
+        // 히트한 액터/컴포넌트 정보 추출
+        if (Hit.block.actor && Hit.block.actor->userData)
+        {
+            FBodyInstance* BodyInstance = static_cast<FBodyInstance*>(Hit.block.actor->userData);
+            if (BodyInstance && BodyInstance->OwnerComponent)
+            {
+                OutHit.Component = BodyInstance->OwnerComponent;
+                OutHit.Actor = BodyInstance->OwnerComponent->GetOwner();
+            }
+        }
+
+        return true;
+    }
+
+    return false;
+}
+
 // ==================================================================================
 // Sweep Interface Implementation
 // ==================================================================================
