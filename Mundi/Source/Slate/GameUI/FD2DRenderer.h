@@ -112,6 +112,7 @@ public:
      * @param FontSize 폰트 크기
      * @param HAlign 가로 정렬
      * @param VAlign 세로 정렬
+     * @param FontPath 커스텀 폰트 파일 경로 (비어있으면 기본 폰트 사용)
      */
     void DrawText(
         const FWideString& Text,
@@ -120,7 +121,8 @@ public:
         const FSlateColor& Color,
         float FontSize = 16.0f,
         ETextHAlign HAlign = ETextHAlign::Left,
-        ETextVAlign VAlign = ETextVAlign::Top
+        ETextVAlign VAlign = ETextVAlign::Top,
+        const FString& FontPath = ""
     );
 
     /** 단순 텍스트 (정렬 없음) */
@@ -163,7 +165,7 @@ private:
     void SetBrushColor(const FSlateColor& Color);
 
     /** TextFormat 가져오기/생성 */
-    IDWriteTextFormat* GetOrCreateTextFormat(float FontSize);
+    IDWriteTextFormat* GetOrCreateTextFormat(float FontSize, const FString& FontPath = "");
 
     // =====================================================
     // D3D11 리소스 (외부 소유)
@@ -188,6 +190,8 @@ private:
 
     IDWriteFactory* DWriteFactory = nullptr;
     TMap<int32, IDWriteTextFormat*> TextFormatCache;  // FontSize -> TextFormat
+    TMap<FString, IDWriteTextFormat*> CustomFontFormatCache;  // (FontPath+FontSize) -> TextFormat
+    TMap<FString, IDWriteFontCollection*> FontCollectionCache;  // FontPath -> FontCollection
 
     // =====================================================
     // 이미지 리소스

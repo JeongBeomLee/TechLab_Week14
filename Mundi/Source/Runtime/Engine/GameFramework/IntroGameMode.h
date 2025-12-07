@@ -31,7 +31,7 @@ public:
      * 다음 씬 경로 (게임 시작 버튼 클릭 시 이동)
      */
     UPROPERTY(EditAnywhere)
-    FWideString NextScenePath = L"Data/Scenes/ClothTest.scene";
+    FWideString NextScenePath = L"Data/Scenes/Ending.scene";
 
     /**
      * 게임 시작 버튼 텍스트
@@ -51,6 +51,12 @@ public:
     UPROPERTY(EditAnywhere)
     FWideString TitleText = L"";
 
+    /**
+     * 버튼 클릭 사운드 경로
+     */
+    UPROPERTY(EditAnywhere)
+    FString ButtonSoundPath = "Data/Audio/button.wav";
+
     // ════════════════════════════════════════════════════════════════════════
     // 생명주기
 
@@ -63,8 +69,12 @@ private:
     TSharedPtr<SButton> StartButton;
     TSharedPtr<SButton> QuitButton;
 
-    // UI 초기화
+    // 사운드
+    class USound* ButtonSound = nullptr;
+
+    // 초기화
     void InitializeUI();
+    void InitializeSounds();
 
     // 버튼 클릭 핸들러
     static void OnStartButtonClicked();

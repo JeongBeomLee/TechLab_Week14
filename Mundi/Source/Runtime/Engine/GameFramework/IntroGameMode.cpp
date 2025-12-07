@@ -6,6 +6,9 @@
 #include "GameUI/SGameHUD.h"
 #include "GameUI/SButton.h"
 #include "GameUI/STextBlock.h"
+#include "FAudioDevice.h"
+#include "Sound.h"
+#include "ResourceManager.h"
 
 IMPLEMENT_CLASS(AIntroGameMode)
 
@@ -39,6 +42,9 @@ void AIntroGameMode::BeginPlay()
     UInputManager::GetInstance().SetInputMode(EInputMode::UIOnly);
     UE_LOG("[info] IntroGameMode: Input mode set to UIOnly (mouse clicks only)");
 
+    // 사운드 초기화
+    InitializeSounds();
+
     // UI 초기화
     InitializeUI();
 }
@@ -52,6 +58,18 @@ void AIntroGameMode::EndPlay()
     UE_LOG("[info] IntroGameMode: Input mode restored to GameAndUI");
 
     ClearUI();
+}
+
+void AIntroGameMode::InitializeSounds()
+{
+    UE_LOG("[info] IntroGameMode: Loading sounds...");
+
+    ButtonSound = UResourceManager::GetInstance().Load<USound>(ButtonSoundPath);
+
+    if (!ButtonSound)
+        UE_LOG("[warning] IntroGameMode: Failed to load button sound: %s", ButtonSoundPath.c_str());
+    else
+        UE_LOG("[info] IntroGameMode: Button sound loaded: %s", ButtonSoundPath.c_str());
 }
 
 void AIntroGameMode::InitializeUI()
@@ -126,6 +144,14 @@ void AIntroGameMode::OnStartButtonClicked()
     {
         if (Context.WorldType == EWorldType::Game && Context.World)
         {
+            // IntroGameMode 인스턴스 찾아서 버튼 사운드 재생
+            AIntroGameMode* IntroGameMode = dynamic_cast<AIntroGameMode*>(Context.World->GetGameMode());
+            if (IntroGameMode && IntroGameMode->ButtonSound)
+            {
+                UE_LOG("[info] IntroGameMode: Playing button click sound");
+                FAudioDevice::PlaySound3D(IntroGameMode->ButtonSound, FVector::Zero(), 1.0f, false);
+            }
+
             for (AActor* Actor : Context.World->GetActors())
             {
                 ALevelTransitionManager* Manager = dynamic_cast<ALevelTransitionManager*>(Actor);
@@ -151,6 +177,25 @@ void AIntroGameMode::OnStartButtonClicked()
 void AIntroGameMode::OnQuitButtonClicked()
 {
     UE_LOG("[info] IntroGameMode: Quit button clicked");
+
+    // World를 통해 안전하게 IntroGameMode 접근하여 버튼 사운드 재생
+    if (GEngine.IsPIEActive())
+    {
+        for (const auto& Context : GEngine.GetWorldContexts())
+        {
+            if (Context.WorldType == EWorldType::Game && Context.World)
+            {
+                AIntroGameMode* IntroGameMode = dynamic_cast<AIntroGameMode*>(Context.World->GetGameMode());
+                if (IntroGameMode && IntroGameMode->ButtonSound)
+                {
+                    UE_LOG("[info] IntroGameMode: Playing button click sound");
+                    FAudioDevice::PlaySound3D(IntroGameMode->ButtonSound, FVector::Zero(), 1.0f, false);
+                }
+                break;
+            }
+        }
+    }
+
     PostQuitMessage(0);
 }
 

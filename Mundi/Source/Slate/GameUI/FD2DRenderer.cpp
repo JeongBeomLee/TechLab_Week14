@@ -306,11 +306,12 @@ void FD2DRenderer::DrawText(
     const FSlateColor& Color,
     float FontSize,
     ETextHAlign HAlign,
-    ETextVAlign VAlign)
+    ETextVAlign VAlign,
+    const FString& FontPath)
 {
     if (!bInFrame || Text.empty()) return;
 
-    IDWriteTextFormat* TextFormat = GetOrCreateTextFormat(FontSize);
+    IDWriteTextFormat* TextFormat = GetOrCreateTextFormat(FontSize, FontPath);
     if (!TextFormat) return;
 
     // 정렬 설정
@@ -354,8 +355,46 @@ void FD2DRenderer::DrawTextSimple(
     DrawText(Text, Position, FVector2D(10000.f, 10000.f), Color, FontSize, ETextHAlign::Left, ETextVAlign::Top);
 }
 
-IDWriteTextFormat* FD2DRenderer::GetOrCreateTextFormat(float FontSize)
+IDWriteTextFormat* FD2DRenderer::GetOrCreateTextFormat(float FontSize, const FString& FontPath)
 {
+    // 커스텀 폰트를 사용하는 경우
+    if (!FontPath.empty())
+    {
+        FString CacheKey = FontPath + "_" + std::to_string(static_cast<int32>(FontSize));
+
+        // 캐시에서 찾기
+        if (IDWriteTextFormat** Found = CustomFontFormatCache.Find(CacheKey))
+        {
+            return *Found;
+        }
+
+        // 간단한 방법: 폰트 이름을 하드코딩
+        // GmarketSansTTFBold.ttf의 경우 패밀리 이름은 "Gmarket Sans TTF"
+        std::wstring FontFamilyName = L"Gmarket Sans TTF";
+
+        IDWriteTextFormat* NewFormat = nullptr;
+        HRESULT Hr = DWriteFactory->CreateTextFormat(
+            FontFamilyName.c_str(),
+            nullptr,  // 시스템 폰트 컬렉션 사용
+            DWRITE_FONT_WEIGHT_BOLD,
+            DWRITE_FONT_STYLE_NORMAL,
+            DWRITE_FONT_STRETCH_NORMAL,
+            FontSize,
+            L"ko-kr",
+            &NewFormat
+        );
+
+        if (SUCCEEDED(Hr) && NewFormat)
+        {
+            CustomFontFormatCache.Add(CacheKey, NewFormat);
+            return NewFormat;
+        }
+
+        // 폰트 로드 실패 시 기본 폰트로 폴백
+        UE_LOG("[warning] Failed to load custom font: %s, falling back to default", FontPath.c_str());
+    }
+
+    // 기본 폰트 사용
     int32 FontSizeKey = static_cast<int32>(FontSize);
 
     // 캐시에서 찾기

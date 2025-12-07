@@ -33,7 +33,8 @@ void STextBlock::Paint(FD2DRenderer& Renderer, const FGeometry& Geometry)
             ShadowColor,
             FontSize,
             HAlign,
-            VAlign
+            VAlign,
+            CustomFontPath
         );
     }
 
@@ -45,7 +46,8 @@ void STextBlock::Paint(FD2DRenderer& Renderer, const FGeometry& Geometry)
         TextColor,
         FontSize,
         HAlign,
-        VAlign
+        VAlign,
+        CustomFontPath
     );
 }
 
@@ -131,5 +133,11 @@ STextBlock& STextBlock::SetShadow(bool bEnable, const FVector2D& Offset, const F
 STextBlock& STextBlock::SetBackgroundImage(const FString& ImagePath)
 {
     BackgroundImagePath = ImagePath;
+    return *this;
+}
+
+STextBlock& STextBlock::SetFontPath(const FString& FontPath)
+{
+    CustomFontPath = FontPath;
     return *this;
 }

@@ -30,6 +30,7 @@ void ALevelTransitionManager::BeginPlay()
 void ALevelTransitionManager::Tick(float DeltaSeconds)
 {
     Super::Tick(DeltaSeconds);
+    // Pending 전환은 GameEngine::MainLoop 또는 EditorEngine::MainLoop에서 처리
 }
 
 // ════════════════════════════════════════════════════════════════════════
@@ -119,19 +120,18 @@ void ALevelTransitionManager::ProcessPendingTransition()
         return;
     }
 
-    // 3. 런타임 씬 전환 (PIE 종료 없이 직접 교체)
+    // 3. 상태 리셋 (LoadLevelFromFile 이전에 해야 함 - 이후에는 this가 파괴됨)
+    bPendingTransition = false;
+    TransitionState = ELevelTransitionState::Idle;
+
+    // 4. 런타임 씬 전환 (PIE 종료 없이 직접 교체)
+    // 주의: 이 호출 이후 this(LevelTransitionManager)가 파괴되므로 멤버 변수 접근 불가
     UE_LOG("[info] LevelTransitionManager: Loading level from file: %ls", LevelToLoad.c_str());
     if (PIEWorld->LoadLevelFromFile(LevelToLoad) == false)
     {
         UE_LOG("[error] LevelTransitionManager: LoadLevelFromFile failed!");
-        TransitionState = ELevelTransitionState::Idle;
-        bPendingTransition = false;
         return;
     }
-
-    // 4. 상태 리셋 (BeginPlay 전에 리셋해야 다음 전환 준비)
-    bPendingTransition = false;
-    TransitionState = ELevelTransitionState::Idle;
 
     // 5. 입력 모드를 기본값(GameAndUI)으로 리셋
     // 이전 씬에서 설정한 입력 모드(예: UIOnly)가 유지되는 것을 방지

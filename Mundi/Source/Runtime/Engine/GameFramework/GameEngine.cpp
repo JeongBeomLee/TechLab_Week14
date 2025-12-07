@@ -12,6 +12,7 @@
 #include "FbxLoader.h"
 #include "PhysicalMaterialLoader.h"
 #include "GameInstance.h"
+#include "LevelTransitionManager.h"
 #include <sol/sol.hpp>
 
 float UGameEngine::ClientWidth = 1024.0f;
@@ -226,7 +227,7 @@ bool UGameEngine::Startup(HINSTANCE hInstance)
     ///////////////////////////////////
 
     // 시작 scene(level)을 직접 로드
-    const FString StartupScenePath = GDataDir + "/Scenes/PlayScene.scene";
+    const FString StartupScenePath = GDataDir + "/Scenes/IntroScene.scene";
     if (!GWorld->LoadLevelFromFile(UTF8ToWide(StartupScenePath)))
     {
         // 씬 로드 실패 시 경고만 표시하고 빈 월드로 계속 진행
@@ -352,6 +353,24 @@ void UGameEngine::MainLoop()
         ClothManager->Tick(DeltaSeconds);
 
         Tick(DeltaSeconds);
+
+        // 레벨 전환 처리 (World Tick 완료 후 안전하게 처리)
+        if (bPlayActive && GWorld)
+        {
+            for (AActor* Actor : GWorld->GetActors())
+            {
+                ALevelTransitionManager* Manager = dynamic_cast<ALevelTransitionManager*>(Actor);
+                if (Manager)
+                {
+                    if (Manager->IsTransitioning())
+                    {
+                        Manager->ProcessPendingTransition();
+                    }
+                    break;
+                }
+            }
+        }
+
         Render();
 
         // Shader Hot Reloading - Call AFTER render to avoid mid-frame resource conflicts

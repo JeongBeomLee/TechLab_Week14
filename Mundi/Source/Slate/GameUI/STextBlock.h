@@ -73,6 +73,10 @@ public:
     /** 배경 이미지 설정 */
     STextBlock& SetBackgroundImage(const FString& ImagePath);
 
+    /** 폰트 파일 설정 */
+    STextBlock& SetFontPath(const FString& FontPath);
+    const FString& GetFontPath() const { return CustomFontPath; }
+
 private:
     // =====================================================
     // 텍스트 데이터
@@ -97,4 +101,7 @@ private:
 
     // 배경 이미지
     FString BackgroundImagePath;
+
+    // 커스텀 폰트
+    FString CustomFontPath;
 };
