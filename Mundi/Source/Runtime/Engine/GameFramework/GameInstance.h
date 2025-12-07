@@ -36,6 +36,9 @@ public:
     /** 특정 아이템 소유 여부 */
     bool HasItem(const FString& ItemTag) const { return CollectedItems.find(ItemTag) != CollectedItems.end(); }
 
+    /** 전체 아이템 목록 조회 (HUD 표시용) */
+    const TMap<FString, int32>& GetAllItems() const { return CollectedItems; }
+
     // ════════════════════════════════════════════════════════════════════════
     // 플레이어 상태 관리
 

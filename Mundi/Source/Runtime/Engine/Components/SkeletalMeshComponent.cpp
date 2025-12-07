@@ -37,6 +37,16 @@ USkeletalMeshComponent::USkeletalMeshComponent()
     PhysicsAsset = UResourceManager::GetInstance().Load<UPhysicsAsset>("Data/Physics/xBot.physicsasset");
 }
 
+void USkeletalMeshComponent::BeginPlay()
+{
+    Super::BeginPlay();
+
+    // RagdollRootBoneName이 설정되어 있으면 인덱스 자동 설정
+    if (!RagdollRootBoneName.empty() && SkeletalMesh)
+    {
+        SetRagdollRootBoneByName(RagdollRootBoneName);
+    }
+}
 
 void USkeletalMeshComponent::TickComponent(float DeltaTime)
 {
@@ -1039,6 +1049,30 @@ void USkeletalMeshComponent::SetPhysicsMode(EPhysicsMode NewMode)
         SyncPhysicsFromBones();
         break;
     }
+}
+
+bool USkeletalMeshComponent::SetRagdollRootBoneByName(const FString& BoneName)
+{
+    if (!SkeletalMesh)
+    {
+        return false;
+    }
+
+    const FSkeleton* Skeleton = SkeletalMesh->GetSkeleton();
+    if (!Skeleton)
+    {
+        return false;
+    }
+
+    auto It = Skeleton->BoneNameToIndex.find(BoneName);
+    if (It == Skeleton->BoneNameToIndex.end())
+    {
+        return false;
+    }
+
+    RagdollRootBoneIndex = It->second;
+    RagdollRootBoneName = BoneName;
+    return true;
 }
 
 // ============================================================================

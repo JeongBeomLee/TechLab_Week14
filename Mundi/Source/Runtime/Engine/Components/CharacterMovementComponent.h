@@ -391,4 +391,10 @@ protected:
 
 	/** 점프 중인지 여부 */
 	bool bIsJumping;
+
+	/** 고정 시간 스텝용 누적 시간 */
+	float PhysicsAccumulator = 0.0f;
+
+	/** 고정 물리 시간 스텝 (60Hz) */
+	static constexpr float FixedPhysicsStep = 1.0f / 60.0f;
 };

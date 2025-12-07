@@ -72,6 +72,29 @@ public:
     int32 GetBoneIndex() const { return BoneIndex; }
 
     // ──────────────────────────────
+    // 래그돌 자식 부착 (시체 메기 등)
+    // ──────────────────────────────
+
+    /**
+     * @brief 래그돌 스켈레탈 메시를 이 소켓에 부착 (특정 본을 키네마틱으로 고정)
+     * @param RagdollMesh 부착할 래그돌 메시
+     * @param AttachBoneIndex 고정할 래그돌의 본 인덱스 (보통 pelvis = 0)
+     */
+    UFUNCTION(LuaBind, DisplayName="AttachRagdoll")
+    void AttachRagdoll(USkeletalMeshComponent* RagdollMesh, int32 AttachBoneIndex);
+
+    /**
+     * @brief 부착된 래그돌 해제
+     */
+    UFUNCTION(LuaBind, DisplayName="DetachRagdoll")
+    void DetachRagdoll();
+
+    /**
+     * @brief 현재 부착된 래그돌 반환
+     */
+    USkeletalMeshComponent* GetAttachedRagdoll() const { return AttachedRagdoll; }
+
+    // ──────────────────────────────
     // 소켓 오프셋
     // ──────────────────────────────
 
@@ -170,4 +193,17 @@ private:
 
     /** SyncWithBone 재귀 호출 방지 플래그 */
     bool bSyncing = false;
+
+    // ──────────────────────────────
+    // 래그돌 부착 관련
+    // ──────────────────────────────
+
+    /** 부착된 래그돌 메시 */
+    USkeletalMeshComponent* AttachedRagdoll = nullptr;
+
+    /** 부착된 래그돌의 고정 본 인덱스 */
+    int32 AttachedRagdollBoneIndex = -1;
+
+    /** 부착된 래그돌의 고정 본 동기화 */
+    void SyncAttachedRagdoll();
 };

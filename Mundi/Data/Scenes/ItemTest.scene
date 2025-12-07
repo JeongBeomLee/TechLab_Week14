@@ -1,9 +1,9 @@
 {
   "Actors" : {
-    "1279" : {
+    "1699" : {
       "ObjectName" : "AParticleEventManager_15",
       "OwnedComponents" : [{
-          "Id" : 1280,
+          "Id" : 1700,
           "Mobility" : 1,
           "ObjectName" : "USceneComponent_21",
           "ParentId" : 0,
@@ -17,16 +17,16 @@
           "bTickEnabled" : true,
           "bTickInEditor" : false
         }],
-      "RootComponentId" : 1280,
+      "RootComponentId" : 1700,
       "Tag" : "",
       "Type" : "AParticleEventManager",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "1281" : {
+    "1701" : {
       "ObjectName" : "AParticleEventManager_14",
       "OwnedComponents" : [{
-          "Id" : 1282,
+          "Id" : 1702,
           "Mobility" : 1,
           "ObjectName" : "USceneComponent_16",
           "ParentId" : 0,
@@ -40,13 +40,13 @@
           "bTickEnabled" : true,
           "bTickInEditor" : false
         }],
-      "RootComponentId" : 1282,
+      "RootComponentId" : 1702,
       "Tag" : "",
       "Type" : "AParticleEventManager",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "1283" : {
+    "1703" : {
       "ObjectName" : "ADirectionalLightActor_3",
       "OwnedComponents" : [{
           "CascadedAreaColorDebugValue" : 0.000000,
@@ -54,7 +54,7 @@
           "CascadedCount" : 4,
           "CascadedLinearBlendingValue" : 0.500000,
           "CascadedOverlapValue" : 0.200000,
-          "Id" : 1285,
+          "Id" : 1705,
           "Intensity" : 1.000000,
           "LightColor" : [1.000000, 1.000000, 1.000000, 1.000000],
           "Mobility" : 1,
@@ -77,17 +77,17 @@
           "bTickEnabled" : true,
           "bTickInEditor" : false
         }],
-      "RootComponentId" : 1285,
+      "RootComponentId" : 1705,
       "Tag" : "",
       "Type" : "ADirectionalLightActor",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "1286" : {
+    "1706" : {
       "ObjectName" : "AAmbientLightActor_3",
       "OwnedComponents" : [{
           "DiffuseIntensity" : 0.000000,
-          "Id" : 1288,
+          "Id" : 1708,
           "Intensity" : 0.100000,
           "LightColor" : [1.000000, 1.000000, 1.000000, 1.000000],
           "Mobility" : 1,
@@ -109,16 +109,16 @@
           "bTickEnabled" : true,
           "bTickInEditor" : false
         }],
-      "RootComponentId" : 1288,
+      "RootComponentId" : 1708,
       "Tag" : "",
       "Type" : "AAmbientLightActor",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "1289" : {
+    "1709" : {
       "ObjectName" : "AParticleEventManager_22",
       "OwnedComponents" : [{
-          "Id" : 1290,
+          "Id" : 1710,
           "Mobility" : 1,
           "ObjectName" : "USceneComponent_24",
           "ParentId" : 0,
@@ -132,16 +132,16 @@
           "bTickEnabled" : true,
           "bTickInEditor" : false
         }],
-      "RootComponentId" : 1290,
+      "RootComponentId" : 1710,
       "Tag" : "",
       "Type" : "AParticleEventManager",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "1291" : {
+    "1711" : {
       "ObjectName" : "AParticleEventManager_3",
       "OwnedComponents" : [{
-          "Id" : 1292,
+          "Id" : 1712,
           "Mobility" : 1,
           "ObjectName" : "USceneComponent_4",
           "ParentId" : 0,
@@ -155,39 +155,25 @@
           "bTickEnabled" : true,
           "bTickInEditor" : false
         }],
-      "RootComponentId" : 1292,
+      "RootComponentId" : 1712,
       "Tag" : "",
       "Type" : "AParticleEventManager",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "1293" : {
+    "1713" : {
       "ObjectName" : "빈 액터_0",
       "OwnedComponents" : [{
-          "Id" : 1294,
-          "Mobility" : 1,
-          "ObjectName" : "USceneComponent_5",
-          "ParentId" : 0,
-          "RelativeLocation" : [21.362808, 0.863446, -2.686531],
-          "RelativeRotationEuler" : [0.000000, 0.000000, 0.000000],
-          "RelativeScale" : [1.000000, 1.000000, 1.000000],
-          "Type" : "USceneComponent",
-          "bHiddenInGame" : false,
-          "bIsActive" : true,
-          "bIsVisible" : true,
-          "bTickEnabled" : true,
-          "bTickInEditor" : false
-        }, {
           "CollisionChannel" : 1,
           "CollisionEnabled" : 3,
           "CollisionMask" : -1,
           "Gravity" : 86.800003,
-          "Id" : 1295,
+          "Id" : 1714,
           "InvWindFrequency" : [0.100000, 2.100000, 6.400000],
           "MaterialSlots" : [],
           "Mobility" : 1,
           "ObjectName" : "UClothComponent_1",
-          "ParentId" : 1294,
+          "ParentId" : 1716,
           "PhysicalMaterial" : "",
           "RelativeLocation" : [12.354034, -7.233747, 6.128435],
           "RelativeRotationEuler" : [-179.999924, -88.484306, -90.000000],
@@ -206,17 +192,31 @@
           "bSimulatePhysics" : false,
           "bTickEnabled" : true,
           "bTickInEditor" : false
+        }, {
+          "Id" : 1716,
+          "Mobility" : 1,
+          "ObjectName" : "USceneComponent_5",
+          "ParentId" : 0,
+          "RelativeLocation" : [21.362808, 0.863446, -2.686531],
+          "RelativeRotationEuler" : [0.000000, 0.000000, 0.000000],
+          "RelativeScale" : [1.000000, 1.000000, 1.000000],
+          "Type" : "USceneComponent",
+          "bHiddenInGame" : false,
+          "bIsActive" : true,
+          "bIsVisible" : true,
+          "bTickEnabled" : true,
+          "bTickInEditor" : false
         }],
-      "RootComponentId" : 1294,
+      "RootComponentId" : 1716,
       "Tag" : "",
       "Type" : "AEmptyActor",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "1297" : {
+    "1717" : {
       "ObjectName" : "AParticleEventManager_4",
       "OwnedComponents" : [{
-          "Id" : 1298,
+          "Id" : 1718,
           "Mobility" : 1,
           "ObjectName" : "USceneComponent_6",
           "ParentId" : 0,
@@ -230,19 +230,19 @@
           "bTickEnabled" : true,
           "bTickInEditor" : false
         }],
-      "RootComponentId" : 1298,
+      "RootComponentId" : 1718,
       "Tag" : "",
       "Type" : "AParticleEventManager",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "1299" : {
+    "1719" : {
       "ObjectName" : "스태틱 메시_0",
       "OwnedComponents" : [{
           "CollisionChannel" : 1,
           "CollisionEnabled" : 3,
           "CollisionMask" : -1,
-          "Id" : 1301,
+          "Id" : 1721,
           "MaterialSlots" : [{
               "AssetPath" : "texture",
               "Type" : "UMaterial"
@@ -266,16 +266,16 @@
           "bTickEnabled" : true,
           "bTickInEditor" : false
         }],
-      "RootComponentId" : 1301,
+      "RootComponentId" : 1721,
       "Tag" : "",
       "Type" : "AStaticMeshActor",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "1302" : {
+    "1722" : {
       "ObjectName" : "AParticleEventManager_5",
       "OwnedComponents" : [{
-          "Id" : 1303,
+          "Id" : 1723,
           "Mobility" : 1,
           "ObjectName" : "USceneComponent_7",
           "ParentId" : 0,
@@ -289,16 +289,16 @@
           "bTickEnabled" : true,
           "bTickInEditor" : false
         }],
-      "RootComponentId" : 1303,
+      "RootComponentId" : 1723,
       "Tag" : "",
       "Type" : "AParticleEventManager",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "1304" : {
+    "1724" : {
       "ObjectName" : "AParticleEventManager_6",
       "OwnedComponents" : [{
-          "Id" : 1305,
+          "Id" : 1725,
           "Mobility" : 1,
           "ObjectName" : "USceneComponent_8",
           "ParentId" : 0,
@@ -312,19 +312,19 @@
           "bTickEnabled" : true,
           "bTickInEditor" : false
         }],
-      "RootComponentId" : 1305,
+      "RootComponentId" : 1725,
       "Tag" : "",
       "Type" : "AParticleEventManager",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "1306" : {
+    "1726" : {
       "ObjectName" : "AStaticMeshActor_0",
       "OwnedComponents" : [{
           "CollisionChannel" : 1,
           "CollisionEnabled" : 3,
           "CollisionMask" : -1,
-          "Id" : 1308,
+          "Id" : 1728,
           "MaterialSlots" : [{
               "AssetPath" : "texture",
               "Type" : "UMaterial"
@@ -348,16 +348,16 @@
           "bTickEnabled" : true,
           "bTickInEditor" : false
         }],
-      "RootComponentId" : 1308,
+      "RootComponentId" : 1728,
       "Tag" : "",
       "Type" : "AStaticMeshActor",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "1309" : {
+    "1729" : {
       "ObjectName" : "AParticleEventManager_7",
       "OwnedComponents" : [{
-          "Id" : 1310,
+          "Id" : 1730,
           "Mobility" : 1,
           "ObjectName" : "USceneComponent_9",
           "ParentId" : 0,
@@ -371,16 +371,16 @@
           "bTickEnabled" : true,
           "bTickInEditor" : false
         }],
-      "RootComponentId" : 1310,
+      "RootComponentId" : 1730,
       "Tag" : "",
       "Type" : "AParticleEventManager",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "1311" : {
+    "1731" : {
       "ObjectName" : "AParticleEventManager_8",
       "OwnedComponents" : [{
-          "Id" : 1312,
+          "Id" : 1732,
           "Mobility" : 1,
           "ObjectName" : "USceneComponent_10",
           "ParentId" : 0,
@@ -394,16 +394,16 @@
           "bTickEnabled" : true,
           "bTickInEditor" : false
         }],
-      "RootComponentId" : 1312,
+      "RootComponentId" : 1732,
       "Tag" : "",
       "Type" : "AParticleEventManager",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "1313" : {
+    "1733" : {
       "ObjectName" : "AParticleEventManager_9",
       "OwnedComponents" : [{
-          "Id" : 1314,
+          "Id" : 1734,
           "Mobility" : 1,
           "ObjectName" : "USceneComponent_11",
           "ParentId" : 0,
@@ -417,16 +417,16 @@
           "bTickEnabled" : true,
           "bTickInEditor" : false
         }],
-      "RootComponentId" : 1314,
+      "RootComponentId" : 1734,
       "Tag" : "",
       "Type" : "AParticleEventManager",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "1315" : {
+    "1735" : {
       "ObjectName" : "AParticleEventManager_10",
       "OwnedComponents" : [{
-          "Id" : 1316,
+          "Id" : 1736,
           "Mobility" : 1,
           "ObjectName" : "USceneComponent_12",
           "ParentId" : 0,
@@ -440,16 +440,16 @@
           "bTickEnabled" : true,
           "bTickInEditor" : false
         }],
-      "RootComponentId" : 1316,
+      "RootComponentId" : 1736,
       "Tag" : "",
       "Type" : "AParticleEventManager",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "1317" : {
+    "1737" : {
       "ObjectName" : "AParticleEventManager_11",
       "OwnedComponents" : [{
-          "Id" : 1318,
+          "Id" : 1738,
           "Mobility" : 1,
           "ObjectName" : "USceneComponent_13",
           "ParentId" : 0,
@@ -463,16 +463,16 @@
           "bTickEnabled" : true,
           "bTickInEditor" : false
         }],
-      "RootComponentId" : 1318,
+      "RootComponentId" : 1738,
       "Tag" : "",
       "Type" : "AParticleEventManager",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "1319" : {
+    "1739" : {
       "ObjectName" : "AParticleEventManager_33",
       "OwnedComponents" : [{
-          "Id" : 1320,
+          "Id" : 1740,
           "Mobility" : 1,
           "ObjectName" : "USceneComponent_37",
           "ParentId" : 0,
@@ -486,16 +486,16 @@
           "bTickEnabled" : true,
           "bTickInEditor" : false
         }],
-      "RootComponentId" : 1320,
+      "RootComponentId" : 1740,
       "Tag" : "",
       "Type" : "AParticleEventManager",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "1321" : {
+    "1741" : {
       "ObjectName" : "AParticleEventManager_31",
       "OwnedComponents" : [{
-          "Id" : 1322,
+          "Id" : 1742,
           "Mobility" : 1,
           "ObjectName" : "USceneComponent_37",
           "ParentId" : 0,
@@ -509,16 +509,16 @@
           "bTickEnabled" : true,
           "bTickInEditor" : false
         }],
-      "RootComponentId" : 1322,
+      "RootComponentId" : 1742,
       "Tag" : "",
       "Type" : "AParticleEventManager",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "1323" : {
+    "1743" : {
       "ObjectName" : "AParticleEventManager_16",
       "OwnedComponents" : [{
-          "Id" : 1324,
+          "Id" : 1744,
           "Mobility" : 1,
           "ObjectName" : "USceneComponent_22",
           "ParentId" : 0,
@@ -532,16 +532,16 @@
           "bTickEnabled" : true,
           "bTickInEditor" : false
         }],
-      "RootComponentId" : 1324,
+      "RootComponentId" : 1744,
       "Tag" : "",
       "Type" : "AParticleEventManager",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "1325" : {
+    "1745" : {
       "ObjectName" : "AParticleEventManager_17",
       "OwnedComponents" : [{
-          "Id" : 1326,
+          "Id" : 1746,
           "Mobility" : 1,
           "ObjectName" : "USceneComponent_23",
           "ParentId" : 0,
@@ -555,16 +555,16 @@
           "bTickEnabled" : true,
           "bTickInEditor" : false
         }],
-      "RootComponentId" : 1326,
+      "RootComponentId" : 1746,
       "Tag" : "",
       "Type" : "AParticleEventManager",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "1327" : {
+    "1747" : {
       "ObjectName" : "AParticleEventManager_18",
       "OwnedComponents" : [{
-          "Id" : 1328,
+          "Id" : 1748,
           "Mobility" : 1,
           "ObjectName" : "USceneComponent_24",
           "ParentId" : 0,
@@ -578,19 +578,19 @@
           "bTickEnabled" : true,
           "bTickInEditor" : false
         }],
-      "RootComponentId" : 1328,
+      "RootComponentId" : 1748,
       "Tag" : "",
       "Type" : "AParticleEventManager",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "1329" : {
+    "1749" : {
       "ObjectName" : "AStaticMeshActor_0",
       "OwnedComponents" : [{
           "CollisionChannel" : 1,
           "CollisionEnabled" : 3,
           "CollisionMask" : -1,
-          "Id" : 1331,
+          "Id" : 1751,
           "MaterialSlots" : [{
               "AssetPath" : "texture",
               "Type" : "UMaterial"
@@ -614,19 +614,19 @@
           "bTickEnabled" : true,
           "bTickInEditor" : false
         }],
-      "RootComponentId" : 1331,
+      "RootComponentId" : 1751,
       "Tag" : "",
       "Type" : "AStaticMeshActor",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "1332" : {
+    "1752" : {
       "ObjectName" : "AStaticMeshActor_1",
       "OwnedComponents" : [{
           "CollisionChannel" : 1,
           "CollisionEnabled" : 3,
           "CollisionMask" : -1,
-          "Id" : 1334,
+          "Id" : 1754,
           "MaterialSlots" : [{
               "AssetPath" : "texture",
               "Type" : "UMaterial"
@@ -650,19 +650,19 @@
           "bTickEnabled" : true,
           "bTickInEditor" : false
         }],
-      "RootComponentId" : 1334,
+      "RootComponentId" : 1754,
       "Tag" : "",
       "Type" : "AStaticMeshActor",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "1335" : {
+    "1755" : {
       "ObjectName" : "AStaticMeshActor_2",
       "OwnedComponents" : [{
           "CollisionChannel" : 1,
           "CollisionEnabled" : 3,
           "CollisionMask" : -1,
-          "Id" : 1337,
+          "Id" : 1757,
           "MaterialSlots" : [{
               "AssetPath" : "texture",
               "Type" : "UMaterial"
@@ -686,19 +686,19 @@
           "bTickEnabled" : true,
           "bTickInEditor" : false
         }],
-      "RootComponentId" : 1337,
+      "RootComponentId" : 1757,
       "Tag" : "",
       "Type" : "AStaticMeshActor",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "1338" : {
+    "1758" : {
       "ObjectName" : "AStaticMeshActor_3",
       "OwnedComponents" : [{
           "CollisionChannel" : 1,
           "CollisionEnabled" : 3,
           "CollisionMask" : -1,
-          "Id" : 1340,
+          "Id" : 1760,
           "MaterialSlots" : [{
               "AssetPath" : "texture",
               "Type" : "UMaterial"
@@ -722,19 +722,19 @@
           "bTickEnabled" : true,
           "bTickInEditor" : false
         }],
-      "RootComponentId" : 1340,
+      "RootComponentId" : 1760,
       "Tag" : "",
       "Type" : "AStaticMeshActor",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "1341" : {
+    "1761" : {
       "ObjectName" : "AStaticMeshActor_4",
       "OwnedComponents" : [{
           "CollisionChannel" : 1,
           "CollisionEnabled" : 3,
           "CollisionMask" : -1,
-          "Id" : 1343,
+          "Id" : 1763,
           "MaterialSlots" : [{
               "AssetPath" : "texture",
               "Type" : "UMaterial"
@@ -758,19 +758,19 @@
           "bTickEnabled" : true,
           "bTickInEditor" : false
         }],
-      "RootComponentId" : 1343,
+      "RootComponentId" : 1763,
       "Tag" : "",
       "Type" : "AStaticMeshActor",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "1344" : {
+    "1764" : {
       "ObjectName" : "AStaticMeshActor_5",
       "OwnedComponents" : [{
           "CollisionChannel" : 1,
           "CollisionEnabled" : 3,
           "CollisionMask" : -1,
-          "Id" : 1346,
+          "Id" : 1766,
           "MaterialSlots" : [{
               "AssetPath" : "texture",
               "Type" : "UMaterial"
@@ -794,19 +794,19 @@
           "bTickEnabled" : true,
           "bTickInEditor" : false
         }],
-      "RootComponentId" : 1346,
+      "RootComponentId" : 1766,
       "Tag" : "",
       "Type" : "AStaticMeshActor",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "1347" : {
+    "1767" : {
       "ObjectName" : "AStaticMeshActor_6",
       "OwnedComponents" : [{
           "CollisionChannel" : 1,
           "CollisionEnabled" : 3,
           "CollisionMask" : -1,
-          "Id" : 1349,
+          "Id" : 1769,
           "MaterialSlots" : [{
               "AssetPath" : "texture",
               "Type" : "UMaterial"
@@ -830,19 +830,19 @@
           "bTickEnabled" : true,
           "bTickInEditor" : false
         }],
-      "RootComponentId" : 1349,
+      "RootComponentId" : 1769,
       "Tag" : "",
       "Type" : "AStaticMeshActor",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "1350" : {
+    "1770" : {
       "ObjectName" : "AStaticMeshActor_7",
       "OwnedComponents" : [{
           "CollisionChannel" : 1,
           "CollisionEnabled" : 3,
           "CollisionMask" : -1,
-          "Id" : 1352,
+          "Id" : 1772,
           "MaterialSlots" : [{
               "AssetPath" : "texture",
               "Type" : "UMaterial"
@@ -866,19 +866,19 @@
           "bTickEnabled" : true,
           "bTickInEditor" : false
         }],
-      "RootComponentId" : 1352,
+      "RootComponentId" : 1772,
       "Tag" : "",
       "Type" : "AStaticMeshActor",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "1353" : {
+    "1773" : {
       "ObjectName" : "AStaticMeshActor_8",
       "OwnedComponents" : [{
           "CollisionChannel" : 1,
           "CollisionEnabled" : 3,
           "CollisionMask" : -1,
-          "Id" : 1355,
+          "Id" : 1775,
           "MaterialSlots" : [{
               "AssetPath" : "texture",
               "Type" : "UMaterial"
@@ -902,16 +902,16 @@
           "bTickEnabled" : true,
           "bTickInEditor" : false
         }],
-      "RootComponentId" : 1355,
+      "RootComponentId" : 1775,
       "Tag" : "",
       "Type" : "AStaticMeshActor",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "1356" : {
+    "1776" : {
       "ObjectName" : "AParticleEventManager_19",
       "OwnedComponents" : [{
-          "Id" : 1357,
+          "Id" : 1777,
           "Mobility" : 1,
           "ObjectName" : "USceneComponent_21",
           "ParentId" : 0,
@@ -925,88 +925,16 @@
           "bTickEnabled" : true,
           "bTickInEditor" : false
         }],
-      "RootComponentId" : 1357,
+      "RootComponentId" : 1777,
       "Tag" : "",
       "Type" : "AParticleEventManager",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "1358" : {
-      "ObjectName" : "스태틱 메시_0",
-      "OwnedComponents" : [{
-          "ItemName" : "소화기",
-          "ItemType" : 0,
-          "ObjectName" : "UItemComponent_1",
-          "Quantity" : 1,
-          "Type" : "UItemComponent",
-          "bCanPickUp" : true,
-          "bHiddenInGame" : false,
-          "bIsActive" : true,
-          "bIsHighlighted" : false,
-          "bTickEnabled" : true,
-          "bTickInEditor" : false
-        }, {
-          "CollisionChannel" : 1,
-          "CollisionEnabled" : 3,
-          "CollisionMask" : -1,
-          "Id" : 1361,
-          "MaterialSlots" : [{
-              "AssetPath" : "texture",
-              "Type" : "UMaterial"
-            }],
-          "Mobility" : 1,
-          "ObjectName" : "UStaticMeshComponent_23",
-          "ParentId" : 0,
-          "PhysicalMaterial" : "",
-          "RelativeLocation" : [16.456066, -1.098241, -7.229744],
-          "RelativeRotationEuler" : [0.000000, -0.000000, 0.000000],
-          "RelativeScale" : [1.000000, 1.000000, 1.000000],
-          "StaticMesh" : "Data/cube-tex.obj",
-          "Type" : "UStaticMeshComponent",
-          "bBlockComponent" : false,
-          "bCastShadows" : true,
-          "bGenerateOverlapEvents" : true,
-          "bHiddenInGame" : false,
-          "bIsActive" : true,
-          "bIsVisible" : true,
-          "bSimulatePhysics" : false,
-          "bTickEnabled" : true,
-          "bTickInEditor" : false
-        }, {
-          "BoxExtent" : [1.000000, 1.000000, 1.000000],
-          "CollisionChannel" : 1,
-          "CollisionEnabled" : 3,
-          "CollisionMask" : -1,
-          "Id" : 1362,
-          "Mobility" : 1,
-          "ObjectName" : "UBoxComponent_1",
-          "ParentId" : 1361,
-          "PhysicalMaterial" : "",
-          "RelativeLocation" : [0.000000, 0.000000, 0.000000],
-          "RelativeRotationEuler" : [0.000000, 0.000000, 0.000000],
-          "RelativeScale" : [1.000000, 1.000000, 1.000000],
-          "Type" : "UBoxComponent",
-          "bBlockComponent" : false,
-          "bGenerateOverlapEvents" : true,
-          "bHiddenInGame" : false,
-          "bIsActive" : true,
-          "bIsVisible" : true,
-          "bShapeHiddenInGame" : true,
-          "bShapeIsVisible" : true,
-          "bSimulatePhysics" : false,
-          "bTickEnabled" : true,
-          "bTickInEditor" : false
-        }],
-      "RootComponentId" : 1361,
-      "Tag" : "",
-      "Type" : "AStaticMeshActor",
-      "bActorHiddenInGame" : false,
-      "bActorIsActive" : true
-    },
-    "1364" : {
+    "1784" : {
       "ObjectName" : "AParticleEventManager_20",
       "OwnedComponents" : [{
-          "Id" : 1365,
+          "Id" : 1785,
           "Mobility" : 1,
           "ObjectName" : "USceneComponent_22",
           "ParentId" : 0,
@@ -1020,16 +948,16 @@
           "bTickEnabled" : true,
           "bTickInEditor" : false
         }],
-      "RootComponentId" : 1365,
+      "RootComponentId" : 1785,
       "Tag" : "",
       "Type" : "AParticleEventManager",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "1366" : {
+    "1786" : {
       "ObjectName" : "AParticleEventManager_21",
       "OwnedComponents" : [{
-          "Id" : 1367,
+          "Id" : 1787,
           "Mobility" : 1,
           "ObjectName" : "USceneComponent_23",
           "ParentId" : 0,
@@ -1043,304 +971,16 @@
           "bTickEnabled" : true,
           "bTickInEditor" : false
         }],
-      "RootComponentId" : 1367,
+      "RootComponentId" : 1787,
       "Tag" : "",
       "Type" : "AParticleEventManager",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "1368" : {
-      "ObjectName" : "AStaticMeshActor_0",
-      "OwnedComponents" : [{
-          "ItemName" : "소화기",
-          "ItemType" : 0,
-          "ObjectName" : "UItemComponent_1",
-          "Quantity" : 1,
-          "Type" : "UItemComponent",
-          "bCanPickUp" : true,
-          "bHiddenInGame" : false,
-          "bIsActive" : true,
-          "bIsHighlighted" : false,
-          "bTickEnabled" : true,
-          "bTickInEditor" : false
-        }, {
-          "CollisionChannel" : 1,
-          "CollisionEnabled" : 3,
-          "CollisionMask" : -1,
-          "Id" : 1371,
-          "MaterialSlots" : [{
-              "AssetPath" : "texture",
-              "Type" : "UMaterial"
-            }],
-          "Mobility" : 1,
-          "ObjectName" : "UStaticMeshComponent_23",
-          "ParentId" : 0,
-          "PhysicalMaterial" : "",
-          "RelativeLocation" : [16.456066, 0.740921, -7.229744],
-          "RelativeRotationEuler" : [0.000000, -0.000000, 0.000000],
-          "RelativeScale" : [1.000000, 1.000000, 1.000000],
-          "StaticMesh" : "Data/cube-tex.obj",
-          "Type" : "UStaticMeshComponent",
-          "bBlockComponent" : false,
-          "bCastShadows" : true,
-          "bGenerateOverlapEvents" : true,
-          "bHiddenInGame" : false,
-          "bIsActive" : true,
-          "bIsVisible" : true,
-          "bSimulatePhysics" : false,
-          "bTickEnabled" : true,
-          "bTickInEditor" : false
-        }, {
-          "BoxExtent" : [1.000000, 1.000000, 1.000000],
-          "CollisionChannel" : 1,
-          "CollisionEnabled" : 3,
-          "CollisionMask" : -1,
-          "Id" : 1372,
-          "Mobility" : 1,
-          "ObjectName" : "UBoxComponent_1",
-          "ParentId" : 1371,
-          "PhysicalMaterial" : "",
-          "RelativeLocation" : [0.000000, 0.000000, 0.000000],
-          "RelativeRotationEuler" : [0.000000, 0.000000, 0.000000],
-          "RelativeScale" : [1.000000, 1.000000, 1.000000],
-          "Type" : "UBoxComponent",
-          "bBlockComponent" : false,
-          "bGenerateOverlapEvents" : true,
-          "bHiddenInGame" : false,
-          "bIsActive" : true,
-          "bIsVisible" : true,
-          "bShapeHiddenInGame" : true,
-          "bShapeIsVisible" : true,
-          "bSimulatePhysics" : false,
-          "bTickEnabled" : true,
-          "bTickInEditor" : false
-        }],
-      "RootComponentId" : 1371,
-      "Tag" : "",
-      "Type" : "AStaticMeshActor",
-      "bActorHiddenInGame" : false,
-      "bActorIsActive" : true
-    },
-    "1374" : {
-      "ObjectName" : "AStaticMeshActor_1",
-      "OwnedComponents" : [{
-          "ItemName" : "소화기",
-          "ItemType" : 0,
-          "ObjectName" : "UItemComponent_1",
-          "Quantity" : 1,
-          "Type" : "UItemComponent",
-          "bCanPickUp" : true,
-          "bHiddenInGame" : false,
-          "bIsActive" : true,
-          "bIsHighlighted" : false,
-          "bTickEnabled" : true,
-          "bTickInEditor" : false
-        }, {
-          "BoxExtent" : [1.000000, 1.000000, 1.000000],
-          "CollisionChannel" : 1,
-          "CollisionEnabled" : 3,
-          "CollisionMask" : -1,
-          "Id" : 1378,
-          "Mobility" : 1,
-          "ObjectName" : "UBoxComponent_1",
-          "ParentId" : 1377,
-          "PhysicalMaterial" : "",
-          "RelativeLocation" : [0.000000, 0.000000, 0.000000],
-          "RelativeRotationEuler" : [0.000000, 0.000000, 0.000000],
-          "RelativeScale" : [1.000000, 1.000000, 1.000000],
-          "Type" : "UBoxComponent",
-          "bBlockComponent" : false,
-          "bGenerateOverlapEvents" : true,
-          "bHiddenInGame" : false,
-          "bIsActive" : true,
-          "bIsVisible" : true,
-          "bShapeHiddenInGame" : true,
-          "bShapeIsVisible" : true,
-          "bSimulatePhysics" : false,
-          "bTickEnabled" : true,
-          "bTickInEditor" : false
-        }, {
-          "CollisionChannel" : 1,
-          "CollisionEnabled" : 3,
-          "CollisionMask" : -1,
-          "Id" : 1377,
-          "MaterialSlots" : [{
-              "AssetPath" : "texture",
-              "Type" : "UMaterial"
-            }],
-          "Mobility" : 1,
-          "ObjectName" : "UStaticMeshComponent_23",
-          "ParentId" : 0,
-          "PhysicalMaterial" : "",
-          "RelativeLocation" : [16.456066, -3.117896, -7.229744],
-          "RelativeRotationEuler" : [0.000000, -0.000000, 0.000000],
-          "RelativeScale" : [1.000000, 1.000000, 1.000000],
-          "StaticMesh" : "Data/cube-tex.obj",
-          "Type" : "UStaticMeshComponent",
-          "bBlockComponent" : false,
-          "bCastShadows" : true,
-          "bGenerateOverlapEvents" : true,
-          "bHiddenInGame" : false,
-          "bIsActive" : true,
-          "bIsVisible" : true,
-          "bSimulatePhysics" : false,
-          "bTickEnabled" : true,
-          "bTickInEditor" : false
-        }],
-      "RootComponentId" : 1377,
-      "Tag" : "",
-      "Type" : "AStaticMeshActor",
-      "bActorHiddenInGame" : false,
-      "bActorIsActive" : true
-    },
-    "1380" : {
-      "ObjectName" : "AStaticMeshActor_2",
-      "OwnedComponents" : [{
-          "ItemName" : "소화기",
-          "ItemType" : 0,
-          "ObjectName" : "UItemComponent_1",
-          "Quantity" : 1,
-          "Type" : "UItemComponent",
-          "bCanPickUp" : true,
-          "bHiddenInGame" : false,
-          "bIsActive" : true,
-          "bIsHighlighted" : false,
-          "bTickEnabled" : true,
-          "bTickInEditor" : false
-        }, {
-          "CollisionChannel" : 1,
-          "CollisionEnabled" : 3,
-          "CollisionMask" : -1,
-          "Id" : 1383,
-          "MaterialSlots" : [{
-              "AssetPath" : "texture",
-              "Type" : "UMaterial"
-            }],
-          "Mobility" : 1,
-          "ObjectName" : "UStaticMeshComponent_23",
-          "ParentId" : 0,
-          "PhysicalMaterial" : "",
-          "RelativeLocation" : [14.311593, -3.117896, -7.229744],
-          "RelativeRotationEuler" : [0.000000, -0.000000, 0.000000],
-          "RelativeScale" : [1.000000, 1.000000, 1.000000],
-          "StaticMesh" : "Data/cube-tex.obj",
-          "Type" : "UStaticMeshComponent",
-          "bBlockComponent" : false,
-          "bCastShadows" : true,
-          "bGenerateOverlapEvents" : true,
-          "bHiddenInGame" : false,
-          "bIsActive" : true,
-          "bIsVisible" : true,
-          "bSimulatePhysics" : false,
-          "bTickEnabled" : true,
-          "bTickInEditor" : false
-        }, {
-          "BoxExtent" : [1.000000, 1.000000, 1.000000],
-          "CollisionChannel" : 1,
-          "CollisionEnabled" : 3,
-          "CollisionMask" : -1,
-          "Id" : 1384,
-          "Mobility" : 1,
-          "ObjectName" : "UBoxComponent_1",
-          "ParentId" : 1383,
-          "PhysicalMaterial" : "",
-          "RelativeLocation" : [0.000000, 0.000000, 0.000000],
-          "RelativeRotationEuler" : [0.000000, 0.000000, 0.000000],
-          "RelativeScale" : [1.000000, 1.000000, 1.000000],
-          "Type" : "UBoxComponent",
-          "bBlockComponent" : false,
-          "bGenerateOverlapEvents" : true,
-          "bHiddenInGame" : false,
-          "bIsActive" : true,
-          "bIsVisible" : true,
-          "bShapeHiddenInGame" : true,
-          "bShapeIsVisible" : true,
-          "bSimulatePhysics" : false,
-          "bTickEnabled" : true,
-          "bTickInEditor" : false
-        }],
-      "RootComponentId" : 1383,
-      "Tag" : "",
-      "Type" : "AStaticMeshActor",
-      "bActorHiddenInGame" : false,
-      "bActorIsActive" : true
-    },
-    "1386" : {
-      "ObjectName" : "AStaticMeshActor_3",
-      "OwnedComponents" : [{
-          "CollisionChannel" : 1,
-          "CollisionEnabled" : 3,
-          "CollisionMask" : -1,
-          "Id" : 1388,
-          "MaterialSlots" : [{
-              "AssetPath" : "texture",
-              "Type" : "UMaterial"
-            }],
-          "Mobility" : 1,
-          "ObjectName" : "UStaticMeshComponent_23",
-          "ParentId" : 0,
-          "PhysicalMaterial" : "",
-          "RelativeLocation" : [14.311593, 0.633360, -7.229744],
-          "RelativeRotationEuler" : [0.000000, -0.000000, 0.000000],
-          "RelativeScale" : [1.000000, 1.000000, 1.000000],
-          "StaticMesh" : "Data/cube-tex.obj",
-          "Type" : "UStaticMeshComponent",
-          "bBlockComponent" : false,
-          "bCastShadows" : true,
-          "bGenerateOverlapEvents" : true,
-          "bHiddenInGame" : false,
-          "bIsActive" : true,
-          "bIsVisible" : true,
-          "bSimulatePhysics" : false,
-          "bTickEnabled" : true,
-          "bTickInEditor" : false
-        }, {
-          "ItemName" : "소화기",
-          "ItemType" : 0,
-          "ObjectName" : "UItemComponent_1",
-          "Quantity" : 1,
-          "Type" : "UItemComponent",
-          "bCanPickUp" : true,
-          "bHiddenInGame" : false,
-          "bIsActive" : true,
-          "bIsHighlighted" : false,
-          "bTickEnabled" : true,
-          "bTickInEditor" : false
-        }, {
-          "BoxExtent" : [1.000000, 1.000000, 1.000000],
-          "CollisionChannel" : 1,
-          "CollisionEnabled" : 3,
-          "CollisionMask" : -1,
-          "Id" : 1389,
-          "Mobility" : 1,
-          "ObjectName" : "UBoxComponent_1",
-          "ParentId" : 1388,
-          "PhysicalMaterial" : "",
-          "RelativeLocation" : [0.000000, 0.000000, 0.000000],
-          "RelativeRotationEuler" : [0.000000, 0.000000, 0.000000],
-          "RelativeScale" : [1.000000, 1.000000, 1.000000],
-          "Type" : "UBoxComponent",
-          "bBlockComponent" : false,
-          "bGenerateOverlapEvents" : true,
-          "bHiddenInGame" : false,
-          "bIsActive" : true,
-          "bIsVisible" : true,
-          "bShapeHiddenInGame" : true,
-          "bShapeIsVisible" : true,
-          "bSimulatePhysics" : false,
-          "bTickEnabled" : true,
-          "bTickInEditor" : false
-        }],
-      "RootComponentId" : 1388,
-      "Tag" : "",
-      "Type" : "AStaticMeshActor",
-      "bActorHiddenInGame" : false,
-      "bActorIsActive" : true
-    },
-    "1416" : {
+    "1812" : {
       "ObjectName" : "AParticleEventManager_22",
       "OwnedComponents" : [{
-          "Id" : 1417,
+          "Id" : 1813,
           "Mobility" : 1,
           "ObjectName" : "USceneComponent_24",
           "ParentId" : 0,
@@ -1354,13 +994,153 @@
           "bTickEnabled" : true,
           "bTickInEditor" : false
         }],
-      "RootComponentId" : 1417,
+      "RootComponentId" : 1813,
       "Tag" : "",
       "Type" : "AParticleEventManager",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "1694" : {
+    "1874" : {
+      "ObjectName" : "움직임_10",
+      "OwnedComponents" : [{
+          "ItemName" : "소화기",
+          "ItemType" : 0,
+          "ObjectName" : "UItemComponent_1",
+          "Quantity" : 1,
+          "Type" : "UItemComponent",
+          "bCanPickUp" : true,
+          "bHiddenInGame" : false,
+          "bIsActive" : true,
+          "bIsHighlighted" : false,
+          "bTickEnabled" : true,
+          "bTickInEditor" : false
+        }, {
+          "CollisionChannel" : 1,
+          "CollisionEnabled" : 3,
+          "CollisionMask" : -1,
+          "Id" : 1879,
+          "MaterialSlots" : [{
+              "AssetPath" : "texture",
+              "Type" : "UMaterial"
+            }],
+          "Mobility" : 1,
+          "ObjectName" : "UStaticMeshComponent_23",
+          "ParentId" : 0,
+          "PhysicalMaterial" : "",
+          "RelativeLocation" : [9.558182, 1.945232, -6.659219],
+          "RelativeRotationEuler" : [0.000000, -0.000000, 0.000000],
+          "RelativeScale" : [1.000000, 1.000000, 1.000000],
+          "StaticMesh" : "Data/cube-tex.obj",
+          "Type" : "UStaticMeshComponent",
+          "bBlockComponent" : false,
+          "bCastShadows" : true,
+          "bGenerateOverlapEvents" : true,
+          "bHiddenInGame" : false,
+          "bIsActive" : true,
+          "bIsVisible" : true,
+          "bSimulatePhysics" : true,
+          "bTickEnabled" : true,
+          "bTickInEditor" : false
+        }],
+      "RootComponentId" : 1879,
+      "Tag" : "",
+      "Type" : "AStaticMeshActor",
+      "bActorHiddenInGame" : false,
+      "bActorIsActive" : true
+    },
+    "1886" : {
+      "ObjectName" : "AParticleEventManager_23",
+      "OwnedComponents" : [{
+          "Id" : 1887,
+          "Mobility" : 1,
+          "ObjectName" : "USceneComponent_25",
+          "ParentId" : 0,
+          "RelativeLocation" : [0.000000, 0.000000, 0.000000],
+          "RelativeRotationEuler" : [0.000000, 0.000000, 0.000000],
+          "RelativeScale" : [1.000000, 1.000000, 1.000000],
+          "Type" : "USceneComponent",
+          "bHiddenInGame" : false,
+          "bIsActive" : true,
+          "bIsVisible" : true,
+          "bTickEnabled" : true,
+          "bTickInEditor" : false
+        }],
+      "RootComponentId" : 1887,
+      "Tag" : "",
+      "Type" : "AParticleEventManager",
+      "bActorHiddenInGame" : false,
+      "bActorIsActive" : true
+    },
+    "1888" : {
+      "ObjectName" : "AParticleEventManager_24",
+      "OwnedComponents" : [{
+          "Id" : 1889,
+          "Mobility" : 1,
+          "ObjectName" : "USceneComponent_26",
+          "ParentId" : 0,
+          "RelativeLocation" : [0.000000, 0.000000, 0.000000],
+          "RelativeRotationEuler" : [0.000000, 0.000000, 0.000000],
+          "RelativeScale" : [1.000000, 1.000000, 1.000000],
+          "Type" : "USceneComponent",
+          "bHiddenInGame" : false,
+          "bIsActive" : true,
+          "bIsVisible" : true,
+          "bTickEnabled" : true,
+          "bTickInEditor" : false
+        }],
+      "RootComponentId" : 1889,
+      "Tag" : "",
+      "Type" : "AParticleEventManager",
+      "bActorHiddenInGame" : false,
+      "bActorIsActive" : true
+    },
+    "1890" : {
+      "ObjectName" : "AParticleEventManager_25",
+      "OwnedComponents" : [{
+          "Id" : 1891,
+          "Mobility" : 1,
+          "ObjectName" : "USceneComponent_27",
+          "ParentId" : 0,
+          "RelativeLocation" : [0.000000, 0.000000, 0.000000],
+          "RelativeRotationEuler" : [0.000000, 0.000000, 0.000000],
+          "RelativeScale" : [1.000000, 1.000000, 1.000000],
+          "Type" : "USceneComponent",
+          "bHiddenInGame" : false,
+          "bIsActive" : true,
+          "bIsVisible" : true,
+          "bTickEnabled" : true,
+          "bTickInEditor" : false
+        }],
+      "RootComponentId" : 1891,
+      "Tag" : "",
+      "Type" : "AParticleEventManager",
+      "bActorHiddenInGame" : false,
+      "bActorIsActive" : true
+    },
+    "1920" : {
+      "ObjectName" : "AParticleEventManager_26",
+      "OwnedComponents" : [{
+          "Id" : 1921,
+          "Mobility" : 1,
+          "ObjectName" : "USceneComponent_28",
+          "ParentId" : 0,
+          "RelativeLocation" : [0.000000, 0.000000, 0.000000],
+          "RelativeRotationEuler" : [0.000000, 0.000000, 0.000000],
+          "RelativeScale" : [1.000000, 1.000000, 1.000000],
+          "Type" : "USceneComponent",
+          "bHiddenInGame" : false,
+          "bIsActive" : true,
+          "bIsVisible" : true,
+          "bTickEnabled" : true,
+          "bTickInEditor" : false
+        }],
+      "RootComponentId" : 1921,
+      "Tag" : "",
+      "Type" : "AParticleEventManager",
+      "bActorHiddenInGame" : false,
+      "bActorIsActive" : true
+    },
+    "1930" : {
       "ObjectName" : "AStaticMeshActor_0",
       "OwnedComponents" : [{
           "ItemName" : "소화기",
@@ -1378,7 +1158,7 @@
           "CollisionChannel" : 1,
           "CollisionEnabled" : 3,
           "CollisionMask" : -1,
-          "Id" : 1696,
+          "Id" : 1932,
           "MaterialSlots" : [{
               "AssetPath" : "texture",
               "Type" : "UMaterial"
@@ -1387,7 +1167,7 @@
           "ObjectName" : "UStaticMeshComponent_23",
           "ParentId" : 0,
           "PhysicalMaterial" : "",
-          "RelativeLocation" : [10.973697, -3.117896, -7.229744],
+          "RelativeLocation" : [9.558182, 3.806869, -6.659219],
           "RelativeRotationEuler" : [0.000000, -0.000000, 0.000000],
           "RelativeScale" : [1.000000, 1.000000, 1.000000],
           "StaticMesh" : "Data/cube-tex.obj",
@@ -1398,41 +1178,17 @@
           "bHiddenInGame" : false,
           "bIsActive" : true,
           "bIsVisible" : true,
-          "bSimulatePhysics" : false,
-          "bTickEnabled" : true,
-          "bTickInEditor" : false
-        }, {
-          "BoxExtent" : [1.000000, 1.000000, 1.000000],
-          "CollisionChannel" : 1,
-          "CollisionEnabled" : 3,
-          "CollisionMask" : -1,
-          "Id" : 1697,
-          "Mobility" : 1,
-          "ObjectName" : "UBoxComponent_1",
-          "ParentId" : 1696,
-          "PhysicalMaterial" : "",
-          "RelativeLocation" : [0.000000, 0.000000, 0.000000],
-          "RelativeRotationEuler" : [0.000000, 0.000000, 0.000000],
-          "RelativeScale" : [1.000000, 1.000000, 1.000000],
-          "Type" : "UBoxComponent",
-          "bBlockComponent" : false,
-          "bGenerateOverlapEvents" : true,
-          "bHiddenInGame" : false,
-          "bIsActive" : true,
-          "bIsVisible" : true,
-          "bShapeHiddenInGame" : true,
-          "bShapeIsVisible" : true,
-          "bSimulatePhysics" : false,
+          "bSimulatePhysics" : true,
           "bTickEnabled" : true,
           "bTickInEditor" : false
         }],
-      "RootComponentId" : 1696,
+      "RootComponentId" : 1932,
       "Tag" : "",
       "Type" : "AStaticMeshActor",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "1699" : {
+    "1933" : {
       "ObjectName" : "AStaticMeshActor_1",
       "OwnedComponents" : [{
           "ItemName" : "소화기",
@@ -1450,7 +1206,7 @@
           "CollisionChannel" : 1,
           "CollisionEnabled" : 3,
           "CollisionMask" : -1,
-          "Id" : 1701,
+          "Id" : 1935,
           "MaterialSlots" : [{
               "AssetPath" : "texture",
               "Type" : "UMaterial"
@@ -1459,7 +1215,7 @@
           "ObjectName" : "UStaticMeshComponent_23",
           "ParentId" : 0,
           "PhysicalMaterial" : "",
-          "RelativeLocation" : [10.973697, 0.148585, -7.229744],
+          "RelativeLocation" : [9.558182, -0.055758, -6.659219],
           "RelativeRotationEuler" : [0.000000, -0.000000, 0.000000],
           "RelativeScale" : [1.000000, 1.000000, 1.000000],
           "StaticMesh" : "Data/cube-tex.obj",
@@ -1470,41 +1226,17 @@
           "bHiddenInGame" : false,
           "bIsActive" : true,
           "bIsVisible" : true,
-          "bSimulatePhysics" : false,
-          "bTickEnabled" : true,
-          "bTickInEditor" : false
-        }, {
-          "BoxExtent" : [1.000000, 1.000000, 1.000000],
-          "CollisionChannel" : 1,
-          "CollisionEnabled" : 3,
-          "CollisionMask" : -1,
-          "Id" : 1702,
-          "Mobility" : 1,
-          "ObjectName" : "UBoxComponent_1",
-          "ParentId" : 1701,
-          "PhysicalMaterial" : "",
-          "RelativeLocation" : [0.000000, 0.000000, 0.000000],
-          "RelativeRotationEuler" : [0.000000, 0.000000, 0.000000],
-          "RelativeScale" : [1.000000, 1.000000, 1.000000],
-          "Type" : "UBoxComponent",
-          "bBlockComponent" : false,
-          "bGenerateOverlapEvents" : true,
-          "bHiddenInGame" : false,
-          "bIsActive" : true,
-          "bIsVisible" : true,
-          "bShapeHiddenInGame" : true,
-          "bShapeIsVisible" : true,
-          "bSimulatePhysics" : false,
+          "bSimulatePhysics" : true,
           "bTickEnabled" : true,
           "bTickInEditor" : false
         }],
-      "RootComponentId" : 1701,
+      "RootComponentId" : 1935,
       "Tag" : "",
       "Type" : "AStaticMeshActor",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "1704" : {
+    "1936" : {
       "ObjectName" : "AStaticMeshActor_2",
       "OwnedComponents" : [{
           "ItemName" : "소화기",
@@ -1522,7 +1254,7 @@
           "CollisionChannel" : 1,
           "CollisionEnabled" : 3,
           "CollisionMask" : -1,
-          "Id" : 1706,
+          "Id" : 1938,
           "MaterialSlots" : [{
               "AssetPath" : "texture",
               "Type" : "UMaterial"
@@ -1531,7 +1263,7 @@
           "ObjectName" : "UStaticMeshComponent_23",
           "ParentId" : 0,
           "PhysicalMaterial" : "",
-          "RelativeLocation" : [10.973697, 3.770613, -7.229744],
+          "RelativeLocation" : [11.288102, -0.055758, -6.659219],
           "RelativeRotationEuler" : [0.000000, -0.000000, 0.000000],
           "RelativeScale" : [1.000000, 1.000000, 1.000000],
           "StaticMesh" : "Data/cube-tex.obj",
@@ -1542,41 +1274,17 @@
           "bHiddenInGame" : false,
           "bIsActive" : true,
           "bIsVisible" : true,
-          "bSimulatePhysics" : false,
-          "bTickEnabled" : true,
-          "bTickInEditor" : false
-        }, {
-          "BoxExtent" : [1.000000, 1.000000, 1.000000],
-          "CollisionChannel" : 1,
-          "CollisionEnabled" : 3,
-          "CollisionMask" : -1,
-          "Id" : 1707,
-          "Mobility" : 1,
-          "ObjectName" : "UBoxComponent_1",
-          "ParentId" : 1706,
-          "PhysicalMaterial" : "",
-          "RelativeLocation" : [0.000000, 0.000000, 0.000000],
-          "RelativeRotationEuler" : [0.000000, 0.000000, 0.000000],
-          "RelativeScale" : [1.000000, 1.000000, 1.000000],
-          "Type" : "UBoxComponent",
-          "bBlockComponent" : false,
-          "bGenerateOverlapEvents" : true,
-          "bHiddenInGame" : false,
-          "bIsActive" : true,
-          "bIsVisible" : true,
-          "bShapeHiddenInGame" : true,
-          "bShapeIsVisible" : true,
-          "bSimulatePhysics" : false,
+          "bSimulatePhysics" : true,
           "bTickEnabled" : true,
           "bTickInEditor" : false
         }],
-      "RootComponentId" : 1706,
+      "RootComponentId" : 1938,
       "Tag" : "",
       "Type" : "AStaticMeshActor",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "1709" : {
+    "1939" : {
       "ObjectName" : "AStaticMeshActor_3",
       "OwnedComponents" : [{
           "ItemName" : "소화기",
@@ -1594,7 +1302,7 @@
           "CollisionChannel" : 1,
           "CollisionEnabled" : 3,
           "CollisionMask" : -1,
-          "Id" : 1711,
+          "Id" : 1941,
           "MaterialSlots" : [{
               "AssetPath" : "texture",
               "Type" : "UMaterial"
@@ -1603,7 +1311,7 @@
           "ObjectName" : "UStaticMeshComponent_23",
           "ParentId" : 0,
           "PhysicalMaterial" : "",
-          "RelativeLocation" : [12.896568, 3.770613, -7.229744],
+          "RelativeLocation" : [11.288102, 1.657417, -6.659219],
           "RelativeRotationEuler" : [0.000000, -0.000000, 0.000000],
           "RelativeScale" : [1.000000, 1.000000, 1.000000],
           "StaticMesh" : "Data/cube-tex.obj",
@@ -1614,41 +1322,17 @@
           "bHiddenInGame" : false,
           "bIsActive" : true,
           "bIsVisible" : true,
-          "bSimulatePhysics" : false,
-          "bTickEnabled" : true,
-          "bTickInEditor" : false
-        }, {
-          "BoxExtent" : [1.000000, 1.000000, 1.000000],
-          "CollisionChannel" : 1,
-          "CollisionEnabled" : 3,
-          "CollisionMask" : -1,
-          "Id" : 1712,
-          "Mobility" : 1,
-          "ObjectName" : "UBoxComponent_1",
-          "ParentId" : 1711,
-          "PhysicalMaterial" : "",
-          "RelativeLocation" : [0.000000, 0.000000, 0.000000],
-          "RelativeRotationEuler" : [0.000000, 0.000000, 0.000000],
-          "RelativeScale" : [1.000000, 1.000000, 1.000000],
-          "Type" : "UBoxComponent",
-          "bBlockComponent" : false,
-          "bGenerateOverlapEvents" : true,
-          "bHiddenInGame" : false,
-          "bIsActive" : true,
-          "bIsVisible" : true,
-          "bShapeHiddenInGame" : true,
-          "bShapeIsVisible" : true,
-          "bSimulatePhysics" : false,
+          "bSimulatePhysics" : true,
           "bTickEnabled" : true,
           "bTickInEditor" : false
         }],
-      "RootComponentId" : 1711,
+      "RootComponentId" : 1941,
       "Tag" : "",
       "Type" : "AStaticMeshActor",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "1714" : {
+    "1942" : {
       "ObjectName" : "AStaticMeshActor_4",
       "OwnedComponents" : [{
           "ItemName" : "소화기",
@@ -1666,7 +1350,7 @@
           "CollisionChannel" : 1,
           "CollisionEnabled" : 3,
           "CollisionMask" : -1,
-          "Id" : 1716,
+          "Id" : 1944,
           "MaterialSlots" : [{
               "AssetPath" : "texture",
               "Type" : "UMaterial"
@@ -1675,7 +1359,7 @@
           "ObjectName" : "UStaticMeshComponent_23",
           "ParentId" : 0,
           "PhysicalMaterial" : "",
-          "RelativeLocation" : [12.896568, -1.295169, -7.229744],
+          "RelativeLocation" : [12.624132, 1.657417, -6.659219],
           "RelativeRotationEuler" : [0.000000, -0.000000, 0.000000],
           "RelativeScale" : [1.000000, 1.000000, 1.000000],
           "StaticMesh" : "Data/cube-tex.obj",
@@ -1686,41 +1370,17 @@
           "bHiddenInGame" : false,
           "bIsActive" : true,
           "bIsVisible" : true,
-          "bSimulatePhysics" : false,
-          "bTickEnabled" : true,
-          "bTickInEditor" : false
-        }, {
-          "BoxExtent" : [1.000000, 1.000000, 1.000000],
-          "CollisionChannel" : 1,
-          "CollisionEnabled" : 3,
-          "CollisionMask" : -1,
-          "Id" : 1717,
-          "Mobility" : 1,
-          "ObjectName" : "UBoxComponent_1",
-          "ParentId" : 1716,
-          "PhysicalMaterial" : "",
-          "RelativeLocation" : [0.000000, 0.000000, 0.000000],
-          "RelativeRotationEuler" : [0.000000, 0.000000, 0.000000],
-          "RelativeScale" : [1.000000, 1.000000, 1.000000],
-          "Type" : "UBoxComponent",
-          "bBlockComponent" : false,
-          "bGenerateOverlapEvents" : true,
-          "bHiddenInGame" : false,
-          "bIsActive" : true,
-          "bIsVisible" : true,
-          "bShapeHiddenInGame" : true,
-          "bShapeIsVisible" : true,
-          "bSimulatePhysics" : false,
+          "bSimulatePhysics" : true,
           "bTickEnabled" : true,
           "bTickInEditor" : false
         }],
-      "RootComponentId" : 1716,
+      "RootComponentId" : 1944,
       "Tag" : "",
       "Type" : "AStaticMeshActor",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "1719" : {
+    "1945" : {
       "ObjectName" : "AStaticMeshActor_5",
       "OwnedComponents" : [{
           "ItemName" : "소화기",
@@ -1738,7 +1398,7 @@
           "CollisionChannel" : 1,
           "CollisionEnabled" : 3,
           "CollisionMask" : -1,
-          "Id" : 1721,
+          "Id" : 1947,
           "MaterialSlots" : [{
               "AssetPath" : "texture",
               "Type" : "UMaterial"
@@ -1747,7 +1407,7 @@
           "ObjectName" : "UStaticMeshComponent_23",
           "ParentId" : 0,
           "PhysicalMaterial" : "",
-          "RelativeLocation" : [12.896568, 2.094295, -7.229744],
+          "RelativeLocation" : [12.624132, 3.682352, -6.659219],
           "RelativeRotationEuler" : [0.000000, -0.000000, 0.000000],
           "RelativeScale" : [1.000000, 1.000000, 1.000000],
           "StaticMesh" : "Data/cube-tex.obj",
@@ -1758,41 +1418,17 @@
           "bHiddenInGame" : false,
           "bIsActive" : true,
           "bIsVisible" : true,
-          "bSimulatePhysics" : false,
-          "bTickEnabled" : true,
-          "bTickInEditor" : false
-        }, {
-          "BoxExtent" : [1.000000, 1.000000, 1.000000],
-          "CollisionChannel" : 1,
-          "CollisionEnabled" : 3,
-          "CollisionMask" : -1,
-          "Id" : 1722,
-          "Mobility" : 1,
-          "ObjectName" : "UBoxComponent_1",
-          "ParentId" : 1721,
-          "PhysicalMaterial" : "",
-          "RelativeLocation" : [0.000000, 0.000000, 0.000000],
-          "RelativeRotationEuler" : [0.000000, 0.000000, 0.000000],
-          "RelativeScale" : [1.000000, 1.000000, 1.000000],
-          "Type" : "UBoxComponent",
-          "bBlockComponent" : false,
-          "bGenerateOverlapEvents" : true,
-          "bHiddenInGame" : false,
-          "bIsActive" : true,
-          "bIsVisible" : true,
-          "bShapeHiddenInGame" : true,
-          "bShapeIsVisible" : true,
-          "bSimulatePhysics" : false,
+          "bSimulatePhysics" : true,
           "bTickEnabled" : true,
           "bTickInEditor" : false
         }],
-      "RootComponentId" : 1721,
+      "RootComponentId" : 1947,
       "Tag" : "",
       "Type" : "AStaticMeshActor",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "1724" : {
+    "1948" : {
       "ObjectName" : "AStaticMeshActor_6",
       "OwnedComponents" : [{
           "ItemName" : "소화기",
@@ -1810,7 +1446,7 @@
           "CollisionChannel" : 1,
           "CollisionEnabled" : 3,
           "CollisionMask" : -1,
-          "Id" : 1726,
+          "Id" : 1950,
           "MaterialSlots" : [{
               "AssetPath" : "texture",
               "Type" : "UMaterial"
@@ -1819,7 +1455,7 @@
           "ObjectName" : "UStaticMeshComponent_23",
           "ParentId" : 0,
           "PhysicalMaterial" : "",
-          "RelativeLocation" : [16.442993, 2.094295, -7.229744],
+          "RelativeLocation" : [11.025856, 3.682352, -6.659219],
           "RelativeRotationEuler" : [0.000000, -0.000000, 0.000000],
           "RelativeScale" : [1.000000, 1.000000, 1.000000],
           "StaticMesh" : "Data/cube-tex.obj",
@@ -1830,41 +1466,17 @@
           "bHiddenInGame" : false,
           "bIsActive" : true,
           "bIsVisible" : true,
-          "bSimulatePhysics" : false,
-          "bTickEnabled" : true,
-          "bTickInEditor" : false
-        }, {
-          "BoxExtent" : [1.000000, 1.000000, 1.000000],
-          "CollisionChannel" : 1,
-          "CollisionEnabled" : 3,
-          "CollisionMask" : -1,
-          "Id" : 1727,
-          "Mobility" : 1,
-          "ObjectName" : "UBoxComponent_1",
-          "ParentId" : 1726,
-          "PhysicalMaterial" : "",
-          "RelativeLocation" : [0.000000, 0.000000, 0.000000],
-          "RelativeRotationEuler" : [0.000000, 0.000000, 0.000000],
-          "RelativeScale" : [1.000000, 1.000000, 1.000000],
-          "Type" : "UBoxComponent",
-          "bBlockComponent" : false,
-          "bGenerateOverlapEvents" : true,
-          "bHiddenInGame" : false,
-          "bIsActive" : true,
-          "bIsVisible" : true,
-          "bShapeHiddenInGame" : true,
-          "bShapeIsVisible" : true,
-          "bSimulatePhysics" : false,
+          "bSimulatePhysics" : true,
           "bTickEnabled" : true,
           "bTickInEditor" : false
         }],
-      "RootComponentId" : 1726,
+      "RootComponentId" : 1950,
       "Tag" : "",
       "Type" : "AStaticMeshActor",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "1729" : {
+    "1951" : {
       "ObjectName" : "AStaticMeshActor_7",
       "OwnedComponents" : [{
           "ItemName" : "소화기",
@@ -1882,7 +1494,7 @@
           "CollisionChannel" : 1,
           "CollisionEnabled" : 3,
           "CollisionMask" : -1,
-          "Id" : 1731,
+          "Id" : 1953,
           "MaterialSlots" : [{
               "AssetPath" : "texture",
               "Type" : "UMaterial"
@@ -1891,7 +1503,7 @@
           "ObjectName" : "UStaticMeshComponent_23",
           "ParentId" : 0,
           "PhysicalMaterial" : "",
-          "RelativeLocation" : [14.810905, 2.094295, -7.229744],
+          "RelativeLocation" : [12.624132, -0.083488, -6.659219],
           "RelativeRotationEuler" : [0.000000, -0.000000, 0.000000],
           "RelativeScale" : [1.000000, 1.000000, 1.000000],
           "StaticMesh" : "Data/cube-tex.obj",
@@ -1902,41 +1514,17 @@
           "bHiddenInGame" : false,
           "bIsActive" : true,
           "bIsVisible" : true,
-          "bSimulatePhysics" : false,
-          "bTickEnabled" : true,
-          "bTickInEditor" : false
-        }, {
-          "BoxExtent" : [1.000000, 1.000000, 1.000000],
-          "CollisionChannel" : 1,
-          "CollisionEnabled" : 3,
-          "CollisionMask" : -1,
-          "Id" : 1732,
-          "Mobility" : 1,
-          "ObjectName" : "UBoxComponent_1",
-          "ParentId" : 1731,
-          "PhysicalMaterial" : "",
-          "RelativeLocation" : [0.000000, 0.000000, 0.000000],
-          "RelativeRotationEuler" : [0.000000, 0.000000, 0.000000],
-          "RelativeScale" : [1.000000, 1.000000, 1.000000],
-          "Type" : "UBoxComponent",
-          "bBlockComponent" : false,
-          "bGenerateOverlapEvents" : true,
-          "bHiddenInGame" : false,
-          "bIsActive" : true,
-          "bIsVisible" : true,
-          "bShapeHiddenInGame" : true,
-          "bShapeIsVisible" : true,
-          "bSimulatePhysics" : false,
+          "bSimulatePhysics" : true,
           "bTickEnabled" : true,
           "bTickInEditor" : false
         }],
-      "RootComponentId" : 1731,
+      "RootComponentId" : 1953,
       "Tag" : "",
       "Type" : "AStaticMeshActor",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "1734" : {
+    "1954" : {
       "ObjectName" : "AStaticMeshActor_8",
       "OwnedComponents" : [{
           "ItemName" : "소화기",
@@ -1954,7 +1542,7 @@
           "CollisionChannel" : 1,
           "CollisionEnabled" : 3,
           "CollisionMask" : -1,
-          "Id" : 1736,
+          "Id" : 1956,
           "MaterialSlots" : [{
               "AssetPath" : "texture",
               "Type" : "UMaterial"
@@ -1963,7 +1551,7 @@
           "ObjectName" : "UStaticMeshComponent_23",
           "ParentId" : 0,
           "PhysicalMaterial" : "",
-          "RelativeLocation" : [14.810905, 3.970786, -7.229744],
+          "RelativeLocation" : [15.239549, -0.083488, -6.659219],
           "RelativeRotationEuler" : [0.000000, -0.000000, 0.000000],
           "RelativeScale" : [1.000000, 1.000000, 1.000000],
           "StaticMesh" : "Data/cube-tex.obj",
@@ -1974,41 +1562,17 @@
           "bHiddenInGame" : false,
           "bIsActive" : true,
           "bIsVisible" : true,
-          "bSimulatePhysics" : false,
-          "bTickEnabled" : true,
-          "bTickInEditor" : false
-        }, {
-          "BoxExtent" : [1.000000, 1.000000, 1.000000],
-          "CollisionChannel" : 1,
-          "CollisionEnabled" : 3,
-          "CollisionMask" : -1,
-          "Id" : 1737,
-          "Mobility" : 1,
-          "ObjectName" : "UBoxComponent_1",
-          "ParentId" : 1736,
-          "PhysicalMaterial" : "",
-          "RelativeLocation" : [0.000000, 0.000000, 0.000000],
-          "RelativeRotationEuler" : [0.000000, 0.000000, 0.000000],
-          "RelativeScale" : [1.000000, 1.000000, 1.000000],
-          "Type" : "UBoxComponent",
-          "bBlockComponent" : false,
-          "bGenerateOverlapEvents" : true,
-          "bHiddenInGame" : false,
-          "bIsActive" : true,
-          "bIsVisible" : true,
-          "bShapeHiddenInGame" : true,
-          "bShapeIsVisible" : true,
-          "bSimulatePhysics" : false,
+          "bSimulatePhysics" : true,
           "bTickEnabled" : true,
           "bTickInEditor" : false
         }],
-      "RootComponentId" : 1736,
+      "RootComponentId" : 1956,
       "Tag" : "",
       "Type" : "AStaticMeshActor",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "1739" : {
+    "1957" : {
       "ObjectName" : "AStaticMeshActor_9",
       "OwnedComponents" : [{
           "ItemName" : "소화기",
@@ -2026,7 +1590,7 @@
           "CollisionChannel" : 1,
           "CollisionEnabled" : 3,
           "CollisionMask" : -1,
-          "Id" : 1741,
+          "Id" : 1959,
           "MaterialSlots" : [{
               "AssetPath" : "texture",
               "Type" : "UMaterial"
@@ -2035,7 +1599,7 @@
           "ObjectName" : "UStaticMeshComponent_23",
           "ParentId" : 0,
           "PhysicalMaterial" : "",
-          "RelativeLocation" : [9.558182, 3.970786, -7.229744],
+          "RelativeLocation" : [15.239549, 1.399971, -6.659219],
           "RelativeRotationEuler" : [0.000000, -0.000000, 0.000000],
           "RelativeScale" : [1.000000, 1.000000, 1.000000],
           "StaticMesh" : "Data/cube-tex.obj",
@@ -2046,41 +1610,17 @@
           "bHiddenInGame" : false,
           "bIsActive" : true,
           "bIsVisible" : true,
-          "bSimulatePhysics" : false,
-          "bTickEnabled" : true,
-          "bTickInEditor" : false
-        }, {
-          "BoxExtent" : [1.000000, 1.000000, 1.000000],
-          "CollisionChannel" : 1,
-          "CollisionEnabled" : 3,
-          "CollisionMask" : -1,
-          "Id" : 1742,
-          "Mobility" : 1,
-          "ObjectName" : "UBoxComponent_1",
-          "ParentId" : 1741,
-          "PhysicalMaterial" : "",
-          "RelativeLocation" : [0.000000, 0.000000, 0.000000],
-          "RelativeRotationEuler" : [0.000000, 0.000000, 0.000000],
-          "RelativeScale" : [1.000000, 1.000000, 1.000000],
-          "Type" : "UBoxComponent",
-          "bBlockComponent" : false,
-          "bGenerateOverlapEvents" : true,
-          "bHiddenInGame" : false,
-          "bIsActive" : true,
-          "bIsVisible" : true,
-          "bShapeHiddenInGame" : true,
-          "bShapeIsVisible" : true,
-          "bSimulatePhysics" : false,
+          "bSimulatePhysics" : true,
           "bTickEnabled" : true,
           "bTickInEditor" : false
         }],
-      "RootComponentId" : 1741,
+      "RootComponentId" : 1959,
       "Tag" : "",
       "Type" : "AStaticMeshActor",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "1744" : {
+    "1960" : {
       "ObjectName" : "AStaticMeshActor_10",
       "OwnedComponents" : [{
           "ItemName" : "소화기",
@@ -2095,34 +1635,10 @@
           "bTickEnabled" : true,
           "bTickInEditor" : false
         }, {
-          "BoxExtent" : [1.000000, 1.000000, 1.000000],
           "CollisionChannel" : 1,
           "CollisionEnabled" : 3,
           "CollisionMask" : -1,
-          "Id" : 1746,
-          "Mobility" : 1,
-          "ObjectName" : "UBoxComponent_1",
-          "ParentId" : 1748,
-          "PhysicalMaterial" : "",
-          "RelativeLocation" : [0.000000, 0.000000, 0.000000],
-          "RelativeRotationEuler" : [0.000000, 0.000000, 0.000000],
-          "RelativeScale" : [1.000000, 1.000000, 1.000000],
-          "Type" : "UBoxComponent",
-          "bBlockComponent" : false,
-          "bGenerateOverlapEvents" : true,
-          "bHiddenInGame" : false,
-          "bIsActive" : true,
-          "bIsVisible" : true,
-          "bShapeHiddenInGame" : true,
-          "bShapeIsVisible" : true,
-          "bSimulatePhysics" : false,
-          "bTickEnabled" : true,
-          "bTickInEditor" : false
-        }, {
-          "CollisionChannel" : 1,
-          "CollisionEnabled" : 3,
-          "CollisionMask" : -1,
-          "Id" : 1748,
+          "Id" : 1962,
           "MaterialSlots" : [{
               "AssetPath" : "texture",
               "Type" : "UMaterial"
@@ -2131,7 +1647,7 @@
           "ObjectName" : "UStaticMeshComponent_23",
           "ParentId" : 0,
           "PhysicalMaterial" : "",
-          "RelativeLocation" : [9.558182, 1.945232, -7.229744],
+          "RelativeLocation" : [15.239549, 3.251481, -6.659219],
           "RelativeRotationEuler" : [0.000000, -0.000000, 0.000000],
           "RelativeScale" : [1.000000, 1.000000, 1.000000],
           "StaticMesh" : "Data/cube-tex.obj",
@@ -2142,99 +1658,27 @@
           "bHiddenInGame" : false,
           "bIsActive" : true,
           "bIsVisible" : true,
-          "bSimulatePhysics" : false,
+          "bSimulatePhysics" : true,
           "bTickEnabled" : true,
           "bTickInEditor" : false
         }],
-      "RootComponentId" : 1748,
-      "Tag" : "",
-      "Type" : "AStaticMeshActor",
-      "bActorHiddenInGame" : false,
-      "bActorIsActive" : true
-    },
-    "1749" : {
-      "ObjectName" : "AStaticMeshActor_11",
-      "OwnedComponents" : [{
-          "ItemName" : "소화기",
-          "ItemType" : 0,
-          "ObjectName" : "UItemComponent_1",
-          "Quantity" : 1,
-          "Type" : "UItemComponent",
-          "bCanPickUp" : true,
-          "bHiddenInGame" : false,
-          "bIsActive" : true,
-          "bIsHighlighted" : false,
-          "bTickEnabled" : true,
-          "bTickInEditor" : false
-        }, {
-          "CollisionChannel" : 1,
-          "CollisionEnabled" : 3,
-          "CollisionMask" : -1,
-          "Id" : 1753,
-          "MaterialSlots" : [{
-              "AssetPath" : "texture",
-              "Type" : "UMaterial"
-            }],
-          "Mobility" : 1,
-          "ObjectName" : "UStaticMeshComponent_23",
-          "ParentId" : 0,
-          "PhysicalMaterial" : "",
-          "RelativeLocation" : [9.558182, -0.596799, -7.229744],
-          "RelativeRotationEuler" : [0.000000, -0.000000, 0.000000],
-          "RelativeScale" : [1.000000, 1.000000, 1.000000],
-          "StaticMesh" : "Data/cube-tex.obj",
-          "Type" : "UStaticMeshComponent",
-          "bBlockComponent" : false,
-          "bCastShadows" : true,
-          "bGenerateOverlapEvents" : true,
-          "bHiddenInGame" : false,
-          "bIsActive" : true,
-          "bIsVisible" : true,
-          "bSimulatePhysics" : false,
-          "bTickEnabled" : true,
-          "bTickInEditor" : false
-        }, {
-          "BoxExtent" : [1.000000, 1.000000, 1.000000],
-          "CollisionChannel" : 1,
-          "CollisionEnabled" : 3,
-          "CollisionMask" : -1,
-          "Id" : 1751,
-          "Mobility" : 1,
-          "ObjectName" : "UBoxComponent_1",
-          "ParentId" : 1753,
-          "PhysicalMaterial" : "",
-          "RelativeLocation" : [0.000000, 0.000000, 0.000000],
-          "RelativeRotationEuler" : [0.000000, 0.000000, 0.000000],
-          "RelativeScale" : [1.000000, 1.000000, 1.000000],
-          "Type" : "UBoxComponent",
-          "bBlockComponent" : false,
-          "bGenerateOverlapEvents" : true,
-          "bHiddenInGame" : false,
-          "bIsActive" : true,
-          "bIsVisible" : true,
-          "bShapeHiddenInGame" : true,
-          "bShapeIsVisible" : true,
-          "bSimulatePhysics" : false,
-          "bTickEnabled" : true,
-          "bTickInEditor" : false
-        }],
-      "RootComponentId" : 1753,
+      "RootComponentId" : 1962,
       "Tag" : "",
       "Type" : "AStaticMeshActor",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     }
   },
-  "NextUUID" : 1754,
+  "NextUUID" : 1963,
   "PerspectiveCamera" : {
     "FOV" : [60.000000],
     "FarClip" : [1167.000000],
-    "Location" : [0.899602, 5.168243, -0.755127],
+    "Location" : [2.854867, 4.708371, -3.278298],
     "NearClip" : [0.100000],
-    "Rotation" : [0.000000, 26.799814, -30.201721]
+    "Rotation" : [0.000000, 24.999807, -22.401691]
   },
   "Version" : 1,
   "WorldSettings" : {
-    "GameModeClass" : "APlayerGameMode"
+    "GameModeClass" : "AItemTestGameMode"
   }
 }

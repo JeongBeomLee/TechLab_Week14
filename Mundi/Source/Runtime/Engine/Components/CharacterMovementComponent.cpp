@@ -74,56 +74,72 @@ void UCharacterMovementComponent::TickComponent(float DeltaTime)
 	UCapsuleComponent* Capsule = CharacterOwner->GetCapsuleComponent();
 	bool bUseCCT = Capsule && Capsule->GetUseCCT() && Capsule->GetControllerInstance();
 
-	// 1. 속도 업데이트 (입력, 마찰, 가속)
-	UpdateVelocity(DeltaTime);
+	// 고정 시간 스텝 적용
+	PhysicsAccumulator += DeltaTime;
 
-	// 2. 중력 적용
-	ApplyGravity(DeltaTime);
-
-	if (bUseCCT)
+	// 최대 누적 시간 제한 (프레임 드랍 시 너무 많은 반복 방지)
+	const float MaxAccumulator = FixedPhysicsStep * 8.0f;
+	if (PhysicsAccumulator > MaxAccumulator)
 	{
-		// ────────────────────────────────────────────────
-		// CCT 모드: PhysX CCT::move() 사용
-		// ────────────────────────────────────────────────
-		MoveWithCCT(DeltaTime);
+		PhysicsAccumulator = MaxAccumulator;
 	}
-	else
+
+	// 고정 시간 스텝으로 물리 업데이트
+	while (PhysicsAccumulator >= FixedPhysicsStep)
 	{
-		// ────────────────────────────────────────────────
-		// 기존 모드: 수동 충돌 처리
-		// ────────────────────────────────────────────────
+		// 1. 속도 업데이트 (입력, 마찰, 가속)
+		UpdateVelocity(FixedPhysicsStep);
 
-		// 3. 가파른 경사면 미끄러짐 처리
-		HandleSlopeSliding(DeltaTime);
+		// 2. 중력 적용
+		ApplyGravity(FixedPhysicsStep);
 
-		// 4. 위치 업데이트
-		MoveUpdatedComponent(DeltaTime);
-
-		// 5. 지면 체크
-		bool bWasGrounded = IsGrounded();
-		bool bIsNowGrounded = CheckGround();
-
-		// 6. 이동 모드 업데이트
-		if (bIsNowGrounded && !bWasGrounded)
+		if (bUseCCT)
 		{
-			// 착지
-			SetMovementMode(EMovementMode::Walking);
-			float VerticalSpeed = FVector::Dot(Velocity, GravityDirection);
-			Velocity -= GravityDirection * VerticalSpeed;
-			TimeInAir = 0.0f;
-			bIsJumping = false;
+			// ────────────────────────────────────────────────
+			// CCT 모드: PhysX CCT::move() 사용
+			// ────────────────────────────────────────────────
+			MoveWithCCT(FixedPhysicsStep);
 		}
-		else if (!bIsNowGrounded && bWasGrounded)
+		else
 		{
-			// 낙하 시작
-			SetMovementMode(EMovementMode::Falling);
+			// ────────────────────────────────────────────────
+			// 기존 모드: 수동 충돌 처리
+			// ────────────────────────────────────────────────
+
+			// 3. 가파른 경사면 미끄러짐 처리
+			HandleSlopeSliding(FixedPhysicsStep);
+
+			// 4. 위치 업데이트
+			MoveUpdatedComponent(FixedPhysicsStep);
+
+			// 5. 지면 체크
+			bool bWasGrounded = IsGrounded();
+			bool bIsNowGrounded = CheckGround();
+
+			// 6. 이동 모드 업데이트
+			if (bIsNowGrounded && !bWasGrounded)
+			{
+				// 착지
+				SetMovementMode(EMovementMode::Walking);
+				float VerticalSpeed = FVector::Dot(Velocity, GravityDirection);
+				Velocity -= GravityDirection * VerticalSpeed;
+				TimeInAir = 0.0f;
+				bIsJumping = false;
+			}
+			else if (!bIsNowGrounded && bWasGrounded)
+			{
+				// 낙하 시작
+				SetMovementMode(EMovementMode::Falling);
+			}
+
+			// 7. 공중 시간 체크
+			if (IsFalling())
+			{
+				TimeInAir += FixedPhysicsStep;
+			}
 		}
 
-		// 7. 공중 시간 체크
-		if (IsFalling())
-		{
-			TimeInAir += DeltaTime;
-		}
+		PhysicsAccumulator -= FixedPhysicsStep;
 	}
 
 	// 입력 초기화

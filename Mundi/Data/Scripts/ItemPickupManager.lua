@@ -12,8 +12,8 @@
 -- ═══════════════════════════════════════════════════════════════════════════
 
 local ItemsInRange = {}        -- 범위 내 아이템 목록 (FGameObject)
-local ClosestItem = nil        -- 현재 가장 가까운 아이템
-local PickupAnimPath = ""      -- 줍기 애니메이션 경로 (나중에 설정)
+local ClosestItem = nil        -- 현재 가까운 아이템
+local PendingPickupItem = nil  -- 클릭 시점에 저장된 픽업 대상
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- 헬퍼 함수
@@ -55,8 +55,8 @@ end
 -- 하이라이트 관리
 -- ═══════════════════════════════════════════════════════════════════════════
 
--- 하이라이트 색상 (노란색/황금색)
-local HighlightColor = { R = 1.0, G = 0.8, B = 0.2, A = 1.0 }
+-- 하이라이트 색상 (흰색)
+local HighlightColor = { R = 1.0, G = 1.0, B = 1.0, A = 1.0 }
 
 local function SetHighlight(gameObject, bHighlight)
     if not gameObject then return end
@@ -108,15 +108,24 @@ end
 -- 아이템 줍기
 -- ═══════════════════════════════════════════════════════════════════════════
 
+-- PickUp 노티파이 시점에 클릭했던 아이템 줍기
 local function TryPickup()
-    if not ClosestItem then
-        -- 줍기 애니메이션만 재생 (아이템 없음)
-        -- TODO: 빈손 줍기 애니메이션
+    -- 클릭 시점에 저장된 아이템 사용
+    if not PendingPickupItem then
+        print("[ItemPickup] No pending item to pick up")
         return
     end
 
-    local itemInfo = GetItemInfo(ClosestItem)
+    -- 아이템이 유효한지 확인
+    if not PendingPickupItem.bIsActive then
+        print("[ItemPickup] Pending item is no longer active")
+        PendingPickupItem = nil
+        return
+    end
+
+    local itemInfo = GetItemInfo(PendingPickupItem)
     if not itemInfo or not itemInfo.CanPickUp then
+        PendingPickupItem = nil
         return
     end
 
@@ -124,23 +133,38 @@ local function TryPickup()
     local gameInstance = GetGameInstance()
     if gameInstance then
         gameInstance:AddItem(itemInfo.Name, itemInfo.Quantity)
-        -- 타입 정보도 저장
         gameInstance:SetString("ItemType_" .. itemInfo.Name, tostring(itemInfo.Type))
         print("[ItemPickup] Picked up: " .. itemInfo.Name .. " x" .. itemInfo.Quantity)
     end
 
-    -- 픽업할 아이템 임시 저장
-    local pickedItem = ClosestItem
+    -- 픽업할 아이템 참조 저장
+    local pickedItem = PendingPickupItem
+    PendingPickupItem = nil
 
-    -- 목록에서 먼저 제거
+    -- 목록에서 제거
     RemoveFromList(pickedItem)
-    ClosestItem = nil
+    if ClosestItem == pickedItem then
+        ClosestItem = nil
+    end
 
-    -- 아이템 파괴 (PendingDestroy 마킹 -> 물리 바디 정리 -> 하이라이트 제거 -> 지연 삭제)
+    -- 아이템 파괴
     DestroyObject(pickedItem)
 
     -- 가장 가까운 아이템 다시 계산
     UpdateClosestItem()
+end
+
+-- 클릭 시 호출 - 대상 아이템 저장 (이미 대기 중이면 무시)
+local function OnPickupStarted()
+    -- 이미 픽업 대기 중이면 덮어쓰지 않음
+    if PendingPickupItem then
+        return
+    end
+
+    if ClosestItem then
+        PendingPickupItem = ClosestItem
+        print("[ItemPickup] Pickup target: " .. (GetItemInfo(ClosestItem).Name or "Unknown"))
+    end
 end
 
 -- ═══════════════════════════════════════════════════════════════════════════
@@ -151,6 +175,7 @@ function OnBeginPlay()
     print("[ItemPickupManager] Initialized")
     ItemsInRange = {}
     ClosestItem = nil
+    PendingPickupItem = nil
 end
 
 function OnBeginOverlap(OtherObj)
@@ -183,13 +208,25 @@ function OnEndOverlap(OtherObj)
 end
 
 function Update(dt)
-    -- 마우스 왼쪽 클릭 감지
+    -- 마우스 클릭 시 픽업 대상 저장 (실제 줍기는 PickUp 노티파이에서)
     if Input:IsMouseButtonPressed(MouseButton.Left) then
-        TryPickup()
+        OnPickupStarted()
     end
 
     -- 가장 가까운 아이템 매 프레임 갱신 (플레이어/아이템 이동 대응)
     UpdateClosestItem()
+end
+
+-- AnimNotify 콜백 (C++에서 호출됨)
+function OnAnimNotify(NotifyName)
+    print("[ItemPickupManager] AnimNotify received: " .. tostring(NotifyName))
+
+    -- PickUp 노티파이: 실제로 아이템 줍기
+    if NotifyName == "PickUp" then
+        print("[ItemPickupManager] PickUp notify - executing pickup!")
+        TryPickup()
+    end
+    -- EndPickUp은 FirefighterController에서 처리 (Idle 전환)
 end
 
 function OnEndPlay()
@@ -200,5 +237,6 @@ function OnEndPlay()
     -- 로컬 상태만 정리
     ItemsInRange = {}
     ClosestItem = nil
+    PendingPickupItem = nil
     print("[ItemPickupManager] Cleaned up")
 end

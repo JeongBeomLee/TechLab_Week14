@@ -106,6 +106,22 @@ void UPrimitiveComponent::OnCreatePhysicsState()
         return;
     }
 
+    // 자신은 물리 시뮬레이션하지 않고, 부모가 물리 시뮬레이션 중인 경우
+    // → 별도 물리 바디 생성 안함 (ShapeComponent의 수동 오버랩 감지 사용)
+    // 이렇게 하면 물리 시뮬레이션 부모에 붙은 오버랩/충돌 전용 자식이 별도 바디를 만들지 않음
+    // (PVD에서 두 개의 충돌체가 보이는 문제 해결)
+    if (!bSimulatePhysics)
+    {
+        if (UPrimitiveComponent* ParentPrim = Cast<UPrimitiveComponent>(GetAttachParent()))
+        {
+            if (ParentPrim->bSimulatePhysics)
+            {
+                // 부모가 물리 시뮬레이션 중 → 별도 물리 바디 생성하지 않음
+                return;
+            }
+        }
+    }
+
     if (BodyInstance.IsValidBodyInstance())
     {
         return;
@@ -224,9 +240,21 @@ void UPrimitiveComponent::DispatchWakeEvents(bool bWake, FName BoneName)
 void UPrimitiveComponent::DispatchBeginOverlap(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
 {
     OnComponentBeginOverlap.Broadcast(this, OtherActor, OtherComp, OtherBodyIndex);
+
+    // Actor의 델리게이트도 호출 (Lua 스크립트 지원)
+    if (AActor* Owner = GetOwner())
+    {
+        Owner->OnComponentBeginOverlap.Broadcast(this, OtherComp);
+    }
 }
 
 void UPrimitiveComponent::DispatchEndOverlap(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
 {
     OnComponentEndOverlap.Broadcast(this, OtherActor, OtherComp, OtherBodyIndex);
+
+    // Actor의 델리게이트도 호출 (Lua 스크립트 지원)
+    if (AActor* Owner = GetOwner())
+    {
+        Owner->OnComponentEndOverlap.Broadcast(this, OtherComp);
+    }
 }

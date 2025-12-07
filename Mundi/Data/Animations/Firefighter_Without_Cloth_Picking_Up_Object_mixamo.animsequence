@@ -8,8 +8,14 @@
           "NotifyName" : "EndPickUp",
           "SoundPath" : "",
           "TriggerTime" : 0.969900
+        }, {
+          "Color" : [1.000000, 1.000000, 1.000000, 1.000000],
+          "Duration" : 0.000000,
+          "NotifyName" : "PickUp",
+          "SoundPath" : "",
+          "TriggerTime" : 0.452226
         }]
     }],
   "NumberOfFrames" : 35,
-  "SourceFilePath" : "Data/firefighter/Firefighter_Without_Cloth_Picking_Up_Object_mixamo.com"
+  "SourceFilePath" : "Data/Animations/Firefighter_Without_Cloth_Picking_Up_Object_mixamo.animsequence"
 }

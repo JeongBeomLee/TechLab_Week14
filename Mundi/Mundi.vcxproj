@@ -328,6 +328,7 @@ xcopy /y /d "$(ProjectDir)ThirdParty\lib\Cloth\Release\*.dll" "$(OutDir)"</Comma
     <ClCompile Include="Source\Runtime\Engine\GameFramework\GameStateBase.cpp" />
     <ClCompile Include="Source\Runtime\Engine\GameFramework\HudExampleGameMode.cpp" />
     <ClCompile Include="Source\Runtime\Engine\GameFramework\IntroGameMode.cpp" />
+    <ClCompile Include="Source\Runtime\Engine\GameFramework\ItemTestGameMode.cpp" />
     <ClCompile Include="Source\Runtime\Engine\GameFramework\LevelTransitionManager.cpp" />
     <ClCompile Include="Source\Runtime\Engine\GameFramework\Pawn.cpp" />
     <ClCompile Include="Source\Runtime\Engine\GameFramework\PlayerController.cpp" />
@@ -868,6 +869,7 @@ xcopy /y /d "$(ProjectDir)ThirdParty\lib\Cloth\Release\*.dll" "$(OutDir)"</Comma
     <ClCompile Include="Generated\UItemComponent.generated.cpp" />
     <ClCompile Include="Generated\UBoneSocketComponent.generated.cpp" />
     <ClCompile Include="Generated\AEndGameMode.generated.cpp" />
+    <ClCompile Include="Generated\AItemTestGameMode.generated.cpp" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Shaders\Common\LightingBuffers.hlsl">
@@ -1109,6 +1111,7 @@ xcopy /y /d "$(ProjectDir)ThirdParty\lib\Cloth\Release\*.dll" "$(OutDir)"</Comma
     <ClInclude Include="Source\Runtime\Engine\GameFramework\GameStateBase.h" />
     <ClInclude Include="Source\Runtime\Engine\GameFramework\HudExampleGameMode.h" />
     <ClInclude Include="Source\Runtime\Engine\GameFramework\IntroGameMode.h" />
+    <ClInclude Include="Source\Runtime\Engine\GameFramework\ItemTestGameMode.h" />
     <ClInclude Include="Source\Runtime\Engine\GameFramework\LevelTransitionManager.h" />
     <ClInclude Include="Source\Runtime\Engine\GameFramework\Pawn.h" />
     <ClInclude Include="Source\Runtime\Engine\GameFramework\PlayerCameraManager.h" />
@@ -1518,6 +1521,7 @@ xcopy /y /d "$(ProjectDir)ThirdParty\lib\Cloth\Release\*.dll" "$(OutDir)"</Comma
     <ClInclude Include="Generated\UItemComponent.generated.h" />
     <ClInclude Include="Generated\UBoneSocketComponent.generated.h" />
     <ClInclude Include="Generated\AEndGameMode.generated.h" />
+    <ClInclude Include="Generated\AItemTestGameMode.generated.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="BuildTools\CodeGenerator\generate.py" />

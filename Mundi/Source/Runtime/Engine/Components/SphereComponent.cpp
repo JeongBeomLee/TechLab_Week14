@@ -92,6 +92,21 @@ FVector USphereComponent::GetSphereCenter() const
 // UPrimitiveComponent 인터페이스 구현
 // ────────────────────────────────────────────────
 
+void USphereComponent::SetCollisionEnabled(ECollisionEnabled InCollisionEnabled)
+{
+	if (CollisionEnabled != InCollisionEnabled)
+	{
+		CollisionEnabled = InCollisionEnabled;
+
+		// BodySetup 갱신 (새로운 CollisionEnabled 값 반영)
+		UpdateBodySetup();
+
+		// Physics state 재생성
+		OnDestroyPhysicsState();
+		OnCreatePhysicsState();
+	}
+}
+
 void USphereComponent::UpdateBodySetup()
 {
 	if (!SphereBodySetup) { return; }
@@ -102,6 +117,7 @@ void USphereComponent::UpdateBodySetup()
 
 	SphereElem.Radius = SphereRadius;
 	SphereElem.Center = FVector::Zero();
+	SphereElem.SetCollisionEnabled(CollisionEnabled);  // 충돌 설정 전달
 
 	SphereBodySetup->AggGeom.SphereElems.Add(SphereElem);
 }

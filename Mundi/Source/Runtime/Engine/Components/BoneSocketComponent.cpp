@@ -5,6 +5,9 @@
 #include "BodyInstance.h"
 #include "EPhysicsMode.h"
 
+#include <PxRigidDynamic.h>
+using namespace physx;
+
 UBoneSocketComponent::UBoneSocketComponent()
 {
     // 기본 오프셋 초기화 (단위 변환)
@@ -239,6 +242,9 @@ void UBoneSocketComponent::SyncWithBone()
     // 이 컴포넌트의 월드 트랜스폼 설정
     SetWorldTransform(FinalTransform, EUpdateTransformFlags::SkipPhysicsUpdate);
 
+    // 부착된 래그돌 또는 자식 래그돌 동기화
+    SyncAttachedRagdoll();
+
     bSyncing = false;
 }
 
@@ -271,4 +277,128 @@ FTransform UBoneSocketComponent::GetSocketWorldTransform() const
     }
 
     return BoneWorldTransform.GetWorldTransform(SocketOffset);
+}
+
+// ──────────────────────────────
+// 래그돌 부착 (시체 메기 등)
+// ──────────────────────────────
+
+void UBoneSocketComponent::AttachRagdoll(USkeletalMeshComponent* RagdollMesh, int32 AttachBoneIndex)
+{
+    if (!RagdollMesh)
+    {
+        return;
+    }
+
+    // 이전 래그돌이 있으면 해제
+    if (AttachedRagdoll)
+    {
+        DetachRagdoll();
+    }
+
+    AttachedRagdoll = RagdollMesh;
+    AttachedRagdollBoneIndex = AttachBoneIndex;
+
+    // 래그돌 모드가 아니면 래그돌 모드로 전환
+    if (RagdollMesh->GetPhysicsMode() != EPhysicsMode::Ragdoll)
+    {
+        RagdollMesh->SetPhysicsMode(EPhysicsMode::Ragdoll);
+    }
+
+    // 고정할 본의 바디를 키네마틱으로 설정
+    FBodyInstance* AttachBody = RagdollMesh->GetBodyInstance(AttachBoneIndex);
+    if (AttachBody && AttachBody->IsValidBodyInstance())
+    {
+        AttachBody->SetKinematic(true); // 키네마틱으로 전환
+    }
+
+    // 즉시 동기화
+    SyncAttachedRagdoll();
+}
+
+void UBoneSocketComponent::DetachRagdoll()
+{
+    if (!AttachedRagdoll)
+    {
+        return;
+    }
+
+    // 고정했던 본의 바디를 다시 시뮬레이션 모드로
+    FBodyInstance* AttachBody = AttachedRagdoll->GetBodyInstance(AttachedRagdollBoneIndex);
+    if (AttachBody && AttachBody->IsValidBodyInstance())
+    {
+        AttachBody->SetKinematic(false); // 다시 시뮬레이션 (다이나믹)
+    }
+
+    AttachedRagdoll = nullptr;
+    AttachedRagdollBoneIndex = -1;
+}
+
+void UBoneSocketComponent::SyncAttachedRagdoll()
+{
+    FTransform SocketWorld = GetWorldTransform();
+
+    // 명시적으로 AttachRagdoll로 부착된 경우
+    if (AttachedRagdoll && AttachedRagdollBoneIndex >= 0)
+    {
+        FBodyInstance* AttachBody = AttachedRagdoll->GetBodyInstance(AttachedRagdollBoneIndex);
+        if (AttachBody && AttachBody->IsValidBodyInstance())
+        {
+            // 매 프레임 키네마틱으로 강제 설정 후 위치 적용
+            AttachBody->SetKinematic(true);
+            AttachBody->SetKinematicTarget(SocketWorld); // 부드러운 이동
+        }
+        return;
+    }
+
+    // 자식 컴포넌트 중 래그돌 SkeletalMeshComponent 자동 감지 및 동기화
+    for (USceneComponent* Child : GetAttachChildren())
+    {
+        USkeletalMeshComponent* SkelMeshChild = Cast<USkeletalMeshComponent>(Child);
+        if (!SkelMeshChild)
+        {
+            continue;
+        }
+
+        // Ragdoll 또는 Kinematic 모드에서만 동기화
+        EPhysicsMode ChildMode = SkelMeshChild->GetPhysicsMode();
+        if (ChildMode != EPhysicsMode::Ragdoll && ChildMode != EPhysicsMode::Kinematic)
+        {
+            continue;
+        }
+
+        // 첫 번째 유효한 바디를 찾아서 루트로 사용
+        const TArray<FBodyInstance*>& Bodies = SkelMeshChild->GetBodies();
+        FBodyInstance* RootBody = nullptr;
+
+        for (FBodyInstance* Body : Bodies)
+        {
+            if (Body && Body->IsValidBodyInstance())
+            {
+                RootBody = Body;
+                break;
+            }
+        }
+
+        if (RootBody)
+        {
+            // 매 프레임 키네마틱으로 강제 설정 후 위치 적용
+            RootBody->SetKinematic(true);
+            RootBody->SetKinematicTarget(SocketWorld); // 부드러운 이동
+
+            // 다른 바디들에 높은 damping 적용하여 회전 억제
+            for (FBodyInstance* Body : Bodies)
+            {
+                if (Body && Body != RootBody && Body->IsValidBodyInstance() && Body->RigidActor)
+                {
+                    PxRigidDynamic* DynActor = Body->RigidActor->is<PxRigidDynamic>();
+                    if (DynActor)
+                    {
+                        DynActor->setLinearDamping(5.0f);
+                        DynActor->setAngularDamping(5.0f);
+                    }
+                }
+            }
+        }
+    }
 }

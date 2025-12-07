@@ -67,6 +67,9 @@ public:
 	// UPrimitiveComponent 인터페이스 구현
 	// ────────────────────────────────────────────────
 
+	/** 충돌 활성화 설정 (오버라이드: BodySetup 갱신 포함) */
+	void SetCollisionEnabled(ECollisionEnabled InCollisionEnabled);
+
 	/** PhysX용 BodySetup 업데이트합니다. */
 	void UpdateBodySetup();
 

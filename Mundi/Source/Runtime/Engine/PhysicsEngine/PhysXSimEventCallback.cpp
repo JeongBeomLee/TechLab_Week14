@@ -130,13 +130,15 @@ void FPhysXSimEventCallback::onTrigger(PxTriggerPair* pairs, PxU32 count)
 
         if (!TriggerActor || !OtherActor) continue;
 
-        FBodyInstance* TriggerBody = static_cast<FBodyInstance*>(TriggerActor->userData);
-        FBodyInstance* OtherBody = static_cast<FBodyInstance*>(OtherActor->userData);
+        // 타입 안전한 캐스팅 (CCT는 FControllerInstance를 사용하므로 FBodyInstance가 아닐 수 있음)
+        FBodyInstance* TriggerBody = PhysicsUserDataCast<FBodyInstance>(TriggerActor->userData);
+        FBodyInstance* OtherBody = PhysicsUserDataCast<FBodyInstance>(OtherActor->userData);
 
+        // 둘 다 FBodyInstance인 경우에만 오버랩 이벤트 처리
         if (TriggerBody && OtherBody && OwnerScene)
         {
             FCollisionNotifyInfo NotifyInfo;
-            
+
             if (curPair.status == PxPairFlag::eNOTIFY_TOUCH_FOUND)
             {
                 NotifyInfo.Type = ECollisionNotifyType::BeginOverlap;
@@ -150,7 +152,7 @@ void FPhysXSimEventCallback::onTrigger(PxTriggerPair* pairs, PxU32 count)
                 continue;
             }
 
-            NotifyInfo.bCallEvent0 = true; 
+            NotifyInfo.bCallEvent0 = true;
             NotifyInfo.bCallEvent1 = true;
 
             NotifyInfo.Info0.SetFrom(TriggerBody);

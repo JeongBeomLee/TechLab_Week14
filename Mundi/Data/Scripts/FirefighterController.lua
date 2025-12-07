@@ -28,7 +28,9 @@ local ANIM_PICKUP = "Data/firefighter/Firefighter_Without_Cloth_Picking_Up_Objec
 -- 현재 이동 상태 추적
 local bIsMoving = false
 local bIsRunning = false
-local bIsPickingUp = false  -- 줍기 애니메이션 재생 중
+
+-- 액션 수행 중 플래그 (PickUp, 기타 트리거 애니메이션 등)
+local bIsPerformingAction = false
 
 function OnBeginPlay()
     print("[FirefighterController] BeginPlay called")
@@ -53,6 +55,8 @@ function OnBeginPlay()
     MovementComp = GetComponent(Obj, "UCharacterMovementComponent")
     if MovementComp then
         print("[FirefighterController] MovementComponent found!")
+        -- 점프력 설정
+        MovementComp.JumpZVelocity = 5.0
     end
 
     -- 애니메이션 상태 머신 설정
@@ -113,9 +117,8 @@ function Update(DeltaTime)
     bIsMoving = false
     bIsRunning = false
 
-    -- PickUp 애니메이션 재생 중이면 이동 불가 및 다른 입력 무시
-    -- (완료 처리는 OnAnimNotify에서 EndPickUp 노티파이로 처리)
-    if bIsPickingUp then
+    -- 액션 수행 중이면 이동 불가 및 다른 입력 무시
+    if bIsPerformingAction then
         if MovementComp then
             MovementComp.MaxWalkSpeed = 0
         end
@@ -125,7 +128,7 @@ function Update(DeltaTime)
     -- 왼쪽 마우스 클릭으로 줍기 (LButton = 0)
     if Input:IsMouseButtonPressed(0) then
         print("[FirefighterController] PickUp triggered!")
-        bIsPickingUp = true
+        bIsPerformingAction = true
         StateMachine:SetState(STATE_PICKUP, 0.1)
         return
     end
@@ -180,14 +183,10 @@ end
 function OnAnimNotify(NotifyName)
     print("[FirefighterController] AnimNotify received: " .. tostring(NotifyName))
 
-    -- EndPickUp 노티파이 처리
+    -- EndPickUp 노티파이 처리: 액션 종료, Idle로 전환
     if NotifyName == "EndPickUp" then
         print("[FirefighterController] EndPickUp notify triggered! Returning to Idle.")
-        bIsPickingUp = false
-        -- 이동 속도 복원
-        if MovementComp then
-            MovementComp.MaxWalkSpeed = WALK_SPEED
-        end
+        bIsPerformingAction = false
         if StateMachine then
             StateMachine:SetState(STATE_IDLE, 0.2)
         end

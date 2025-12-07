@@ -107,11 +107,18 @@ void AFirefighterCharacter::HandleAnimNotify(const FAnimNotifyEvent& NotifyEvent
 {
 	Super::HandleAnimNotify(NotifyEvent);
 
-	// Lua 스크립트에 AnimNotify 전달
+	FString NotifyName = NotifyEvent.NotifyName.ToString();
+
+	// Lua 스크립트에 AnimNotify 전달 (애니메이션 제어용)
 	if (LuaScript)
 	{
-		FString NotifyName = NotifyEvent.NotifyName.ToString();
 		LuaScript->OnAnimNotify(NotifyName);
+	}
+
+	// ItemPickupScript에도 AnimNotify 전달 (아이템 줍기용)
+	if (ItemPickupScript)
+	{
+		ItemPickupScript->OnAnimNotify(NotifyName);
 	}
 }
 

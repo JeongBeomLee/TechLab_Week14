@@ -64,18 +64,22 @@ void UBodySetup::AddShapesToRigidActor_AssumesLocked(FBodyInstance* OwningInstan
 
             if (BoxElem.GetCollisionEnabled() == ECollisionEnabled::QueryOnly)
             {
+                // QueryOnly = 트리거 Shape (오버랩 이벤트만, 물리 충돌 없음)
                 NewShape->setFlag(PxShapeFlag::eSIMULATION_SHAPE, false);
                 NewShape->setFlag(PxShapeFlag::eSCENE_QUERY_SHAPE, true);
+                NewShape->setFlag(PxShapeFlag::eTRIGGER_SHAPE, true);
             }
             else if (BoxElem.GetCollisionEnabled() == ECollisionEnabled::PhysicsOnly)
             {
                 NewShape->setFlag(PxShapeFlag::eSIMULATION_SHAPE, true);
                 NewShape->setFlag(PxShapeFlag::eSCENE_QUERY_SHAPE, false);
+                NewShape->setFlag(PxShapeFlag::eTRIGGER_SHAPE, false);
             }
             else if (BoxElem.GetCollisionEnabled() == ECollisionEnabled::QueryAndPhysics)
             {
                 NewShape->setFlag(PxShapeFlag::eSIMULATION_SHAPE, true);
                 NewShape->setFlag(PxShapeFlag::eSCENE_QUERY_SHAPE, true);
+                NewShape->setFlag(PxShapeFlag::eTRIGGER_SHAPE, false);
             }
 
             PDestActor->attachShape(*NewShape);
@@ -104,8 +108,26 @@ void UBodySetup::AddShapesToRigidActor_AssumesLocked(FBodyInstance* OwningInstan
 
             NewShape->setLocalPose(PxTransform(U2PVector(ScaledCenter), U2PQuat(ElemTM.Rotation)));
 
-            NewShape->setFlag(PxShapeFlag::eSIMULATION_SHAPE, true);
-            NewShape->setFlag(PxShapeFlag::eSCENE_QUERY_SHAPE, true);
+            // CollisionEnabled 설정에 따라 Shape 플래그 설정
+            if (SphereElem.GetCollisionEnabled() == ECollisionEnabled::QueryOnly)
+            {
+                // QueryOnly = 트리거 Shape (오버랩 이벤트만, 물리 충돌 없음)
+                NewShape->setFlag(PxShapeFlag::eSIMULATION_SHAPE, false);
+                NewShape->setFlag(PxShapeFlag::eSCENE_QUERY_SHAPE, true);
+                NewShape->setFlag(PxShapeFlag::eTRIGGER_SHAPE, true);
+            }
+            else if (SphereElem.GetCollisionEnabled() == ECollisionEnabled::PhysicsOnly)
+            {
+                NewShape->setFlag(PxShapeFlag::eSIMULATION_SHAPE, true);
+                NewShape->setFlag(PxShapeFlag::eSCENE_QUERY_SHAPE, false);
+                NewShape->setFlag(PxShapeFlag::eTRIGGER_SHAPE, false);
+            }
+            else if (SphereElem.GetCollisionEnabled() == ECollisionEnabled::QueryAndPhysics)
+            {
+                NewShape->setFlag(PxShapeFlag::eSIMULATION_SHAPE, true);
+                NewShape->setFlag(PxShapeFlag::eSCENE_QUERY_SHAPE, true);
+                NewShape->setFlag(PxShapeFlag::eTRIGGER_SHAPE, false);
+            }
 
             PDestActor->attachShape(*NewShape);
             NewShape->release();

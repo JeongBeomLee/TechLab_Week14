@@ -169,6 +169,10 @@ private:
 
     // ===== 에디터 시뮬레이션 =====
     bool bSimulateInEditor = false;  // 시뮬레이션 활성화 여부
+    FTransform SimulationInitialActorTransform;  // 시뮬레이션 시작 전 액터 트랜스폼 저장
+    FVector SimulationInitialCompLocation;       // 시뮬레이션 시작 전 컴포넌트 상대 위치 저장
+    FQuat SimulationInitialCompRotation;         // 시뮬레이션 시작 전 컴포넌트 상대 회전 저장
+    FVector SimulationInitialCompScale;          // 시뮬레이션 시작 전 컴포넌트 상대 스케일 저장
 
     // 에디터 월드의 SkeletalMeshComponent들에 PhysicsAsset 새로고침
     void RefreshPhysicsAssetInWorld(UPhysicsAsset* Asset);

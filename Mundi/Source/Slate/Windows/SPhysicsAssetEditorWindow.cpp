@@ -4536,6 +4536,12 @@ void SPhysicsAssetEditorWindow::RenderToolsPanel()
             {
                 if (bSimulateInEditor)
                 {
+                    // 시뮬레이션 시작 전 액터와 컴포넌트 트랜스폼 저장
+                    SimulationInitialActorTransform = PreviewActor->GetActorTransform();
+                    SimulationInitialCompLocation = PreviewComp->GetRelativeLocation();
+                    SimulationInitialCompRotation = PreviewComp->GetRelativeRotation();
+                    SimulationInitialCompScale = PreviewComp->GetRelativeScale();
+
                     // 이전 시뮬레이션 상태가 남아있을 수 있으므로 먼저 정리
                     if (PreviewComp->bRagdollInitialized)
                     {
@@ -4563,6 +4569,16 @@ void SPhysicsAssetEditorWindow::RenderToolsPanel()
                     // 시뮬레이션 중지 + 래그돌 해제 + 포즈 복원
                     PreviewComp->TermRagdoll();
                     PreviewComp->SetPhysicsMode(EPhysicsMode::Animation);
+                    PreviewComp->SetSimulatePhysics(false);
+                    PreviewComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+                    // 시뮬레이션 시작 전 트랜스폼으로 복원 (액터 + 컴포넌트 상대 트랜스폼)
+                    PreviewActor->SetActorTransform(SimulationInitialActorTransform);
+                    PreviewComp->SetRelativeLocation(SimulationInitialCompLocation);
+                    PreviewComp->SetRelativeRotation(SimulationInitialCompRotation);
+                    PreviewComp->SetRelativeScale(SimulationInitialCompScale);
+
+                    // RefPose로 리셋 (내부에서 ForceRecomputePose 호출됨)
                     PreviewComp->ResetToRefPose();
 
                     // 본 라인 캐시 완전 리셋 (RefPose로 다시 그리기 위해)

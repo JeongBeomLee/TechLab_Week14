@@ -24,6 +24,7 @@ public:
     USkeletalMeshComponent();
     ~USkeletalMeshComponent() override = default;
 
+    void BeginPlay() override;
     void TickComponent(float DeltaTime) override;
     void SetSkeletalMesh(const FString& PathFileName) override;
     void DuplicateSubObjects() override;
@@ -307,4 +308,12 @@ public:
     /** 래그돌 모드에서 따라갈 본 인덱스 (기본값 0 = 루트 본, pelvis 등) */
     UPROPERTY(EditAnywhere, Category="Physics")
     int32 RagdollRootBoneIndex = 0;
+
+    /** 래그돌 모드에서 따라갈 본 이름 (설정 시 RagdollRootBoneIndex를 자동으로 찾음) */
+    UPROPERTY(EditAnywhere, Category="Physics")
+    FString RagdollRootBoneName;
+
+    /** 본 이름으로 RagdollRootBoneIndex 설정 */
+    UFUNCTION(LuaBind, DisplayName="SetRagdollRootBoneName")
+    bool SetRagdollRootBoneByName(const FString& BoneName);
 };
