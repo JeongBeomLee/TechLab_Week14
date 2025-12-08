@@ -214,6 +214,9 @@ void FSceneRenderer::RenderLitPath()
 	// Translucent Pass (반투명: 깊이 쓰기 OFF, 블렌딩 ON)
 	RenderTranslucentPass(View->RenderSettings->GetViewMode());
 
+	// Height Fog를 파티클 시스템 전에 렌더링
+	RenderHeightFogPass();
+
 	RenderParticleSystemPass();
 }
 
@@ -1264,10 +1267,23 @@ void FSceneRenderer::RenderParticleSystemPass()
 
 	const bool bWireframe = View->RenderSettings->GetViewMode() == EViewMode::VMI_Wireframe;
 
-	// 파티클 배치 수집
+	// 파티클 시스템 컴포넌트를 카메라 거리 기준으로 정렬 (Back-to-Front)
+	// 각 시스템 내부의 파티클 정렬은 CollectMeshBatches에서 SortSpriteParticles로 처리됨
+	FVector CameraPosition = View->ViewLocation;
+	std::vector<UParticleSystemComponent*> SortedParticleSystems = Proxies.ParticleSystems;
+	std::sort(SortedParticleSystems.begin(), SortedParticleSystems.end(),
+		[&CameraPosition](UParticleSystemComponent* A, UParticleSystemComponent* B)
+		{
+			if (!A || !B) return false;
+			float DistA = (A->GetWorldLocation() - CameraPosition).SizeSquared();
+			float DistB = (B->GetWorldLocation() - CameraPosition).SizeSquared();
+			return DistA > DistB; // 먼 것부터
+		});
+
+	// 정렬된 순서대로 배치 수집 (각 시스템 내부 순서 유지)
 	TArray<FMeshBatchElement> AllParticleBatches;
 
-	for (UParticleSystemComponent* ParticleSystem : Proxies.ParticleSystems)
+	for (UParticleSystemComponent* ParticleSystem : SortedParticleSystems)
 	{
 		if (ParticleSystem && ParticleSystem->IsVisible())
 		{
@@ -1306,21 +1322,13 @@ void FSceneRenderer::RenderParticleSystemPass()
 	}
 
 	// === 2. 반투명 파티클 렌더링 (스프라이트, 빔) ===
-	// no culling, depth read-only, alpha blend, back-to-front 정렬
+	// no culling, depth read-only, alpha blend
+	// 정렬은 컴포넌트 단위로 이미 완료됨, 내부 파티클은 SortSpriteParticles로 처리됨
 	if (TranslucentBatches.Num() > 0)
 	{
 		RHIDevice->RSSetState(bWireframe ? ERasterizerMode::Wireframe_NoCull : ERasterizerMode::Solid_NoCull);
 		RHIDevice->OMSetDepthStencilState(EComparisonFunc::LessEqualReadOnly);
 		RHIDevice->OMSetBlendState(true);
-
-		// 반투명은 Back-to-Front 정렬 필요
-		FVector CameraPosition = View->ViewLocation;
-		TranslucentBatches.Sort([&CameraPosition](const FMeshBatchElement& A, const FMeshBatchElement& B)
-		{
-			FVector PosA = { A.WorldMatrix.M[3][0], A.WorldMatrix.M[3][1], A.WorldMatrix.M[3][2] };
-			FVector PosB = { B.WorldMatrix.M[3][0], B.WorldMatrix.M[3][1], B.WorldMatrix.M[3][2] };
-			return (PosA - CameraPosition).SizeSquared() > (PosB - CameraPosition).SizeSquared();
-		});
 
 		DrawMeshBatches(TranslucentBatches, true);
 	}
@@ -1331,26 +1339,38 @@ void FSceneRenderer::RenderParticleSystemPass()
 	RHIDevice->OMSetBlendState(false);
 }
 
+void FSceneRenderer::RenderHeightFogPass()
+{
+	// Height Fog가 없으면 스킵
+	if (SceneGlobals.Fogs.Num() == 0)
+		return;
+
+	UHeightFogComponent* FogComponent = SceneGlobals.Fogs[0];
+	if (!FogComponent || !FogComponent->IsActive() || !FogComponent->IsVisible())
+		return;
+
+	// FPostProcessModifier 생성
+	FPostProcessModifier FogPostProc;
+	FogPostProc.Type = EPostProcessEffectType::HeightFog;
+	FogPostProc.bEnabled = true;
+	FogPostProc.SourceObject = FogComponent;
+	FogPostProc.Priority = -1;
+
+	// Height Fog 렌더링
+	HeightFogPass.Execute(FogPostProc, View, RHIDevice);
+
+	// Height Fog가 SceneColorTargetWithoutDepth로 RTV를 변경하므로 깊이 버퍼 포함하여 복구
+	RHIDevice->OMSetRenderTargets(ERTVMode::SceneColorTarget);
+	RHIDevice->OMSetDepthStencilState(EComparisonFunc::LessEqual);
+}
+
 void FSceneRenderer::RenderPostProcessingPasses()
 {
 	// Ensure first post-process pass samples from the current scene output
  	TArray<FPostProcessModifier> PostProcessModifiers = View->Modifiers;
 
-	// TODO : 다른 데에서 하기, 맨 앞으로 넘기기
-	// Register Height Fog Modifiers, 첫번째만 등록 된다.
-	if (0 < SceneGlobals.Fogs.Num())
-	{
-		UHeightFogComponent* FogComponent = SceneGlobals.Fogs[0];
-		if (FogComponent)
-		{
-			FPostProcessModifier FogPostProc;
-			FogPostProc.Type = EPostProcessEffectType::HeightFog;
-			FogPostProc.bEnabled = FogComponent->IsActive() && FogComponent->IsVisible();
-			FogPostProc.SourceObject = FogComponent;
-			FogPostProc.Priority = -1;
-			PostProcessModifiers.Add(FogPostProc);
-		}
-	}
+	// NOTE: Height Fog는 RenderHeightFogPass()에서 파티클 시스템 전에 별도로 렌더링됨
+
 	for (UDOFComponent* DofComponent : SceneGlobals.DOFs)
 	{
 		if (DofComponent && DofComponent->IsDepthOfFieldEnabled())

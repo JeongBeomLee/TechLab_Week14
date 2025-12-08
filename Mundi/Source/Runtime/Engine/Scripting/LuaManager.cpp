@@ -216,15 +216,44 @@ FLuaManager::FLuaManager()
         },
         "SetCursorVisible", [](UInputManager* Self, bool bVisible){
             if (bVisible)
-            { 
+            {
                 Self->SetCursorVisible(true);
                 if (Self->IsCursorLocked())
                     Self->ReleaseCursor();
             } else
-            { 
+            {
                 Self->SetCursorVisible(false);
                 Self->LockCursor();
             }
+        },
+        // ────────────────────────────────────────────────
+        // 게임패드 함수들
+        // ────────────────────────────────────────────────
+        "IsGamepadConnected", [](UInputManager* Self) {
+            return Self->IsGamepadConnected(0);
+        },
+        "IsGamepadButtonDown", [](UInputManager* Self, int Button) {
+            return Self->IsGamepadButtonDown(static_cast<EGamepadButton>(Button), 0);
+        },
+        "IsGamepadButtonPressed", [](UInputManager* Self, int Button) {
+            return Self->IsGamepadButtonPressed(static_cast<EGamepadButton>(Button), 0);
+        },
+        "IsGamepadButtonReleased", [](UInputManager* Self, int Button) {
+            return Self->IsGamepadButtonReleased(static_cast<EGamepadButton>(Button), 0);
+        },
+        "GetGamepadLeftStick", [](UInputManager* Self) {
+            FVector2D Stick = Self->GetGamepadLeftStick(0);
+            return FVector(Stick.X, Stick.Y, 0.0f);
+        },
+        "GetGamepadRightStick", [](UInputManager* Self) {
+            FVector2D Stick = Self->GetGamepadRightStick(0);
+            return FVector(Stick.X, Stick.Y, 0.0f);
+        },
+        "GetGamepadLeftTrigger", [](UInputManager* Self) {
+            return Self->GetGamepadLeftTrigger(0);
+        },
+        "GetGamepadRightTrigger", [](UInputManager* Self) {
+            return Self->GetGamepadRightTrigger(0);
         }
     );                
     
@@ -234,6 +263,23 @@ FLuaManager::FLuaManager()
     MouseButton["Middle"] = EMouseButton::MiddleButton;
     MouseButton["XButton1"] = EMouseButton::XButton1;
     MouseButton["XButton2"] = EMouseButton::XButton2;
+
+    // GamepadButton enum 바인딩
+    sol::table GamepadButton = Lua->create_table("GamepadButton");
+    GamepadButton["A"] = static_cast<int>(EGamepadButton::GamepadA);
+    GamepadButton["B"] = static_cast<int>(EGamepadButton::GamepadB);
+    GamepadButton["X"] = static_cast<int>(EGamepadButton::GamepadX);
+    GamepadButton["Y"] = static_cast<int>(EGamepadButton::GamepadY);
+    GamepadButton["LB"] = static_cast<int>(EGamepadButton::GamepadLB);
+    GamepadButton["RB"] = static_cast<int>(EGamepadButton::GamepadRB);
+    GamepadButton["Back"] = static_cast<int>(EGamepadButton::GamepadBack);
+    GamepadButton["Start"] = static_cast<int>(EGamepadButton::GamepadStart);
+    GamepadButton["LStick"] = static_cast<int>(EGamepadButton::GamepadLStick);
+    GamepadButton["RStick"] = static_cast<int>(EGamepadButton::GamepadRStick);
+    GamepadButton["DPadUp"] = static_cast<int>(EGamepadButton::GamepadDPadUp);
+    GamepadButton["DPadDown"] = static_cast<int>(EGamepadButton::GamepadDPadDown);
+    GamepadButton["DPadLeft"] = static_cast<int>(EGamepadButton::GamepadDPadLeft);
+    GamepadButton["DPadRight"] = static_cast<int>(EGamepadButton::GamepadDPadRight);
 
     // KeyCode enum 바인딩 (Windows Virtual Key Codes)
     sol::table KeyCode = Lua->create_table("Keycode");

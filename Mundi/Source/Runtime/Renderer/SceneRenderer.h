@@ -127,6 +127,9 @@ private:
 	/** @brief 파티클 시스템을 렌더링하기 위한 패스입니다. **/
 	void RenderParticleSystemPass();
 
+	/** @brief Height Fog를 렌더링하는 패스입니다. (파티클 시스템 전에 렌더링) */
+	void RenderHeightFogPass();
+
 	void RenderPostProcessingPasses();
 	void RenderSceneDepthPostProcess();
 	void RenderTileCullingDebug();

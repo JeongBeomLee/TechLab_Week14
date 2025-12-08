@@ -33,8 +33,8 @@ local MinSpawnDistance = 5.0         -- 스폰된 오브젝트 간 최소 거리
 local PrefabList = {
     {
         path = "Data/Prefabs/Fire.prefab",
-        maxCount = 20,
-        maxAttempts = 400,
+        maxCount = 50,
+        maxAttempts = 1000,
         floorOffsetRatio = 0.2,
         rotationOffset = Vector(0, 0, 0)
     },

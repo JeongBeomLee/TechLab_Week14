@@ -64,6 +64,11 @@ public:
 	void ProcessMouseInput();
 
 	/**
+	 * 게임패드 입력을 처리하여 Controller 회전에 반영합니다.
+	 */
+	void ProcessGamepadInput();
+
+	/**
 	 * 입력이 활성화되어 있는지 확인합니다.
 	 */
 	bool IsInputEnabled() const { return bInputEnabled; }
@@ -138,6 +143,26 @@ public:
 	 * 카메라 회전에 마우스 버튼이 필요한지 반환합니다.
 	 */
 	bool IsMouseButtonRequiredForRotation() const { return bRequireMouseButtonForRotation; }
+
+	// ────────────────────────────────────────────────
+	// 게임패드 감도 설정
+	// ────────────────────────────────────────────────
+
+	/** 게임패드 감도 (에디터에서 조절 가능) */
+	UPROPERTY(LuaBind, DisplayName = "GamepadSensitivity", Category = "Input")
+	float GamepadSensitivity = 0.5f;
+
+	/**
+	 * 게임패드 감도를 설정합니다.
+	 *
+	 * @param Sensitivity - 게임패드 감도 (기본값 0.8)
+	 */
+	void SetGamepadSensitivity(float Sensitivity) { GamepadSensitivity = Sensitivity; }
+
+	/**
+	 * 게임패드 감도를 반환합니다.
+	 */
+	float GetGamepadSensitivity() const { return GamepadSensitivity; }
 
 	// ────────────────────────────────────────────────
 	// Input Mode

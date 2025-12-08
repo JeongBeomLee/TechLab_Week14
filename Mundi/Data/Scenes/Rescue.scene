@@ -2416,7 +2416,7 @@
           "CascadedOverlapValue" : 0.500000,
           "Id" : 3118,
           "Intensity" : 0.600000,
-          "LightColor" : [1.000000, 1.000000, 1.000000, 1.000000],
+          "LightColor" : [0.675676, 0.483582, 0.370448, 1.000000],
           "Mobility" : 1,
           "ObjectName" : "UDirectionalLightComponent_4",
           "ParentId" : 0,
@@ -2449,7 +2449,7 @@
           "DiffuseIntensity" : 1.000000,
           "Id" : 3121,
           "Intensity" : 0.200000,
-          "LightColor" : [1.000000, 1.000000, 1.000000, 1.000000],
+          "LightColor" : [0.833977, 0.641088, 0.489438, 1.000000],
           "Mobility" : 1,
           "ObjectName" : "UAmbientLightComponent_4",
           "ParentId" : 0,
@@ -3338,11 +3338,11 @@
     "3190" : {
       "ObjectName" : "AStaticMeshActor_0",
       "OwnedComponents" : [{
-          "Id" : 3192,
+          "Id" : 3191,
           "Intensity" : 1.100000,
           "Mobility" : 1,
           "ObjectName" : "USkyboxComponent_1",
-          "ParentId" : 3191,
+          "ParentId" : 3194,
           "RelativeLocation" : [0.000000, 0.000000, 0.000000],
           "RelativeRotationEuler" : [0.000000, 0.000000, 0.000000],
           "RelativeScale" : [1.000000, 1.000000, 1.000000],
@@ -3360,7 +3360,7 @@
           "bTickEnabled" : true,
           "bTickInEditor" : false
         }, {
-          "Id" : 3191,
+          "Id" : 3194,
           "Mobility" : 1,
           "ObjectName" : "USceneComponent_20",
           "ParentId" : 0,
@@ -3374,7 +3374,7 @@
           "bTickEnabled" : true,
           "bTickInEditor" : false
         }],
-      "RootComponentId" : 3191,
+      "RootComponentId" : 3194,
       "Tag" : "",
       "Type" : "AEmptyActor",
       "bActorHiddenInGame" : false,
@@ -5169,19 +5169,19 @@
       "bActorIsActive" : true
     },
     "3326" : {
-      "ObjectName" : "AStaticMeshActor_0",
+      "ObjectName" : "HeightFog2",
       "OwnedComponents" : [{
           "FogCutoffDistance" : 6000.000000,
-          "FogDensity" : 0.005000,
-          "FogHeightFalloff" : 0.020000,
-          "FogInscatteringColor" : [1.000000, 1.000000, 1.000000, 1.000000],
+          "FogDensity" : 0.040000,
+          "FogHeightFalloff" : 0.050000,
+          "FogInscatteringColor" : [0.424710, 0.424710, 0.424710, 1.000000],
           "FogMaxOpacity" : 1.000000,
           "HeightFogShader" : "Shaders/PostProcess/HeightFog_PS.hlsl",
           "Id" : 3329,
           "Mobility" : 1,
           "ObjectName" : "UHeightFogComponent_1",
           "ParentId" : 0,
-          "RelativeLocation" : [-26.327137, 42.779915, -5.137471],
+          "RelativeLocation" : [-49.249897, -253.280212, -18.602762],
           "RelativeRotationEuler" : [0.000000, -0.000000, 0.000000],
           "RelativeScale" : [1.000000, 1.000000, 1.000000],
           "StartDistance" : 0.000000,
@@ -11404,7 +11404,7 @@
       "bActorIsActive" : true
     },
     "3820" : {
-      "ObjectName" : "빈 액터_1",
+      "ObjectName" : "Spawner",
       "OwnedComponents" : [{
           "Id" : 3821,
           "Mobility" : 1,
@@ -11503,10 +11503,10 @@
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "3901" : {
+    "3829" : {
       "ObjectName" : "AParticleEventManager_63",
       "OwnedComponents" : [{
-          "Id" : 3902,
+          "Id" : 3830,
           "Mobility" : 1,
           "ObjectName" : "USceneComponent_67",
           "ParentId" : 0,
@@ -11520,13 +11520,13 @@
           "bTickEnabled" : true,
           "bTickInEditor" : false
         }],
-      "RootComponentId" : 3902,
+      "RootComponentId" : 3830,
       "Tag" : "",
       "Type" : "AParticleEventManager",
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true
     },
-    "47391" : {
+    "3831" : {
       "DamagePerSecond" : 50.000000,
       "FireIntensity" : 1.000000,
       "FireRadius" : 2.000000,
@@ -11536,7 +11536,7 @@
           "CollisionEnabled" : 3,
           "CollisionMask" : -1,
           "DebugParticleType" : 0,
-          "Id" : 47392,
+          "Id" : 3878,
           "Mobility" : 1,
           "ObjectName" : "UParticleSystemComponent_1",
           "ParentId" : 0,
@@ -11559,15 +11559,15 @@
           "CollisionChannel" : 1,
           "CollisionEnabled" : 1,
           "CollisionMask" : 4,
-          "Id" : 47436,
+          "Id" : 3879,
           "Mobility" : 1,
           "ObjectName" : "USphereComponent_1",
-          "ParentId" : 47392,
+          "ParentId" : 3878,
           "PhysicalMaterial" : "",
           "RelativeLocation" : [0.000000, 0.000000, 0.000000],
           "RelativeRotationEuler" : [0.000000, -0.000000, 0.000000],
           "RelativeScale" : [0.500000, 0.500000, 0.500000],
-          "SphereRadius" : 3.000000,
+          "SphereRadius" : 2.000000,
           "Type" : "USphereComponent",
           "bBlockComponent" : false,
           "bGenerateOverlapEvents" : true,
@@ -11580,25 +11580,93 @@
           "bTickEnabled" : true,
           "bTickInEditor" : false
         }],
-      "RootComponentId" : 47392,
+      "RootComponentId" : 3878,
       "Tag" : "",
       "Type" : "AFireActor",
       "WaterDamageMultiplier" : 1.000000,
       "bActorHiddenInGame" : false,
       "bActorIsActive" : true,
       "bIsActive" : true
+    },
+    "3881" : {
+      "ObjectName" : "AEmptyActor_0",
+      "OwnedComponents" : [{
+          "Id" : 3882,
+          "Mobility" : 1,
+          "ObjectName" : "USceneComponent_20",
+          "ParentId" : 0,
+          "RelativeLocation" : [-48.358757, 10.862406, -10.177184],
+          "RelativeRotationEuler" : [0.000000, -0.000000, 0.000000],
+          "RelativeScale" : [1.000000, 1.000000, 1.000000],
+          "Type" : "USceneComponent",
+          "bHiddenInGame" : false,
+          "bIsActive" : true,
+          "bIsVisible" : true,
+          "bTickEnabled" : true,
+          "bTickInEditor" : false
+        }, {
+          "Id" : 3883,
+          "Intensity" : 1.100000,
+          "Mobility" : 1,
+          "ObjectName" : "USkyboxComponent_1",
+          "ParentId" : 3882,
+          "RelativeLocation" : [0.000000, 0.000000, 0.000000],
+          "RelativeRotationEuler" : [0.000000, 0.000000, 0.000000],
+          "RelativeScale" : [1.000000, 1.000000, 1.000000],
+          "TextureBack" : "Data/Skybox/rear.png",
+          "TextureBottom" : "Data/Skybox/bottom.png",
+          "TextureFront" : "Data/Skybox/front.png",
+          "TextureLeft" : "Data/Skybox/left.png",
+          "TextureRight" : "Data/Skybox/right.png",
+          "TextureTop" : "Data/Skybox/top.png",
+          "Type" : "USkyboxComponent",
+          "bEnabled" : true,
+          "bHiddenInGame" : false,
+          "bIsActive" : true,
+          "bIsVisible" : true,
+          "bTickEnabled" : true,
+          "bTickInEditor" : false
+        }],
+      "RootComponentId" : 3882,
+      "Tag" : "",
+      "Type" : "AEmptyActor",
+      "bActorHiddenInGame" : false,
+      "bActorIsActive" : true
+    },
+    "3959" : {
+      "ObjectName" : "AParticleEventManager_64",
+      "OwnedComponents" : [{
+          "Id" : 3960,
+          "Mobility" : 1,
+          "ObjectName" : "USceneComponent_69",
+          "ParentId" : 0,
+          "RelativeLocation" : [0.000000, 0.000000, 0.000000],
+          "RelativeRotationEuler" : [0.000000, 0.000000, 0.000000],
+          "RelativeScale" : [1.000000, 1.000000, 1.000000],
+          "Type" : "USceneComponent",
+          "bHiddenInGame" : false,
+          "bIsActive" : true,
+          "bIsVisible" : true,
+          "bTickEnabled" : true,
+          "bTickInEditor" : false
+        }],
+      "RootComponentId" : 3960,
+      "Tag" : "",
+      "Type" : "AParticleEventManager",
+      "bActorHiddenInGame" : false,
+      "bActorIsActive" : true
     }
   },
-  "NextUUID" : 50147,
+  "NextUUID" : 6170,
   "PerspectiveCamera" : {
     "FOV" : [60.000000],
     "FarClip" : [2000.000000],
-    "Location" : [-56.017948, -278.088348, -14.114612],
+    "Location" : [-54.150204, -271.524689, -13.414953],
     "NearClip" : [0.100000],
-    "Rotation" : [0.000000, 4.898693, -87.500648]
+    "Rotation" : [0.000000, 11.200071, -67.302437]
   },
   "Version" : 1,
   "WorldSettings" : {
-
+    "GameModeClass" : "AItemCollectGameMode"
   }
 }

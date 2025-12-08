@@ -1,5 +1,5 @@
-<?xml version='1.0' encoding='utf-8'?>
-<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <FxCompile Include="Shaders\Materials\Fireball.hlsl">
       <Filter>Shaders\Materials</Filter>
@@ -368,6 +368,9 @@
     <ClCompile Include="Source\Runtime\Engine\GameFramework\EndGameMode.cpp">
       <Filter>Source\Runtime\Engine\GameFramework</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Runtime\Engine\GameFramework\FireDispatchGameMode.cpp">
+      <Filter>Source\Runtime\Engine\GameFramework</Filter>
+    </ClCompile>
     <ClCompile Include="Source\Runtime\Engine\GameFramework\FirefighterCharacter.cpp">
       <Filter>Source\Runtime\Engine\GameFramework</Filter>
     </ClCompile>
@@ -384,6 +387,9 @@
       <Filter>Source\Runtime\Engine\GameFramework</Filter>
     </ClCompile>
     <ClCompile Include="Source\Runtime\Engine\GameFramework\IntroGameMode.cpp">
+      <Filter>Source\Runtime\Engine\GameFramework</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Runtime\Engine\GameFramework\ItemCollectGameMode.cpp">
       <Filter>Source\Runtime\Engine\GameFramework</Filter>
     </ClCompile>
     <ClCompile Include="Source\Runtime\Engine\GameFramework\ItemTestGameMode.cpp">
@@ -1439,8 +1445,13 @@
     <ClCompile Include="Generated\AItemTestGameMode.generated.cpp">
       <Filter>Generated</Filter>
     </ClCompile>
-    <ClCompile Include="Generated\AItemCollectGameMode.generated.cpp">
     <ClCompile Include="Generated\AFireActor.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\AItemCollectGameMode.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\AFireDispatchGameMode.generated.cpp">
       <Filter>Generated</Filter>
     </ClCompile>
   </ItemGroup>
@@ -1791,6 +1802,9 @@
     <ClInclude Include="Source\Runtime\Engine\GameFramework\EndGameMode.h">
       <Filter>Source\Runtime\Engine\GameFramework</Filter>
     </ClInclude>
+    <ClInclude Include="Source\Runtime\Engine\GameFramework\FireDispatchGameMode.h">
+      <Filter>Source\Runtime\Engine\GameFramework</Filter>
+    </ClInclude>
     <ClInclude Include="Source\Runtime\Engine\GameFramework\FirefighterCharacter.h">
       <Filter>Source\Runtime\Engine\GameFramework</Filter>
     </ClInclude>
@@ -1822,6 +1836,9 @@
       <Filter>Source\Runtime\Engine\GameFramework</Filter>
     </ClInclude>
     <ClInclude Include="Source\Runtime\Engine\GameFramework\IntroGameMode.h">
+      <Filter>Source\Runtime\Engine\GameFramework</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Engine\GameFramework\ItemCollectGameMode.h">
       <Filter>Source\Runtime\Engine\GameFramework</Filter>
     </ClInclude>
     <ClInclude Include="Source\Runtime\Engine\GameFramework\ItemTestGameMode.h">
@@ -3051,8 +3068,13 @@
     <ClInclude Include="Generated\AItemTestGameMode.generated.h">
       <Filter>Generated</Filter>
     </ClInclude>
-    <ClInclude Include="Generated\AItemCollectGameMode.generated.h">
     <ClInclude Include="Generated\AFireActor.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\AItemCollectGameMode.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\AFireDispatchGameMode.generated.h">
       <Filter>Generated</Filter>
     </ClInclude>
   </ItemGroup>
@@ -3072,169 +3094,169 @@
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Shaders">
-      <UniqueIdentifier>{94e24b2f-e589-4434-a75f-86ca492d9cb1}</UniqueIdentifier>
+      <UniqueIdentifier>{ef90d2c4-c8d0-4911-b344-5b03271fe7c1}</UniqueIdentifier>
     </Filter>
     <Filter Include="Shaders\Materials">
-      <UniqueIdentifier>{eb12358a-1227-4d54-ba8e-1dc249376d06}</UniqueIdentifier>
+      <UniqueIdentifier>{18835c1d-c2b0-4980-94d6-fa31982cdb99}</UniqueIdentifier>
     </Filter>
     <Filter Include="Shaders\Particle">
-      <UniqueIdentifier>{fc7f69e9-0c32-4b3e-9e3d-171317b7e3da}</UniqueIdentifier>
+      <UniqueIdentifier>{e453ce10-94b6-440a-8285-d5ae1f3cb2fa}</UniqueIdentifier>
     </Filter>
     <Filter Include="Shaders\PostProcess">
-      <UniqueIdentifier>{e11ff053-a81d-4178-a348-ab0e9fca682b}</UniqueIdentifier>
+      <UniqueIdentifier>{f484b9f4-086c-436e-affb-d0a794ec53b7}</UniqueIdentifier>
     </Filter>
     <Filter Include="Shaders\Shadows">
-      <UniqueIdentifier>{7b6df859-56cc-41e4-8b36-8fd3a57bb088}</UniqueIdentifier>
+      <UniqueIdentifier>{0fa73ed6-10d9-4099-b1d9-844600b822ed}</UniqueIdentifier>
     </Filter>
     <Filter Include="Shaders\Common">
-      <UniqueIdentifier>{06e8f075-f667-47e9-a12c-e3f7e124e01b}</UniqueIdentifier>
+      <UniqueIdentifier>{31e8ca69-539b-41d1-a9ac-15cd3c469e6c}</UniqueIdentifier>
     </Filter>
     <Filter Include="Shaders\UI">
-      <UniqueIdentifier>{2e610b38-65af-4dc8-8c8e-10f759dc84a6}</UniqueIdentifier>
+      <UniqueIdentifier>{a55a9794-981e-4a04-a66e-7939f415862c}</UniqueIdentifier>
     </Filter>
     <Filter Include="Shaders\Effects">
-      <UniqueIdentifier>{2b83b33f-4378-4041-b4b9-7f564ed71667}</UniqueIdentifier>
+      <UniqueIdentifier>{30e1395c-e031-4e14-9215-4d14d8130bd0}</UniqueIdentifier>
     </Filter>
     <Filter Include="Shaders\Utility">
-      <UniqueIdentifier>{486a728a-94be-4fa3-943e-2321f04ddb9d}</UniqueIdentifier>
+      <UniqueIdentifier>{b2ae0b1d-bf99-4935-a6c8-fdfc3cb4c180}</UniqueIdentifier>
     </Filter>
     <Filter Include="Generated">
-      <UniqueIdentifier>{96d09ccb-04bb-4bbb-969a-426a19be84f0}</UniqueIdentifier>
+      <UniqueIdentifier>{d4595af5-1f53-4594-b41c-e141eaaba172}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source">
-      <UniqueIdentifier>{315f5ad0-964f-442c-8dd8-21153d6019ea}</UniqueIdentifier>
+      <UniqueIdentifier>{348df9ca-9f80-4a15-9ad8-0a1bad9764a0}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Editor">
-      <UniqueIdentifier>{ba762f59-8b40-471b-9715-a21fbc7640dd}</UniqueIdentifier>
+      <UniqueIdentifier>{a69903ba-43a4-4cbe-8fe4-bd7497c68d4a}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Runtime">
-      <UniqueIdentifier>{83c959bc-7c9d-4024-8212-7c61f259ff3f}</UniqueIdentifier>
+      <UniqueIdentifier>{f5b1880d-4219-4fed-8715-8172ca728338}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Runtime\AssetManagement">
-      <UniqueIdentifier>{361ff073-98c3-4824-ac7c-7c4efef78ef0}</UniqueIdentifier>
+      <UniqueIdentifier>{f8beaea8-e045-4e83-b2a9-c5f4a3cd39b1}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Runtime\Core">
-      <UniqueIdentifier>{3011320f-5b50-49fd-85b2-8ee96225de15}</UniqueIdentifier>
+      <UniqueIdentifier>{7fa4e11f-21ce-4899-ac63-1ddfd66b4a7e}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Runtime\Core\Memory">
-      <UniqueIdentifier>{5f894c01-f6c9-4eb5-a12e-110ba285b7a0}</UniqueIdentifier>
+      <UniqueIdentifier>{51af3070-0c04-4663-834d-35cf920621f6}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Runtime\Core\Misc">
-      <UniqueIdentifier>{f53c9f45-24db-4f62-a680-026b686f0606}</UniqueIdentifier>
+      <UniqueIdentifier>{9349a7b3-e47a-4e04-a150-8a7f7e24ad9e}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Runtime\Engine">
-      <UniqueIdentifier>{0a43116d-5267-47bf-9ad5-16f99a1c6eba}</UniqueIdentifier>
+      <UniqueIdentifier>{47ff48cb-b777-44de-acbe-69ecdf5dc5c6}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Runtime\Engine\Animation">
-      <UniqueIdentifier>{67c610fa-9f8b-4d66-8613-b51926417a31}</UniqueIdentifier>
+      <UniqueIdentifier>{77c19744-86b8-4753-b133-ecb3279b74a3}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Runtime\Engine\Cloth">
-      <UniqueIdentifier>{2f635b89-9da4-4a73-808a-0c59c5323586}</UniqueIdentifier>
+      <UniqueIdentifier>{bcd27378-8b41-4db5-8077-1bdfa79ee406}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Runtime\Engine\Components">
-      <UniqueIdentifier>{3eda9ada-ef79-4af5-b2ac-50edfef83b7e}</UniqueIdentifier>
+      <UniqueIdentifier>{b00162af-9a91-4f67-b2e7-98a56503701a}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Runtime\Engine\GameFramework">
-      <UniqueIdentifier>{e1dc248c-49c4-4569-8d3a-81f4ee63b97e}</UniqueIdentifier>
+      <UniqueIdentifier>{2663aa60-8601-415d-b26d-b07890d8c087}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Runtime\Engine\GameFramework\Camera">
-      <UniqueIdentifier>{5d0afea5-496a-4f6b-9a16-c72911591221}</UniqueIdentifier>
+      <UniqueIdentifier>{a6a18c7a-a35f-4ff0-8d51-a1925137c137}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Editor\Clipboard">
-      <UniqueIdentifier>{d579054d-1a0d-404a-b147-c0394efa4889}</UniqueIdentifier>
+      <UniqueIdentifier>{5f9d6c16-5564-4e54-9708-552f5496cca1}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Runtime\Core\Math">
-      <UniqueIdentifier>{3d4c39c6-94f8-4bfc-aa7f-c310e3e600fc}</UniqueIdentifier>
+      <UniqueIdentifier>{8b1cdba7-ab16-4173-bc56-025451074f4e}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Runtime\Core\Object">
-      <UniqueIdentifier>{cb610f18-d0b9-4f7c-b72f-00ba80fb6bce}</UniqueIdentifier>
+      <UniqueIdentifier>{30296b92-7327-49e2-bbce-3a2b3c7e459f}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Runtime\Engine\Audio">
-      <UniqueIdentifier>{e4a34b81-b1b5-4c67-b57c-5660ecab6aa5}</UniqueIdentifier>
+      <UniqueIdentifier>{a7b124cc-bac0-42bd-b0a9-e64f82cdcbd1}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Runtime\Engine\Particles">
-      <UniqueIdentifier>{40a269c3-f598-487c-bcc8-33f19e53e84e}</UniqueIdentifier>
+      <UniqueIdentifier>{1c0df92e-dbdd-4706-8cdd-a7b936b7f4b9}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Runtime\Engine\Particles\Modules">
-      <UniqueIdentifier>{e8c2fe95-f5ea-4e31-b174-0aa079f73c85}</UniqueIdentifier>
+      <UniqueIdentifier>{7f4813bd-dbad-4d63-b28b-808c9b0e758f}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Runtime\Engine\PhysicsEngine">
-      <UniqueIdentifier>{b9927431-d455-4f29-9aed-89b7b0617db0}</UniqueIdentifier>
+      <UniqueIdentifier>{d7a0587d-0900-4c98-b543-91ffbff19a14}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Runtime\Engine\PhysicsEngine\Vehicle">
-      <UniqueIdentifier>{449b4318-e992-40c2-9e4e-b73d601197ca}</UniqueIdentifier>
+      <UniqueIdentifier>{8f51c466-942c-44a9-bbb9-d4018e159421}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Runtime\Engine\Scripting">
-      <UniqueIdentifier>{d579e398-02e9-44b6-9915-3cd41a60f4dc}</UniqueIdentifier>
+      <UniqueIdentifier>{7f89aa89-399b-4451-8ebb-217ded9c5fac}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Runtime\Engine\Viewer">
-      <UniqueIdentifier>{b51d97ee-d93c-4f6c-ae3d-3d737980c347}</UniqueIdentifier>
+      <UniqueIdentifier>{bce5f4a2-99db-4df2-818c-38363f52cf8f}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Runtime\Renderer">
-      <UniqueIdentifier>{acef38ad-15a4-4c86-b962-04cd3537b6b4}</UniqueIdentifier>
+      <UniqueIdentifier>{662ecf4f-e8d7-4692-b7a2-fdef24fc3b96}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Runtime\Renderer\PostProcessing">
-      <UniqueIdentifier>{98bea5f4-332a-4d12-9768-cfc0910b981f}</UniqueIdentifier>
+      <UniqueIdentifier>{2a73322d-0748-4190-9f1c-0096725626cf}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Slate">
-      <UniqueIdentifier>{018b9b26-5d79-466d-bc66-867e5719d7b7}</UniqueIdentifier>
+      <UniqueIdentifier>{b12c6a27-581b-4c61-85fb-0dae60186832}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Slate\Widgets">
-      <UniqueIdentifier>{a6b1a73f-ce22-4b0e-b00f-11ba413895c6}</UniqueIdentifier>
+      <UniqueIdentifier>{339bdeef-8737-4bc4-a806-923c1772b95c}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Slate\Windows">
-      <UniqueIdentifier>{2f90581e-39aa-42b5-a8c5-340c9cd0ca42}</UniqueIdentifier>
+      <UniqueIdentifier>{235ceff3-8d57-4d86-903e-ca96bae80896}</UniqueIdentifier>
     </Filter>
     <Filter Include="ThirdParty">
-      <UniqueIdentifier>{9dc8f6f1-f7da-4090-af3a-5e8f653d2f1b}</UniqueIdentifier>
+      <UniqueIdentifier>{82a63182-774c-4efa-b924-2973c9f928d4}</UniqueIdentifier>
     </Filter>
     <Filter Include="ThirdParty\include">
-      <UniqueIdentifier>{f47d1830-a050-433f-b579-0913544a2f8c}</UniqueIdentifier>
+      <UniqueIdentifier>{dd1ec24c-bf63-4d9b-9f72-5e19f59a304a}</UniqueIdentifier>
     </Filter>
     <Filter Include="ThirdParty\include\ImGui">
-      <UniqueIdentifier>{9dcf3a8b-c6e2-402e-9f33-be3c64ed8ab4}</UniqueIdentifier>
+      <UniqueIdentifier>{c21ab814-9050-4a59-87ad-080bcbd4e913}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Editor\Gizmo">
-      <UniqueIdentifier>{7a127756-03a0-4496-9915-35ded176e8c2}</UniqueIdentifier>
+      <UniqueIdentifier>{2e2f1638-242c-4cfa-8b82-1d4e9fdd1a76}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Editor\Grid">
-      <UniqueIdentifier>{9f4f8eef-4cd8-4574-9d79-0a37fc305a42}</UniqueIdentifier>
+      <UniqueIdentifier>{f1ded1e0-e50d-4431-96a3-efa9ee921eb1}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Runtime\Core\Containers">
-      <UniqueIdentifier>{af949749-f240-4dc7-beaa-74dda75d2145}</UniqueIdentifier>
+      <UniqueIdentifier>{ac5d29b4-f08b-4107-b550-41406bcb6210}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Runtime\Engine\Collision">
-      <UniqueIdentifier>{9b71dedf-6405-406b-8f65-7867800888c7}</UniqueIdentifier>
+      <UniqueIdentifier>{63eb08f8-acdf-4d67-9687-335c9e0bad89}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Runtime\Engine\Spatial">
-      <UniqueIdentifier>{0432a5dc-0711-4799-8570-88b8da2c1071}</UniqueIdentifier>
+      <UniqueIdentifier>{f72b560c-c9d1-4209-bdc5-f8f983b87308}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Runtime\InputCore">
-      <UniqueIdentifier>{d84b03fe-dab1-4254-8378-612887a491a0}</UniqueIdentifier>
+      <UniqueIdentifier>{fae7166b-dd93-4359-bbde-aa8054ef742d}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Runtime\RHI">
-      <UniqueIdentifier>{932f7a4a-fd91-4f0b-9c11-2b233b393180}</UniqueIdentifier>
+      <UniqueIdentifier>{1b5f73fa-1b48-41e8-8bd6-e0db6b8290c1}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Slate\Factory">
-      <UniqueIdentifier>{21f3862d-6c3a-465e-ae76-3d7f3a306b2b}</UniqueIdentifier>
+      <UniqueIdentifier>{554b6d3e-fbf4-412d-9c9b-44eefd12f029}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Slate\ImGui">
-      <UniqueIdentifier>{b29b63d2-3898-4e5b-bb6e-fddcf04e7355}</UniqueIdentifier>
+      <UniqueIdentifier>{3b714495-90eb-45e3-b5ab-e95ebf9a0d21}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Slate\GameUI">
-      <UniqueIdentifier>{337771f7-9fa3-4ee9-b4a1-eb744c686368}</UniqueIdentifier>
+      <UniqueIdentifier>{6578aaf7-13b7-40e3-ab25-be146d781d1b}</UniqueIdentifier>
     </Filter>
     <Filter Include="ThirdParty\include\DirectXTK">
-      <UniqueIdentifier>{5b083d14-88e8-457c-a17e-c1e013e36f3d}</UniqueIdentifier>
+      <UniqueIdentifier>{7c23ccbc-3719-4b7f-b20c-d42323b76a37}</UniqueIdentifier>
     </Filter>
     <Filter Include="ThirdParty\include\Lua">
-      <UniqueIdentifier>{9ea2705f-2a54-484f-8ff2-c1bda8b255f3}</UniqueIdentifier>
+      <UniqueIdentifier>{89f9fc6d-64dc-4698-8a91-1e740e53633e}</UniqueIdentifier>
     </Filter>
     <Filter Include="BuildTools">
-      <UniqueIdentifier>{3693b85f-9ba4-4963-b642-2b9641d0e676}</UniqueIdentifier>
+      <UniqueIdentifier>{394f4c40-d0c4-4368-b0d2-dc6e38c7827b}</UniqueIdentifier>
     </Filter>
     <Filter Include="BuildTools\CodeGenerator">
-      <UniqueIdentifier>{203090ac-1329-4756-b7f9-931b46513137}</UniqueIdentifier>
+      <UniqueIdentifier>{b789a21a-8958-43d1-bca9-dd5a4c76dd5f}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

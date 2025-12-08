@@ -196,13 +196,9 @@ local function TryPickup()
     UpdateClosestItem()
 end
 
--- 클릭 시 호출 - 대상 아이템 저장 (이미 대기 중이면 무시)
+-- 클릭 시 호출 - 대상 아이템 저장 (항상 최신 아이템으로 갱신)
 local function OnPickupStarted()
-    -- 이미 픽업 대기 중이면 덮어쓰지 않음
-    if PendingPickupItem then
-        return
-    end
-
+    -- 항상 현재 가장 가까운 아이템으로 갱신 (거부된 클릭의 구형 값 방지)
     if ClosestItem then
         PendingPickupItem = ClosestItem
         print("[ItemPickup] Pickup target: " .. (GetItemInfo(ClosestItem).Name or "Unknown"))
@@ -250,8 +246,9 @@ function OnEndOverlap(OtherObj)
 end
 
 function Update(dt)
-    -- 마우스 클릭 시 픽업 대상 저장 (실제 줍기는 PickUp 노티파이에서)
-    if Input:IsMouseButtonPressed(MouseButton.Left) then
+    -- 마우스 클릭 또는 게임패드 B 버튼으로 픽업 대상 저장 (실제 줍기는 PickUp 노티파이에서)
+    local bPickupInput = Input:IsMouseButtonPressed(MouseButton.Left) or Input:IsGamepadButtonPressed(GamepadButton.B)
+    if bPickupInput then
         OnPickupStarted()
     end
 

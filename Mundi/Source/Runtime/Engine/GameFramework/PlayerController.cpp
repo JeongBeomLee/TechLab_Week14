@@ -68,6 +68,7 @@ void APlayerController::Tick(float DeltaSeconds)
 	{
 		ProcessPlayerInput();
 		ProcessMouseInput();
+		ProcessGamepadInput();
 	}
 	else
 	{
@@ -184,6 +185,41 @@ void APlayerController::ProcessMouseInput()
 		{
 			AddPitchInput(MouseDelta.Y * MouseSensitivity);
 		}
+	}
+}
+
+void APlayerController::ProcessGamepadInput()
+{
+	if (!InputManager)
+	{
+		return;
+	}
+
+	// UIOnly 모드에서는 게임 입력 차단
+	if (!InputManager->CanReceiveGameInput())
+	{
+		return;
+	}
+
+	// 게임패드가 연결되어 있지 않으면 리턴
+	if (!InputManager->IsGamepadConnected())
+	{
+		return;
+	}
+
+	// 우측 스틱으로 카메라 회전
+	FVector2D RightStick = InputManager->GetGamepadRightStick();
+
+	// Yaw (좌우 회전) - 우측 스틱 X축
+	if (RightStick.X != 0.0f)
+	{
+		AddYawInput(RightStick.X * GamepadSensitivity);
+	}
+
+	// Pitch (상하 회전) - 우측 스틱 Y축 (반전: 스틱 위로 밀면 카메라 위로)
+	if (RightStick.Y != 0.0f)
+	{
+		AddPitchInput(-RightStick.Y * GamepadSensitivity);
 	}
 }
 

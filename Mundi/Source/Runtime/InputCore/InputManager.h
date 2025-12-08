@@ -1,11 +1,14 @@
 ﻿#pragma once
 
 #include <windows.h>
+#include <Xinput.h>
 #include <cmath>
 
 #include "Object.h"
 #include "Vector.h"
 #include "ImGui/imgui.h"
+
+#pragma comment(lib, "xinput.lib")
 
 // 마우스 버튼 상수
 enum EMouseButton
@@ -16,6 +19,38 @@ enum EMouseButton
     XButton1 = 3,
     XButton2 = 4,
     MaxMouseButtons = 5
+};
+
+// 게임패드 버튼 상수
+enum EGamepadButton
+{
+    GamepadA = 0,           // XINPUT_GAMEPAD_A
+    GamepadB = 1,           // XINPUT_GAMEPAD_B
+    GamepadX = 2,           // XINPUT_GAMEPAD_X
+    GamepadY = 3,           // XINPUT_GAMEPAD_Y
+    GamepadLB = 4,          // XINPUT_GAMEPAD_LEFT_SHOULDER
+    GamepadRB = 5,          // XINPUT_GAMEPAD_RIGHT_SHOULDER
+    GamepadBack = 6,        // XINPUT_GAMEPAD_BACK
+    GamepadStart = 7,       // XINPUT_GAMEPAD_START
+    GamepadLStick = 8,      // XINPUT_GAMEPAD_LEFT_THUMB
+    GamepadRStick = 9,      // XINPUT_GAMEPAD_RIGHT_THUMB
+    GamepadDPadUp = 10,     // XINPUT_GAMEPAD_DPAD_UP
+    GamepadDPadDown = 11,   // XINPUT_GAMEPAD_DPAD_DOWN
+    GamepadDPadLeft = 12,   // XINPUT_GAMEPAD_DPAD_LEFT
+    GamepadDPadRight = 13,  // XINPUT_GAMEPAD_DPAD_RIGHT
+    MaxGamepadButtons = 14
+};
+
+// 게임패드 축 상수
+enum EGamepadAxis
+{
+    GamepadLeftStickX = 0,
+    GamepadLeftStickY = 1,
+    GamepadRightStickX = 2,
+    GamepadRightStickY = 3,
+    GamepadLeftTrigger = 4,
+    GamepadRightTrigger = 5,
+    MaxGamepadAxes = 6
 };
 
 /**
@@ -98,11 +133,44 @@ public:
     bool CanReceiveGameInput() const { return CurrentInputMode == EInputMode::GameOnly || CurrentInputMode == EInputMode::GameAndUI; }
     bool CanReceiveUIInput() const { return CurrentInputMode == EInputMode::UIOnly || CurrentInputMode == EInputMode::GameAndUI; }
 
+    // ────────────────────────────────────────────────
+    // 게임패드 함수들
+    // ────────────────────────────────────────────────
+
+    /** 게임패드 연결 여부 */
+    bool IsGamepadConnected(int32 GamepadIndex = 0) const;
+
+    /** 게임패드 버튼 상태 */
+    bool IsGamepadButtonDown(EGamepadButton Button, int32 GamepadIndex = 0) const;
+    bool IsGamepadButtonPressed(EGamepadButton Button, int32 GamepadIndex = 0) const;
+    bool IsGamepadButtonReleased(EGamepadButton Button, int32 GamepadIndex = 0) const;
+
+    /** 게임패드 축 값 (-1.0 ~ 1.0, 트리거는 0.0 ~ 1.0) */
+    float GetGamepadAxis(EGamepadAxis Axis, int32 GamepadIndex = 0) const;
+
+    /** 게임패드 좌/우 스틱 값 (FVector2D) */
+    FVector2D GetGamepadLeftStick(int32 GamepadIndex = 0) const;
+    FVector2D GetGamepadRightStick(int32 GamepadIndex = 0) const;
+
+    /** 게임패드 트리거 값 (0.0 ~ 1.0) */
+    float GetGamepadLeftTrigger(int32 GamepadIndex = 0) const;
+    float GetGamepadRightTrigger(int32 GamepadIndex = 0) const;
+
+    /** 스틱 데드존 설정 */
+    void SetStickDeadzone(float Deadzone) { StickDeadzone = Deadzone; }
+    float GetStickDeadzone() const { return StickDeadzone; }
+
 private:
     // 내부 헬퍼 함수들
     void UpdateMousePosition(int X, int Y);
     void UpdateMouseButton(EMouseButton Button, bool bPressed);
     void UpdateKeyState(int KeyCode, bool bPressed);
+
+    /** 게임패드 상태 업데이트 (Update()에서 호출) */
+    void UpdateGamepadState();
+
+    /** 스틱 데드존 적용 */
+    float ApplyDeadzone(float Value, float Deadzone) const;
 
     // 윈도우 핸들
     HWND WindowHandle;
@@ -138,4 +206,26 @@ private:
     // 포커스 잃기 전 InputMode (포커스 복원 시 사용)
     EInputMode InputModeBeforeFocusLost = EInputMode::GameAndUI;
     bool bWindowHasFocus = true;
+
+    // ────────────────────────────────────────────────
+    // 게임패드 상태
+    // ────────────────────────────────────────────────
+
+    static constexpr int32 MaxGamepads = 4;  // XInput 최대 지원
+
+    /** 게임패드 연결 상태 */
+    bool bGamepadConnected[MaxGamepads] = { false };
+
+    /** 게임패드 버튼 상태 */
+    bool GamepadButtons[MaxGamepads][MaxGamepadButtons] = { {false} };
+    bool PreviousGamepadButtons[MaxGamepads][MaxGamepadButtons] = { {false} };
+
+    /** 게임패드 축 값 */
+    float GamepadAxes[MaxGamepads][MaxGamepadAxes] = { {0.0f} };
+
+    /** 스틱 데드존 임계값 (기본 0.24) */
+    float StickDeadzone = 0.24f;
+
+    /** 트리거 데드존 임계값 (기본 0.12) */
+    float TriggerDeadzone = 0.12f;
 };

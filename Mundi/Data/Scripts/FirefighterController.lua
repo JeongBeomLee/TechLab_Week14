@@ -113,6 +113,9 @@ function OnBeginPlay()
     State.bWaterMagicStarted = false      -- WaterMagic_Start 애니메이션 완료 여부
     State.bWaterMagicEnding = false       -- WaterMagic_End 애니메이션 재생 중 여부
 
+    -- 게임패드 상태 초기화
+    State.bWasRTPressed = false           -- RT 트리거 이전 프레임 상태 (Press 감지용)
+
     -- 애니메이션 상태 머신 설정
     SetupAnimationStateMachine()
 end
@@ -312,18 +315,21 @@ function Update(DeltaTime)
         -- C++ 변수 설정 (회전 허용용)
         State.Character:SetUsingWaterMagic(true)
 
-        -- 오른쪽 마우스 누르고 있고 소화 게이지가 남아있으면 계속 사용
+        -- 오른쪽 마우스 또는 RT 누르고 있고 소화 게이지가 남아있으면 계속 사용
         local bRightMouseDown = Input:IsMouseButtonDown(1)  -- RButton = 1
+        local rtValue = Input:GetGamepadRightTrigger()
+        local bRTDown = rtValue > 0.5
+        local bInputHeld = bRightMouseDown or bRTDown
         local extinguishGauge = State.Character.ExtinguishGauge or 0
 
         -- 디버그: 매 프레임 게이지 출력 (1초마다)
         State.DebugTimer = (State.DebugTimer or 0) + DeltaTime
         if State.DebugTimer > 1.0 then
-            print("[FirefighterController] WaterMagic Progress - Gauge: " .. tostring(extinguishGauge) .. ", MouseDown: " .. tostring(bRightMouseDown))
+            print("[FirefighterController] WaterMagic Progress - Gauge: " .. tostring(extinguishGauge) .. ", InputHeld: " .. tostring(bInputHeld))
             State.DebugTimer = 0
         end
 
-        if bRightMouseDown and extinguishGauge > 0 then
+        if bInputHeld and extinguishGauge > 0 then
             -- 소화 게이지 감소 (C++ 함수 호출)
             local drainAmount = EXTINGUISH_DRAIN_RATE * DeltaTime
             --State.Character:DrainExtinguishGauge(drainAmount)
@@ -332,8 +338,8 @@ function Update(DeltaTime)
             local waterDamage = WATER_MAGIC_DAMAGE_RATE * DeltaTime
             State.Character:FireWaterMagic(waterDamage)
         else
-            -- 물 마법 종료 조건: 마우스 놓음 또는 소화 게이지 0
-            print("[FirefighterController] WaterMagic ending (gauge=" .. tostring(extinguishGauge) .. ", mouseDown=" .. tostring(bRightMouseDown) .. ")")
+            -- 물 마법 종료 조건: 입력 놓음 또는 소화 게이지 0
+            print("[FirefighterController] WaterMagic ending (gauge=" .. tostring(extinguishGauge) .. ", inputHeld=" .. tostring(bInputHeld) .. ")")
             State.bIsUsingWaterMagic = false
             State.Character:SetUsingWaterMagic(false)  -- C++ 변수도 리셋
             State.bWaterMagicEnding = true
@@ -354,32 +360,53 @@ function Update(DeltaTime)
         return
     end
 
-    -- 왼쪽 마우스 클릭으로 줍기 (LButton = 0)
-    if Input:IsMouseButtonPressed(0) then
-        print("[FirefighterController] PickUp triggered!")
-        State.bIsPerformingAction = true
-        State.StateMachine:SetState(STATE_PICKUP, 0.1)
-        return
+    -- 왼쪽 마우스 클릭 또는 B 버튼으로 줍기
+    local bPickupInput = Input:IsMouseButtonPressed(0) or Input:IsGamepadButtonPressed(GamepadButton.B)
+    if bPickupInput then
+        -- 현재 상태가 Idle/Walking/Running일 때만 픽업 허용 (전환 중 광클 방지)
+        local currentState = State.StateMachine:GetCurrentStateName()
+        if currentState == STATE_IDLE or currentState == STATE_WALKING or currentState == STATE_RUNNING then
+            print("[FirefighterController] PickUp triggered!")
+            State.bIsPerformingAction = true
+            State.StateMachine:SetState(STATE_PICKUP, 0.1)
+            return
+        end
     end
 
-    -- 오른쪽 마우스 클릭으로 물 마법 시작 (RButton = 1)
+    -- 오른쪽 마우스 클릭 또는 RT로 물 마법 시작
     local extinguishGauge = State.Character.ExtinguishGauge or 0
-    if Input:IsMouseButtonPressed(1) and extinguishGauge > 0 then
-        print("[FirefighterController] WaterMagic Start triggered! (gauge=" .. tostring(extinguishGauge) .. ")")
-        State.bIsPerformingAction = true
-        State.bWaterMagicStarted = false
-        State.StateMachine:SetState(STATE_WATERMAGIC_START, 0.1)
-        return
+    local rtValue = Input:GetGamepadRightTrigger()
+    local bRTPressed = (rtValue > 0.5) and (not State.bWasRTPressed)  -- RT Press 감지
+    local bWaterMagicInput = Input:IsMouseButtonPressed(1) or bRTPressed
+
+    if bWaterMagicInput and extinguishGauge > 0 then
+        -- 현재 상태가 Idle/Walking/Running일 때만 물 마법 허용 (전환 중 광클 방지)
+        local currentState = State.StateMachine:GetCurrentStateName()
+        if currentState == STATE_IDLE or currentState == STATE_WALKING or currentState == STATE_RUNNING then
+            print("[FirefighterController] WaterMagic Start triggered! (gauge=" .. tostring(extinguishGauge) .. ")")
+            State.bIsPerformingAction = true
+            State.bWaterMagicStarted = false
+            State.StateMachine:SetState(STATE_WATERMAGIC_START, 0.1)
+            State.bWasRTPressed = rtValue > 0.5
+            return
+        end
     end
 
-    -- Shift 키로 달리기 (VK_SHIFT = 16)
-    if Input:IsKeyDown(16) then
+    -- RT 상태 업데이트 (Press 감지용)
+    State.bWasRTPressed = rtValue > 0.5
+
+    -- Shift 키 또는 LB로 달리기
+    if Input:IsKeyDown(16) or Input:IsGamepadButtonDown(GamepadButton.LB) then
         State.bIsRunning = true
     end
 
-    -- WASD 입력 체크 (W=87, A=65, S=83, D=68)
+    -- WASD 또는 좌 스틱으로 이동 체크
+    local leftStick = Input:GetGamepadLeftStick()
+    local stickMagnitude = math.sqrt(leftStick.X * leftStick.X + leftStick.Y * leftStick.Y)
+
     if Input:IsKeyDown(87) or Input:IsKeyDown(65) or
-       Input:IsKeyDown(83) or Input:IsKeyDown(68) then
+       Input:IsKeyDown(83) or Input:IsKeyDown(68) or
+       stickMagnitude > 0.1 then
         State.bIsMoving = true
     end
 

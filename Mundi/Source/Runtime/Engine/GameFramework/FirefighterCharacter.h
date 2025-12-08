@@ -174,6 +174,9 @@ private:
     /** 사망 처리 */
     void Die();
 
+    /** 게임패드 입력 처리 (좌 스틱 이동, A 버튼 점프) */
+    void ProcessGamepadInput();
+
     //USound* SorrySound;
     //USound* HitSound;
 

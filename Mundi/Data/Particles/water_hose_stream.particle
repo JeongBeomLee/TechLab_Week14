@@ -1,6 +1,5 @@
 {
-  "Emitters" : [
-    {
+  "Emitters" : [{
       "LODLevels" : [{
           "Level" : 0,
           "Modules" : [{
@@ -212,7 +211,7 @@
               "bSpawnModule" : true,
               "bUpdateModule" : true
             }, {
-              "StartSize" : {
+              "SizeOverLife" : {
                 "ConstantCurve" : {
                   "LoopKeyOffset" : 0.000000,
                   "Points" : [],
@@ -235,34 +234,10 @@
                 "ParameterName" : "",
                 "Type" : 1
               },
-              "EndSize" : {
-                "ConstantCurve" : {
-                  "LoopKeyOffset" : 0.000000,
-                  "Points" : [],
-                  "bIsLooped" : false
-                },
-                "ConstantValue" : [0.000000, 0.000000, 0.000000],
-                "MaxCurve" : {
-                  "LoopKeyOffset" : 0.000000,
-                  "Points" : [],
-                  "bIsLooped" : false
-                },
-                "MaxValue" : [0.400000, 0.400000, 0.400000],
-                "MinCurve" : {
-                  "LoopKeyOffset" : 0.000000,
-                  "Points" : [],
-                  "bIsLooped" : false
-                },
-                "MinValue" : [0.250000, 0.250000, 0.250000],
-                "ParameterDefaultValue" : [0.000000, 0.000000, 0.000000],
-                "ParameterName" : "",
-                "Type" : 1
-              },
               "Type" : "UParticleModuleSize",
               "bEnabled" : true,
               "bSpawnModule" : true,
-              "bUpdateModule" : false,
-              "bUseSizeOverLife" : false
+              "bUpdateModule" : false
             }, {
               "AccelerationOverLife" : {
                 "ConstantCurve" : {
@@ -287,7 +262,7 @@
                 "ParameterName" : "",
                 "Type" : 1
               },
-              "GravityScale" : 2.500000,
+              "GravityScale" : 3.500000,
               "Type" : "UParticleModuleAcceleration",
               "bApplyGravity" : true,
               "bEnabled" : true,
@@ -296,8 +271,7 @@
             }],
           "bEnabled" : true
         }]
-    },
-    {
+    }, {
       "LODLevels" : [{
           "Level" : 0,
           "Modules" : [{
@@ -509,7 +483,7 @@
               "bSpawnModule" : true,
               "bUpdateModule" : true
             }, {
-              "StartSize" : {
+              "SizeOverLife" : {
                 "ConstantCurve" : {
                   "LoopKeyOffset" : 0.000000,
                   "Points" : [],
@@ -532,34 +506,10 @@
                 "ParameterName" : "",
                 "Type" : 1
               },
-              "EndSize" : {
-                "ConstantCurve" : {
-                  "LoopKeyOffset" : 0.000000,
-                  "Points" : [],
-                  "bIsLooped" : false
-                },
-                "ConstantValue" : [0.000000, 0.000000, 0.000000],
-                "MaxCurve" : {
-                  "LoopKeyOffset" : 0.000000,
-                  "Points" : [],
-                  "bIsLooped" : false
-                },
-                "MaxValue" : [0.350000, 0.350000, 0.350000],
-                "MinCurve" : {
-                  "LoopKeyOffset" : 0.000000,
-                  "Points" : [],
-                  "bIsLooped" : false
-                },
-                "MinValue" : [0.200000, 0.200000, 0.200000],
-                "ParameterDefaultValue" : [0.000000, 0.000000, 0.000000],
-                "ParameterName" : "",
-                "Type" : 1
-              },
               "Type" : "UParticleModuleSize",
               "bEnabled" : true,
               "bSpawnModule" : true,
-              "bUpdateModule" : false,
-              "bUseSizeOverLife" : false
+              "bUpdateModule" : false
             }, {
               "AccelerationOverLife" : {
                 "ConstantCurve" : {
@@ -584,7 +534,7 @@
                 "ParameterName" : "",
                 "Type" : 1
               },
-              "GravityScale" : 2.700000,
+              "GravityScale" : 3.700000,
               "Type" : "UParticleModuleAcceleration",
               "bApplyGravity" : true,
               "bEnabled" : true,
@@ -593,8 +543,7 @@
             }],
           "bEnabled" : true
         }]
-    },
-    {
+    }, {
       "LODLevels" : [{
           "Level" : 0,
           "Modules" : [{
@@ -806,7 +755,7 @@
               "bSpawnModule" : true,
               "bUpdateModule" : true
             }, {
-              "StartSize" : {
+              "SizeOverLife" : {
                 "ConstantCurve" : {
                   "LoopKeyOffset" : 0.000000,
                   "Points" : [],
@@ -829,34 +778,10 @@
                 "ParameterName" : "",
                 "Type" : 1
               },
-              "EndSize" : {
-                "ConstantCurve" : {
-                  "LoopKeyOffset" : 0.000000,
-                  "Points" : [],
-                  "bIsLooped" : false
-                },
-                "ConstantValue" : [0.000000, 0.000000, 0.000000],
-                "MaxCurve" : {
-                  "LoopKeyOffset" : 0.000000,
-                  "Points" : [],
-                  "bIsLooped" : false
-                },
-                "MaxValue" : [0.100000, 0.100000, 0.100000],
-                "MinCurve" : {
-                  "LoopKeyOffset" : 0.000000,
-                  "Points" : [],
-                  "bIsLooped" : false
-                },
-                "MinValue" : [0.050000, 0.050000, 0.050000],
-                "ParameterDefaultValue" : [0.000000, 0.000000, 0.000000],
-                "ParameterName" : "",
-                "Type" : 1
-              },
               "Type" : "UParticleModuleSize",
               "bEnabled" : true,
               "bSpawnModule" : true,
-              "bUpdateModule" : false,
-              "bUseSizeOverLife" : false
+              "bUpdateModule" : false
             }, {
               "AccelerationOverLife" : {
                 "ConstantCurve" : {
@@ -881,7 +806,7 @@
                 "ParameterName" : "",
                 "Type" : 1
               },
-              "GravityScale" : 3.000000,
+              "GravityScale" : 4.000000,
               "Type" : "UParticleModuleAcceleration",
               "bApplyGravity" : true,
               "bEnabled" : true,
@@ -890,8 +815,7 @@
             }],
           "bEnabled" : true
         }]
-    },
-    {
+    }, {
       "LODLevels" : [{
           "Level" : 0,
           "Modules" : [{
@@ -1015,13 +939,13 @@
                   "Points" : [],
                   "bIsLooped" : false
                 },
-                "MaxValue" : [8.000000, 8.000000, 46.000000],
+                "MaxValue" : [5.000000, 5.000000, 46.000000],
                 "MinCurve" : {
                   "LoopKeyOffset" : 0.000000,
                   "Points" : [],
                   "bIsLooped" : false
                 },
-                "MinValue" : [-8.000000, -8.000000, 38.000000],
+                "MinValue" : [-5.000000, -5.000000, 38.000000],
                 "ParameterDefaultValue" : [0.000000, 0.000000, 0.000000],
                 "ParameterName" : "",
                 "Type" : 1
@@ -1109,7 +1033,7 @@
               "bSpawnModule" : true,
               "bUpdateModule" : true
             }, {
-              "StartSize" : {
+              "SizeOverLife" : {
                 "ConstantCurve" : {
                   "LoopKeyOffset" : 0.000000,
                   "Points" : [],
@@ -1132,34 +1056,10 @@
                 "ParameterName" : "",
                 "Type" : 1
               },
-              "EndSize" : {
-                "ConstantCurve" : {
-                  "LoopKeyOffset" : 0.000000,
-                  "Points" : [],
-                  "bIsLooped" : false
-                },
-                "ConstantValue" : [0.000000, 0.000000, 0.000000],
-                "MaxCurve" : {
-                  "LoopKeyOffset" : 0.000000,
-                  "Points" : [],
-                  "bIsLooped" : false
-                },
-                "MaxValue" : [1.600000, 1.600000, 1.600000],
-                "MinCurve" : {
-                  "LoopKeyOffset" : 0.000000,
-                  "Points" : [],
-                  "bIsLooped" : false
-                },
-                "MinValue" : [1.200000, 1.200000, 1.200000],
-                "ParameterDefaultValue" : [0.000000, 0.000000, 0.000000],
-                "ParameterName" : "",
-                "Type" : 1
-              },
               "Type" : "UParticleModuleSize",
               "bEnabled" : true,
               "bSpawnModule" : true,
-              "bUpdateModule" : false,
-              "bUseSizeOverLife" : false
+              "bUpdateModule" : false
             }, {
               "AccelerationOverLife" : {
                 "ConstantCurve" : {
@@ -1184,7 +1084,7 @@
                 "ParameterName" : "",
                 "Type" : 1
               },
-              "GravityScale" : 1.500000,
+              "GravityScale" : 2.500000,
               "Type" : "UParticleModuleAcceleration",
               "bApplyGravity" : true,
               "bEnabled" : true,
@@ -1193,8 +1093,7 @@
             }],
           "bEnabled" : true
         }]
-    }
-  ],
+    }],
   "LODDistances" : [],
   "bUseLOD" : false
 }

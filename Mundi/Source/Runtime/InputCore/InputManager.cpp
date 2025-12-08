@@ -111,6 +111,9 @@ void UInputManager::Update()
 
     memcpy(PreviousMouseButtons, MouseButtons, sizeof(MouseButtons));
     memcpy(PreviousKeyStates, KeyStates, sizeof(KeyStates));
+
+    // 게임패드 상태 업데이트
+    UpdateGamepadState();
 }
 
 void UInputManager::ProcessMessage(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
@@ -526,4 +529,141 @@ void UInputManager::SetCursorToCenter()
         PreviousMousePosition = MousePosition;
         LockedCursorPosition = MousePosition;
     }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// 게임패드 함수 구현
+// ────────────────────────────────────────────────────────────────────────────
+
+void UInputManager::UpdateGamepadState()
+{
+    for (int32 i = 0; i < MaxGamepads; ++i)
+    {
+        // 이전 버튼 상태 저장
+        memcpy(PreviousGamepadButtons[i], GamepadButtons[i], sizeof(GamepadButtons[i]));
+
+        XINPUT_STATE State;
+        ZeroMemory(&State, sizeof(XINPUT_STATE));
+
+        DWORD Result = XInputGetState(i, &State);
+
+        if (Result == ERROR_SUCCESS)
+        {
+            bGamepadConnected[i] = true;
+
+            // 버튼 상태 업데이트
+            GamepadButtons[i][GamepadA] = (State.Gamepad.wButtons & XINPUT_GAMEPAD_A) != 0;
+            GamepadButtons[i][GamepadB] = (State.Gamepad.wButtons & XINPUT_GAMEPAD_B) != 0;
+            GamepadButtons[i][GamepadX] = (State.Gamepad.wButtons & XINPUT_GAMEPAD_X) != 0;
+            GamepadButtons[i][GamepadY] = (State.Gamepad.wButtons & XINPUT_GAMEPAD_Y) != 0;
+            GamepadButtons[i][GamepadLB] = (State.Gamepad.wButtons & XINPUT_GAMEPAD_LEFT_SHOULDER) != 0;
+            GamepadButtons[i][GamepadRB] = (State.Gamepad.wButtons & XINPUT_GAMEPAD_RIGHT_SHOULDER) != 0;
+            GamepadButtons[i][GamepadBack] = (State.Gamepad.wButtons & XINPUT_GAMEPAD_BACK) != 0;
+            GamepadButtons[i][GamepadStart] = (State.Gamepad.wButtons & XINPUT_GAMEPAD_START) != 0;
+            GamepadButtons[i][GamepadLStick] = (State.Gamepad.wButtons & XINPUT_GAMEPAD_LEFT_THUMB) != 0;
+            GamepadButtons[i][GamepadRStick] = (State.Gamepad.wButtons & XINPUT_GAMEPAD_RIGHT_THUMB) != 0;
+            GamepadButtons[i][GamepadDPadUp] = (State.Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_UP) != 0;
+            GamepadButtons[i][GamepadDPadDown] = (State.Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_DOWN) != 0;
+            GamepadButtons[i][GamepadDPadLeft] = (State.Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_LEFT) != 0;
+            GamepadButtons[i][GamepadDPadRight] = (State.Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_RIGHT) != 0;
+
+            // 스틱 값 업데이트 (-1.0 ~ 1.0으로 정규화)
+            float LX = State.Gamepad.sThumbLX / 32767.0f;
+            float LY = State.Gamepad.sThumbLY / 32767.0f;
+            float RX = State.Gamepad.sThumbRX / 32767.0f;
+            float RY = State.Gamepad.sThumbRY / 32767.0f;
+
+            // 데드존 적용
+            GamepadAxes[i][GamepadLeftStickX] = ApplyDeadzone(LX, StickDeadzone);
+            GamepadAxes[i][GamepadLeftStickY] = ApplyDeadzone(LY, StickDeadzone);
+            GamepadAxes[i][GamepadRightStickX] = ApplyDeadzone(RX, StickDeadzone);
+            GamepadAxes[i][GamepadRightStickY] = ApplyDeadzone(RY, StickDeadzone);
+
+            // 트리거 값 (0.0 ~ 1.0)
+            float LT = State.Gamepad.bLeftTrigger / 255.0f;
+            float RT = State.Gamepad.bRightTrigger / 255.0f;
+
+            GamepadAxes[i][GamepadLeftTrigger] = (LT < TriggerDeadzone) ? 0.0f : LT;
+            GamepadAxes[i][GamepadRightTrigger] = (RT < TriggerDeadzone) ? 0.0f : RT;
+        }
+        else
+        {
+            bGamepadConnected[i] = false;
+            // 연결 해제 시 상태 초기화
+            memset(GamepadButtons[i], false, sizeof(GamepadButtons[i]));
+            memset(GamepadAxes[i], 0, sizeof(GamepadAxes[i]));
+        }
+    }
+}
+
+float UInputManager::ApplyDeadzone(float Value, float Deadzone) const
+{
+    if (std::abs(Value) < Deadzone)
+    {
+        return 0.0f;
+    }
+
+    // 데드존 이후 범위를 0~1로 재매핑
+    float Sign = (Value > 0.0f) ? 1.0f : -1.0f;
+    return Sign * (std::abs(Value) - Deadzone) / (1.0f - Deadzone);
+}
+
+bool UInputManager::IsGamepadConnected(int32 GamepadIndex) const
+{
+    if (GamepadIndex < 0 || GamepadIndex >= MaxGamepads) return false;
+    return bGamepadConnected[GamepadIndex];
+}
+
+bool UInputManager::IsGamepadButtonDown(EGamepadButton Button, int32 GamepadIndex) const
+{
+    if (GamepadIndex < 0 || GamepadIndex >= MaxGamepads) return false;
+    if (Button < 0 || Button >= MaxGamepadButtons) return false;
+    return GamepadButtons[GamepadIndex][Button];
+}
+
+bool UInputManager::IsGamepadButtonPressed(EGamepadButton Button, int32 GamepadIndex) const
+{
+    if (GamepadIndex < 0 || GamepadIndex >= MaxGamepads) return false;
+    if (Button < 0 || Button >= MaxGamepadButtons) return false;
+    return GamepadButtons[GamepadIndex][Button] && !PreviousGamepadButtons[GamepadIndex][Button];
+}
+
+bool UInputManager::IsGamepadButtonReleased(EGamepadButton Button, int32 GamepadIndex) const
+{
+    if (GamepadIndex < 0 || GamepadIndex >= MaxGamepads) return false;
+    if (Button < 0 || Button >= MaxGamepadButtons) return false;
+    return !GamepadButtons[GamepadIndex][Button] && PreviousGamepadButtons[GamepadIndex][Button];
+}
+
+float UInputManager::GetGamepadAxis(EGamepadAxis Axis, int32 GamepadIndex) const
+{
+    if (GamepadIndex < 0 || GamepadIndex >= MaxGamepads) return 0.0f;
+    if (Axis < 0 || Axis >= MaxGamepadAxes) return 0.0f;
+    return GamepadAxes[GamepadIndex][Axis];
+}
+
+FVector2D UInputManager::GetGamepadLeftStick(int32 GamepadIndex) const
+{
+    if (GamepadIndex < 0 || GamepadIndex >= MaxGamepads) return FVector2D(0.0f, 0.0f);
+    return FVector2D(GamepadAxes[GamepadIndex][GamepadLeftStickX],
+                     GamepadAxes[GamepadIndex][GamepadLeftStickY]);
+}
+
+FVector2D UInputManager::GetGamepadRightStick(int32 GamepadIndex) const
+{
+    if (GamepadIndex < 0 || GamepadIndex >= MaxGamepads) return FVector2D(0.0f, 0.0f);
+    return FVector2D(GamepadAxes[GamepadIndex][GamepadRightStickX],
+                     GamepadAxes[GamepadIndex][GamepadRightStickY]);
+}
+
+float UInputManager::GetGamepadLeftTrigger(int32 GamepadIndex) const
+{
+    if (GamepadIndex < 0 || GamepadIndex >= MaxGamepads) return 0.0f;
+    return GamepadAxes[GamepadIndex][GamepadLeftTrigger];
+}
+
+float UInputManager::GetGamepadRightTrigger(int32 GamepadIndex) const
+{
+    if (GamepadIndex < 0 || GamepadIndex >= MaxGamepads) return 0.0f;
+    return GamepadAxes[GamepadIndex][GamepadRightTrigger];
 }

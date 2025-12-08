@@ -79,9 +79,6 @@ void AEndGameMode::InitializeData()
     PlayerScore = GameInstance->GetPlayerScore();
     PlayerHealth = GameInstance->GetPlayerHealth();
 
-    UE_LOG("[info] EndGameMode: Data loaded - Rescued: %d, Score: %d, Health: %d",
-        RescuedCount, PlayerScore, PlayerHealth);
-
     // PlayerCameraManager 찾기
     if (GetWorld())
     {
@@ -98,33 +95,11 @@ void AEndGameMode::InitializeData()
 
 void AEndGameMode::InitializeSounds()
 {
-    UE_LOG("[info] EndGameMode: Loading sounds...");
-
     // 사운드 리소스 로드
     CheckSound = UResourceManager::GetInstance().Load<USound>(CheckSoundPath);
     StampSound = UResourceManager::GetInstance().Load<USound>(StampSoundPath);
     TypingSound = UResourceManager::GetInstance().Load<USound>(TypingSoundPath);
     ButtonSound = UResourceManager::GetInstance().Load<USound>(ButtonSoundPath);
-
-    if (!CheckSound)
-        UE_LOG("[warning] EndGameMode: Failed to load check sound: %s", CheckSoundPath.c_str());
-    else
-        UE_LOG("[info] EndGameMode: Check sound loaded: %s", CheckSoundPath.c_str());
-
-    if (!StampSound)
-        UE_LOG("[warning] EndGameMode: Failed to load stamp sound: %s", StampSoundPath.c_str());
-    else
-        UE_LOG("[info] EndGameMode: Stamp sound loaded: %s", StampSoundPath.c_str());
-
-    if (!TypingSound)
-        UE_LOG("[warning] EndGameMode: Failed to load typing sound: %s", TypingSoundPath.c_str());
-    else
-        UE_LOG("[info] EndGameMode: Typing sound loaded: %s", TypingSoundPath.c_str());
-
-    if (!ButtonSound)
-        UE_LOG("[warning] EndGameMode: Failed to load button sound: %s", ButtonSoundPath.c_str());
-    else
-        UE_LOG("[info] EndGameMode: Button sound loaded: %s", ButtonSoundPath.c_str());
 }
 
 void AEndGameMode::InitializeUI()
@@ -206,8 +181,7 @@ void AEndGameMode::InitializeUI()
 
 void AEndGameMode::ClearUI()
 {
-    if (!SGameHUD::Get().IsInitialized())
-        return;
+    if (!SGameHUD::Get().IsInitialized()) { return; }
 
     if (DocumentBackground)
     {
@@ -250,8 +224,6 @@ void AEndGameMode::ClearUI()
         SGameHUD::Get().RemoveWidget(MainMenuButton);
         MainMenuButton.Reset();
     }
-
-    UE_LOG("[info] EndGameMode: UI cleared");
 }
 
 void AEndGameMode::UpdateSequence(float DeltaTime)
@@ -342,7 +314,6 @@ void AEndGameMode::UpdateSequence(float DeltaTime)
                 // 크레딧 사운드 재생
                 if (CheckSound)
                 {
-                    UE_LOG("[info] EndGameMode: Playing check sound (credit)");
                     FAudioDevice::PlaySound3D(CheckSound, FVector::Zero(), 1.0f, false);
                 }
 
@@ -376,8 +347,7 @@ void AEndGameMode::UpdateSequence(float DeltaTime)
                 float height = 454.f * scale;  // 세로 (378 → 454, 720 / 1.586 ≈ 454)
 
                 // RootCanvas에서 위젯 찾아서 크기 변경
-                TSharedPtr<SCanvas> Canvas = SGameHUD::Get().GetRootCanvas();
-                if (Canvas)
+                if (TSharedPtr<SCanvas> Canvas = SGameHUD::Get().GetRootCanvas())
                 {
                     TArray<FCanvasSlot>& Slots = Canvas->GetCanvasSlots();
                     for (FCanvasSlot& Slot : Slots)
@@ -478,12 +448,7 @@ void AEndGameMode::StartRescuedCountAnimation()
     // 체크 사운드 재생
     if (CheckSound)
     {
-        UE_LOG("[info] EndGameMode: Playing check sound (rescued count)");
         FAudioDevice::PlaySound3D(CheckSound, FVector::Zero(), 1.0f, false);
-    }
-    else
-    {
-        UE_LOG("[warning] EndGameMode: CheckSound is null!");
     }
 }
 
@@ -497,12 +462,7 @@ void AEndGameMode::StartScoreCountAnimation()
     // 체크 사운드 재생
     if (CheckSound)
     {
-        UE_LOG("[info] EndGameMode: Playing check sound (score count)");
         FAudioDevice::PlaySound3D(CheckSound, FVector::Zero(), 1.0f, false);
-    }
-    else
-    {
-        UE_LOG("[warning] EndGameMode: CheckSound is null!");
     }
 }
 
@@ -511,12 +471,7 @@ void AEndGameMode::StartStampAnimation()
     // 도장 사운드 재생
     if (StampSound)
     {
-        UE_LOG("[info] EndGameMode: Playing stamp sound");
         FAudioDevice::PlaySound3D(StampSound, FVector::Zero(), 1.0f, false);
-    }
-    else
-    {
-        UE_LOG("[warning] EndGameMode: StampSound is null!");
     }
 
     // UI 흔들림 타이머 초기화 및 원본 오프셋 저장
@@ -635,23 +590,17 @@ void AEndGameMode::StartEndingTextTyping()
         EndingText->SetVisibility(ESlateVisibility::Visible);
         EndingText->SetText(L"");
     }
-
-    UE_LOG("[info] EndGameMode: Starting ending text typing - '%s'",
-        std::string(FullEndingText.begin(), FullEndingText.end()).c_str());
 }
 
 void AEndGameMode::UpdateTypingEffect(float DeltaTime)
 {
-    if (!EndingText || CurrentCharIndex >= (int32)FullEndingText.length())
-    {
-        return;
-    }
+    if (!EndingText || CurrentCharIndex >= (int32)FullEndingText.length()) { return; }
 
     TypingTimer += DeltaTime;
 
     // 전체 텍스트 길이를 기준으로 타이핑 속도 계산
     int32 totalChars = (int32)FullEndingText.length();
-    if (totalChars == 0) return;
+    if (totalChars == 0) { return; }
 
     // 진행률 기반으로 현재 표시할 글자 인덱스 계산
     float progress = FMath::Clamp(TypingTimer / TypingDuration, 0.f, 1.f);
@@ -668,7 +617,6 @@ void AEndGameMode::UpdateTypingEffect(float DeltaTime)
         // 타이핑 사운드 재생 (딱 1번만, 타이핑 시작할 때)
         if (TypingSound && !bTypingSoundPlayed)
         {
-            UE_LOG("[info] EndGameMode: Playing typing sound (once)");
             FAudioDevice::PlaySound3D(TypingSound, FVector::Zero(), 0.5f, false);
             bTypingSoundPlayed = true;
         }
@@ -677,8 +625,6 @@ void AEndGameMode::UpdateTypingEffect(float DeltaTime)
 
 void AEndGameMode::OnMainMenuButtonClicked()
 {
-    UE_LOG("[info] EndGameMode: Main menu button clicked");
-
     // 버튼 클릭 사운드 재생
     // static 메서드이므로 인스턴스를 찾아서 사운드 재생
     if (!GEngine.IsPIEActive()) { return; }
@@ -688,7 +634,7 @@ void AEndGameMode::OnMainMenuButtonClicked()
         if (Context.WorldType == EWorldType::Game && Context.World)
         {
             // EndGameMode 인스턴스 찾기
-            AEndGameMode* EndGameMode = dynamic_cast<AEndGameMode*>(Context.World->GetGameMode());
+            AEndGameMode* EndGameMode = Cast<AEndGameMode>(Context.World->GetGameMode());
             if (EndGameMode && EndGameMode->ButtonSound)
             {
                 UE_LOG("[info] EndGameMode: Playing button click sound");
@@ -697,7 +643,7 @@ void AEndGameMode::OnMainMenuButtonClicked()
 
             for (AActor* Actor : Context.World->GetActors())
             {
-                if (ALevelTransitionManager* Manager = dynamic_cast<ALevelTransitionManager*>(Actor))
+                if (ALevelTransitionManager* Manager = Cast<ALevelTransitionManager>(Actor))
                 {
                     if (Manager->IsTransitioning()) { return; }
 
