@@ -214,6 +214,19 @@ void AItemCollectGameMode::Tick(float DeltaTime)
 		{
 			RemainingTime = 0.0f;
 
+			// BGM 정지 (limit 화면에서는 알람만)
+			if (BGMVoice)
+			{
+				FAudioDevice::StopSound(BGMVoice);
+				BGMVoice = nullptr;
+			}
+
+			// 시계 알람 재생 (limit 화면용)
+			if (ClockAlarmSound)
+			{
+				FAudioDevice::PlaySound3D(ClockAlarmSound, FVector::Zero(), 1.0f, false);
+			}
+
 			// Limit 위젯 생성 및 표시
 			if (!LimitWidget && SGameHUD::Get().IsInitialized())
 			{
@@ -640,6 +653,9 @@ void AItemCollectGameMode::InitializeSounds()
 	{
 		FAudioDevice::PlaySound3D(SirenSound, FVector::Zero(), 0.7f, false);
 	}
+
+	// 시간 종료 알람 사운드 로드 (재생은 limit 화면에서)
+	ClockAlarmSound = UResourceManager::GetInstance().Load<USound>(ClockAlarmSoundPath);
 }
 
 // ────────────────────────────────────────────────────────────────────────────

@@ -86,6 +86,10 @@ public:
 	UPROPERTY(EditAnywhere, Category="Sound", Tooltip="사이렌 사운드 경로입니다.")
 	FString SirenSoundPath = "Data/Audio/StartSiren.wav";
 
+	/** 시간 종료 알람 사운드 경로 */
+	UPROPERTY(EditAnywhere, Category="Sound", Tooltip="시간 종료 시 재생되는 알람 사운드 경로입니다.")
+	FString ClockAlarmSoundPath = "Data/Audio/ClockAlram.wav";
+
 	// ────────────────────────────────────────────────
 	// Getter/Setter
 	// ────────────────────────────────────────────────
@@ -171,6 +175,7 @@ private:
 	// 사운드 관련
 	class USound* BGMSound = nullptr;
 	class USound* SirenSound = nullptr;
+	class USound* ClockAlarmSound = nullptr;
 	struct IXAudio2SourceVoice* BGMVoice = nullptr;
 
 	/** 사운드 초기화 */
