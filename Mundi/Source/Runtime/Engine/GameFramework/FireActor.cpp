@@ -74,7 +74,7 @@ void AFireActor::BeginPlay()
 	// 불이 활성화 상태면 루프 사운드 시작
 	if (bIsActive && FireLoopSound)
 	{
-		FireLoopVoice = FAudioDevice::PlaySound3D(FireLoopSound, GetActorLocation(), 1.0f, true);
+		FireLoopVoice = FAudioDevice::PlaySound3D(FireLoopSound, GetActorLocation(), 0.8f, true);
 	}
 }
 
@@ -261,7 +261,8 @@ void AFireActor::ApplyWaterDamage(float DamageAmount)
 	// 불이 작아질 때 fire_over 사운드 재생 (쿨다운 적용)
 	if (FireExtinguishSound && ExtinguishSoundCooldown <= 0.0f)
 	{
-		FAudioDevice::PlaySound3D(FireExtinguishSound, GetActorLocation(), 1.0f, false);
+		// 불 꺼짐 피드백을 더 명확히 들리도록 볼륨 상향
+		FAudioDevice::PlaySound3D(FireExtinguishSound, GetActorLocation(), 1.5f, false);
 		ExtinguishSoundCooldown = 0.3f;  // 0.3초 쿨다운
 	}
 
