@@ -667,3 +667,19 @@ float UInputManager::GetGamepadRightTrigger(int32 GamepadIndex) const
     if (GamepadIndex < 0 || GamepadIndex >= MaxGamepads) return 0.0f;
     return GamepadAxes[GamepadIndex][GamepadRightTrigger];
 }
+
+void UInputManager::SetVibration(float LeftMotor, float RightMotor, int32 GamepadIndex)
+{
+    if (GamepadIndex < 0 || GamepadIndex >= MaxGamepads) return;
+    if (!bGamepadConnected[GamepadIndex]) return;
+
+    XINPUT_VIBRATION Vibration;
+    Vibration.wLeftMotorSpeed = static_cast<WORD>(FMath::Clamp(LeftMotor, 0.0f, 1.0f) * 65535.0f);
+    Vibration.wRightMotorSpeed = static_cast<WORD>(FMath::Clamp(RightMotor, 0.0f, 1.0f) * 65535.0f);
+    XInputSetState(GamepadIndex, &Vibration);
+}
+
+void UInputManager::StopVibration(int32 GamepadIndex)
+{
+    SetVibration(0.0f, 0.0f, GamepadIndex);
+}

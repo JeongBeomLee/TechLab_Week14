@@ -104,6 +104,7 @@ public:
     bool IsEnabled() const { return bIsEnabled; }
 
     void SetEnabled(bool bEnabled) { bIsEnabled = bEnabled; }
+    void SetHovered(bool bHovered) { bIsHovered = bHovered; }
 
     // =====================================================
     // 부모/자식 관계 (SPanel에서 관리)

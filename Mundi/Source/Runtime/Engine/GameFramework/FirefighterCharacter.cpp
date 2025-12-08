@@ -388,6 +388,29 @@ void AFirefighterCharacter::Tick(float DeltaSeconds)
 		CollisionEffectCooldownTimer -= DeltaSeconds;
 	}
 
+	// 물 발사 중 진동 업데이트
+	if (WaterLoopVoice)
+	{
+		WaterVibrationTimer += DeltaSeconds;
+		if (WaterVibrationTimer >= WaterVibrationInterval)
+		{
+			WaterVibrationTimer = 0.0f;
+			UInputManager::GetInstance().SetVibration(WaterVibrationIntensity, WaterVibrationIntensity);
+		}
+	}
+
+	// 아이템 수집 진동 업데이트
+	if (bItemVibrating)
+	{
+		ItemVibrationTimer += DeltaSeconds;
+		if (ItemVibrationTimer >= ItemVibrationDuration)
+		{
+			bItemVibrating = false;
+			ItemVibrationTimer = 0.0f;
+			UInputManager::GetInstance().StopVibration();
+		}
+	}
+
 	// 사람을 들고 있을 때 상체 본들 위치 업데이트
 	UpdateCarriedPersonPose();
 }
@@ -544,6 +567,9 @@ void AFirefighterCharacter::PlayWaterMagicEffect()
 	{
 		WaterLoopVoice = FAudioDevice::PlaySound3D(WaterLoopSound, EmitterLocation, 0.35f, true);
 	}
+
+	// 진동 시작
+	WaterVibrationTimer = WaterVibrationInterval; // 즉시 진동 트리거
 }
 
 void AFirefighterCharacter::StopWaterMagicEffect()
@@ -559,6 +585,9 @@ void AFirefighterCharacter::StopWaterMagicEffect()
 		FAudioDevice::StopSound(WaterLoopVoice);
 		WaterLoopVoice = nullptr;
 	}
+
+	// 진동 정지
+	UInputManager::GetInstance().StopVibration();
 
 	if (WaterEndSound)
 	{
@@ -583,6 +612,11 @@ void AFirefighterCharacter::PlayItemPickupEffect(const FVector& Position)
 	{
 		FAudioDevice::PlaySound3D(ItemPickupSound, Position, 1.0f, false);
 	}
+
+	// 아이템 수집 진동
+	bItemVibrating = true;
+	ItemVibrationTimer = 0.0f;
+	UInputManager::GetInstance().SetVibration(ItemVibrationIntensity, ItemVibrationIntensity);
 }
 
 void AFirefighterCharacter::PlayFootDustEffect(bool bLeftFoot)

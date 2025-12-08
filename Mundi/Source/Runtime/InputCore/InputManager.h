@@ -160,6 +160,10 @@ public:
     void SetStickDeadzone(float Deadzone) { StickDeadzone = Deadzone; }
     float GetStickDeadzone() const { return StickDeadzone; }
 
+    /** 게임패드 진동 설정 (0.0 ~ 1.0) */
+    void SetVibration(float LeftMotor, float RightMotor, int32 GamepadIndex = 0);
+    void StopVibration(int32 GamepadIndex = 0);
+
 private:
     // 내부 헬퍼 함수들
     void UpdateMousePosition(int X, int Y);

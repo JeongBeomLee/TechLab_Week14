@@ -81,6 +81,120 @@ void AIntroGameMode::Tick(float DeltaTime)
             bIsTransitioning = false;
         }
     }
+
+    // 게임패드 네비게이션
+    UpdateGamepadNavigation();
+}
+
+void AIntroGameMode::UpdateGamepadNavigation()
+{
+    UInputManager& Input = UInputManager::GetInstance();
+    FVector2D LeftStick = Input.GetGamepadLeftStick();
+    float StickMagnitude = LeftStick.Length();
+
+    // 조이스틱이 중립 상태인지 확인
+    if (StickMagnitude < 0.3f)
+    {
+        bJoystickWasNeutral = true;
+    }
+    else if (bJoystickWasNeutral && StickMagnitude > 0.5f)
+    {
+        // 조이스틱이 중립에서 움직였을 때만 처리
+        bJoystickWasNeutral = false;
+
+        // 현재 선택된 버튼이 없으면 기본 선택
+        if (SelectedButtonIndex < 0)
+        {
+            SetSelectedButton(0);  // Start 버튼 선택
+        }
+        else
+        {
+            // 좌우 네비게이션: Start(0) <-> Quit(1) <-> Help(2)
+            // 상하 네비게이션: Help(2) <-> Quit(1) <-> Start(0)
+            int32 NewIndex = SelectedButtonIndex;
+
+            if (LeftStick.X > 0.5f)  // 오른쪽
+            {
+                NewIndex = FMath::Min(SelectedButtonIndex + 1, 2);
+            }
+            else if (LeftStick.X < -0.5f)  // 왼쪽
+            {
+                NewIndex = FMath::Max(SelectedButtonIndex - 1, 0);
+            }
+            else if (LeftStick.Y > 0.5f)  // 위
+            {
+                // 위로: Start(0)->Quit(1)->Help(2)
+                NewIndex = FMath::Min(SelectedButtonIndex + 1, 2);
+            }
+            else if (LeftStick.Y < -0.5f)  // 아래
+            {
+                // 아래로: Help(2)->Quit(1)->Start(0)
+                NewIndex = FMath::Max(SelectedButtonIndex - 1, 0);
+            }
+
+            if (NewIndex != SelectedButtonIndex)
+            {
+                SetSelectedButton(NewIndex);
+            }
+        }
+    }
+
+    // A 또는 B 버튼으로 클릭
+    if (SelectedButtonIndex >= 0)
+    {
+        if (Input.IsGamepadButtonPressed(EGamepadButton::GamepadA) ||
+            Input.IsGamepadButtonPressed(EGamepadButton::GamepadB))
+        {
+            if (TSharedPtr<SButton> Button = GetButtonByIndex(SelectedButtonIndex))
+            {
+                Button->SimulateClick();
+            }
+        }
+    }
+}
+
+void AIntroGameMode::SetSelectedButton(int32 Index)
+{
+    // 이전 버튼 호버 해제
+    if (SelectedButtonIndex >= 0)
+    {
+        if (TSharedPtr<SButton> PrevButton = GetButtonByIndex(SelectedButtonIndex))
+        {
+            PrevButton->SetHovered(false);
+        }
+        // Help 버튼이었으면 가이드 숨김
+        if (SelectedButtonIndex == 2)
+        {
+            OnHelpButtonUnhovered();
+        }
+    }
+
+    // 새 버튼 호버 설정
+    SelectedButtonIndex = Index;
+    if (SelectedButtonIndex >= 0)
+    {
+        if (TSharedPtr<SButton> NewButton = GetButtonByIndex(SelectedButtonIndex))
+        {
+            NewButton->SetHovered(true);
+        }
+        // Help 버튼이면 가이드 표시
+        if (SelectedButtonIndex == 2)
+        {
+            UE_LOG("[IntroGameMode] Calling OnHelpButtonHovered for index 2");
+            OnHelpButtonHovered();
+        }
+    }
+}
+
+TSharedPtr<SButton> AIntroGameMode::GetButtonByIndex(int32 Index)
+{
+    switch (Index)
+    {
+    case 0: return StartButton;
+    case 1: return QuitButton;
+    case 2: return HelpButton;
+    default: return nullptr;
+    }
 }
 
 void AIntroGameMode::EndPlay()
@@ -247,9 +361,11 @@ void AIntroGameMode::OnQuitButtonClicked()
 
 void AIntroGameMode::OnHelpButtonHovered()
 {
+    UE_LOG("[IntroGameMode] OnHelpButtonHovered called, GuideWidget=%p", GuideWidget.Get());
     if (GuideWidget)
     {
         GuideWidget->SetVisibility(ESlateVisibility::Visible);
+        UE_LOG("[IntroGameMode] GuideWidget set to Visible");
     }
 }
 

@@ -89,6 +89,14 @@ private:
     bool bIsQuitting = false;
     float WipeDuration = 1.5f;
 
+    // 게임패드 네비게이션
+    int32 SelectedButtonIndex = -1;  // -1 = 선택 없음, 0 = Start, 1 = Quit, 2 = Help
+    bool bJoystickWasNeutral = true;  // 조이스틱 중립 상태 추적 (연속 입력 방지)
+
+    void UpdateGamepadNavigation();
+    void SetSelectedButton(int32 Index);
+    TSharedPtr<SButton> GetButtonByIndex(int32 Index);
+
     // 초기화
     void InitializeUI();
     void InitializeSounds();

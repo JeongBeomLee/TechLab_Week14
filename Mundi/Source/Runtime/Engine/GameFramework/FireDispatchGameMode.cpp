@@ -12,6 +12,7 @@
 #include "CameraActor.h"
 #include "World.h"
 #include "PlayerController.h"
+#include "InputManager.h"
 
 IMPLEMENT_CLASS(AFireDispatchGameMode)
 
@@ -74,6 +75,7 @@ void AFireDispatchGameMode::Tick(float DeltaTime)
     UpdateCameraShakeDelay(DeltaTime);
     UpdateDoorSoundDelay(DeltaTime);
     UpdateOuchSoundDelay(DeltaTime);
+    UpdateVibration(DeltaTime);
 }
 
 void AFireDispatchGameMode::InitializeAssets()
@@ -186,6 +188,11 @@ void AFireDispatchGameMode::TransitionToPhase(EFireDispatchPhase NewPhase)
                 100
             );
         }
+        // 충돌 진동
+        bVibrating = true;
+        VibrationTimer = 0.0f;
+        VibrationDuration = FallVibrationDuration;
+        UInputManager::GetInstance().SetVibration(FallVibrationIntensity, FallVibrationIntensity);
         break;
 
     case EFireDispatchPhase::GetUp:
@@ -224,6 +231,12 @@ void AFireDispatchGameMode::TransitionToPhase(EFireDispatchPhase NewPhase)
             // 위치 하드 코딩
             FAudioDevice::PlaySound3D(CarSound, FVector(-48.5, 36, -19), 1.0f, false);
         }
+
+        // 시동 진동
+        bVibrating = true;
+        VibrationTimer = 0.0f;
+        VibrationDuration = EngineVibrationDuration;
+        UInputManager::GetInstance().SetVibration(EngineVibrationIntensity, EngineVibrationIntensity);
         break;
 
     case EFireDispatchPhase::Complete:
@@ -373,5 +386,18 @@ void AFireDispatchGameMode::UpdateOuchSoundDelay(float DeltaTime)
         {
             FAudioDevice::PlaySound3D(OuchSound, FVector(-45.f, 34.f, -19.f), 1.0f, false);
         }
+    }
+}
+
+void AFireDispatchGameMode::UpdateVibration(float DeltaTime)
+{
+    if (!bVibrating) { return; }
+
+    VibrationTimer += DeltaTime;
+
+    if (VibrationTimer >= VibrationDuration)
+    {
+        bVibrating = false;
+        UInputManager::GetInstance().StopVibration();
     }
 }

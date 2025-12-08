@@ -234,6 +234,31 @@ private:
     USound* WomanThankYouSound = nullptr;
 
     // ────────────────────────────────────────────────
+    // 컨트롤러 진동
+    // ────────────────────────────────────────────────
+
+    /** 물 발사 중 진동 간격 (초) */
+    float WaterVibrationInterval = 0.15f;
+
+    /** 물 발사 진동 타이머 */
+    float WaterVibrationTimer = 0.0f;
+
+    /** 물 발사 진동 강도 */
+    float WaterVibrationIntensity = 0.3f;
+
+    /** 아이템 수집 진동 강도 */
+    float ItemVibrationIntensity = 0.5f;
+
+    /** 아이템 수집 진동 지속 시간 */
+    float ItemVibrationDuration = 0.15f;
+
+    /** 아이템 진동 타이머 */
+    float ItemVibrationTimer = 0.0f;
+
+    /** 아이템 진동 활성화 여부 */
+    bool bItemVibrating = false;
+
+    // ────────────────────────────────────────────────
     // 충돌 이펙트 (움직이는 물체와 충돌 시)
     // ────────────────────────────────────────────────
 

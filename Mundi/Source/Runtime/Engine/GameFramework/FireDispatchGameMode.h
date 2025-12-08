@@ -130,6 +130,21 @@ public:
     UPROPERTY(EditAnywhere)
     float FallShakeFrequency = 15.0f;  // 충돌 진동 빈도
 
+    // ════════════════════════════════════════════════════════════════════════
+    // 컨트롤러 진동 설정
+
+    UPROPERTY(EditAnywhere)
+    float FallVibrationDuration = 0.3f;  // 충돌 진동 지속 시간
+
+    UPROPERTY(EditAnywhere)
+    float FallVibrationIntensity = 0.8f;  // 충돌 진동 강도
+
+    UPROPERTY(EditAnywhere)
+    float EngineVibrationDuration = 1.5f;  // 시동 진동 지속 시간
+
+    UPROPERTY(EditAnywhere)
+    float EngineVibrationIntensity = 0.4f;  // 시동 진동 강도
+
     void BeginPlay() override;
     void EndPlay() override;
     void Tick(float DeltaTime) override;
@@ -168,6 +183,11 @@ private:
     float OuchSoundDelayTimer = 0.f;
     float OuchSoundDelay = 0.5f;  // 0.5초 딜레이
 
+    // 진동 상태
+    bool bVibrating = false;
+    float VibrationTimer = 0.f;
+    float VibrationDuration = 0.f;
+
     // 내부 함수
     void InitializeAssets();
     void InitializeCameraEffects();
@@ -180,6 +200,7 @@ private:
     void UpdateCameraShakeDelay(float DeltaTime);
     void UpdateDoorSoundDelay(float DeltaTime);
     void UpdateOuchSoundDelay(float DeltaTime);
+    void UpdateVibration(float DeltaTime);
 
     float GetPhaseDuration(EFireDispatchPhase Phase) const;
 };

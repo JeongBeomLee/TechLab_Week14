@@ -81,6 +81,40 @@ void AEndGameMode::Tick(float DeltaTime)
     Super::Tick(DeltaTime);
 
     UpdateSequence(DeltaTime);
+
+    // 도장 진동 업데이트
+    if (bStampVibrating)
+    {
+        StampVibrationTimer += DeltaTime;
+        if (StampVibrationTimer >= StampVibrationDuration)
+        {
+            bStampVibrating = false;
+            UInputManager::GetInstance().StopVibration();
+        }
+    }
+
+    // 게임패드 입력 처리 (버튼 대기 상태일 때)
+    if (CurrentState == ESequenceState::WaitForInput && MainMenuButton)
+    {
+        UInputManager& Input = UInputManager::GetInstance();
+
+        // 좌스틱 움직임으로 호버 상태 설정
+        FVector2D LeftStick = Input.GetGamepadLeftStick();
+        if (LeftStick.X * LeftStick.X + LeftStick.Y * LeftStick.Y > 0.1f)
+        {
+            MainMenuButton->SetHovered(true);
+        }
+
+        // A 또는 B 버튼으로 클릭
+        if (MainMenuButton->IsHovered())
+        {
+            if (Input.IsGamepadButtonPressed(EGamepadButton::GamepadA) ||
+                Input.IsGamepadButtonPressed(EGamepadButton::GamepadB))
+            {
+                MainMenuButton->SimulateClick();
+            }
+        }
+    }
 }
 
 void AEndGameMode::InitializeData()
@@ -494,6 +528,11 @@ void AEndGameMode::StartStampAnimation()
     {
         FAudioDevice::PlaySound3D(StampSound, FVector::Zero(), 1.0f, false);
     }
+
+    // 도장 진동
+    UInputManager::GetInstance().SetVibration(0.6f, 0.6f);
+    bStampVibrating = true;
+    StampVibrationTimer = 0.0f;
 
     // UI 흔들림 타이머 초기화 및 원본 오프셋 저장
     ShakeTimer = 0.f;

@@ -173,6 +173,11 @@ private:
     float ShakeTimer = 0.f;
     float ShakeIntensity = 20.f;  // 픽셀 단위
 
+    // 도장 진동
+    bool bStampVibrating = false;
+    float StampVibrationTimer = 0.0f;
+    float StampVibrationDuration = 0.2f;
+
     // 원본 오프셋 저장 (위젯별)
     FVector2D OriginalDocumentOffset;
     FVector2D OriginalRescuedOffset;

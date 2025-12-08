@@ -288,6 +288,14 @@ SButton& SButton::OnHover(std::function<void(bool)> Callback)
     return *this;
 }
 
+void SButton::SimulateClick()
+{
+    if (bIsEnabled)
+    {
+        OnClickedDelegate.Broadcast();
+    }
+}
+
 // =====================================================
 // 헬퍼
 // =====================================================
