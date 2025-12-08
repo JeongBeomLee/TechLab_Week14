@@ -14,6 +14,9 @@
 #include "LevelTransitionManager.h"
 #include "GameInstance.h"
 #include "InputManager.h"
+#include "FAudioDevice.h"
+#include "Sound.h"
+#include "ResourceManager.h"
 #include <cmath>
 
 IMPLEMENT_CLASS(AItemCollectGameMode)
@@ -34,6 +37,8 @@ AItemCollectGameMode::AItemCollectGameMode()
 	, LastSecond(-1.0f)
 	, ShakeAnimationTime(0.0f)
 	, NoticeElapsedTime(0.0f)
+	, bShowingLimitScreen(false)
+	, LimitScreenTimer(0.0f)
 {
 	DefaultPawnClass = AFirefighterCharacter::StaticClass();
 	PlayerSpawnLocation = FVector(0.0f, 0.0f, 1.0f);
@@ -73,6 +78,9 @@ void AItemCollectGameMode::BeginPlay()
 			}
 		}
 	}
+
+	// 사운드 초기화 (BGM + 사이렌)
+	InitializeSounds();
 
 	// UI 초기화
 	InitializeUI();
@@ -166,17 +174,17 @@ void AItemCollectGameMode::Tick(float DeltaTime)
 		UpdateNoticeAnimation(DeltaTime);
 	}
 
-	// 타이머 업데이트
-	if (RemainingTime > 0.0f)
+	// Limit 화면 표시 중이면 타이머 업데이트 후 씬 전환
+	if (bShowingLimitScreen)
 	{
-		RemainingTime -= DeltaTime;
+		LimitScreenTimer += DeltaTime;
 
-		// 0 이하로 떨어지면 씬 전환
-		if (RemainingTime <= 0.0f)
+		// 떨림 애니메이션 업데이트
+		UpdateLimitAnimation(DeltaTime);
+
+		if (LimitScreenTimer >= LimitScreenDuration)
 		{
-			RemainingTime = 0.0f;
-
-			// 씬 전환
+			// 3초 경과 후 씬 전환
 			if (GetWorld())
 			{
 				for (AActor* Actor : GetWorld()->GetActors())
@@ -191,6 +199,51 @@ void AItemCollectGameMode::Tick(float DeltaTime)
 					}
 				}
 			}
+			bShowingLimitScreen = false;  // 전환 후 플래그 리셋
+		}
+		return;  // Limit 화면 표시 중에는 다른 업데이트 중지
+	}
+
+	// 타이머 업데이트
+	if (RemainingTime > 0.0f)
+	{
+		RemainingTime -= DeltaTime;
+
+		// 0 이하로 떨어지면 Limit 화면 표시
+		if (RemainingTime <= 0.0f)
+		{
+			RemainingTime = 0.0f;
+
+			// BGM 정지 (limit 화면에서는 알람만)
+			if (BGMVoice)
+			{
+				FAudioDevice::StopSound(BGMVoice);
+				BGMVoice = nullptr;
+			}
+
+			// 시계 알람 재생 (limit 화면용)
+			if (ClockAlarmSound)
+			{
+				FAudioDevice::PlaySound3D(ClockAlarmSound, FVector::Zero(), 1.0f, false);
+			}
+
+			// Limit 위젯 생성 및 표시
+			if (!LimitWidget && SGameHUD::Get().IsInitialized())
+			{
+				LimitWidget = MakeShared<STextBlock>();
+				LimitWidget->SetText(L"")
+					.SetBackgroundImage("Data/Textures/Collect/limit.png");
+
+				SGameHUD::Get().AddWidget(LimitWidget)
+					.SetAnchor(0.5f, 0.5f)      // 화면 중앙
+					.SetPivot(0.5f, 0.5f)       // 중앙 기준
+					.SetSize(1100.f, 400.f)     // notice와 동일한 크기
+					.SetZOrder(200);            // 최상위에 표시
+			}
+
+			// Limit 화면 표시 시작
+			bShowingLimitScreen = true;
+			LimitScreenTimer = 0.0f;
 		}
 
 		// 애니메이션 시간 감소
@@ -214,6 +267,13 @@ void AItemCollectGameMode::Tick(float DeltaTime)
 void AItemCollectGameMode::EndPlay()
 {
 	Super::EndPlay();
+
+	// BGM 정지
+	if (BGMVoice)
+	{
+		FAudioDevice::StopSound(BGMVoice);
+		BGMVoice = nullptr;
+	}
 
 	// 입력 모드 복원 (혹시 모를 상태 변경 대비)
 	UInputManager::GetInstance().SetInputMode(EInputMode::GameAndUI);
@@ -303,6 +363,12 @@ void AItemCollectGameMode::ClearUI()
 	{
 		SGameHUD::Get().RemoveWidget(NoticeWidget);
 		NoticeWidget.Reset();
+	}
+
+	if (LimitWidget)
+	{
+		SGameHUD::Get().RemoveWidget(LimitWidget);
+		LimitWidget.Reset();
 	}
 }
 
@@ -557,12 +623,65 @@ void AItemCollectGameMode::UpdateNoticeAnimation(float DeltaTime)
 
 	// 위젯 슬롯 찾아서 크기 적용
 	auto& Slots = SGameHUD::Get().GetRootCanvas()->GetCanvasSlots();
-	for (auto& Slot : Slots)  
+	for (auto& Slot : Slots)
 	{
 		if (Slot.Widget == NoticeWidget)
 		{
 			// 크기 적용
 			Slot.SetSize(1100.f * Scale, 400.f * Scale);
+			break;
+		}
+	}
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// 사운드 초기화
+// ────────────────────────────────────────────────────────────────────────────
+
+void AItemCollectGameMode::InitializeSounds()
+{
+	// BGM 로드 및 재생 (루프)
+	BGMSound = UResourceManager::GetInstance().Load<USound>(BGMSoundPath);
+	if (BGMSound)
+	{
+		BGMVoice = FAudioDevice::PlaySound3D(BGMSound, FVector::Zero(), 0.5f, true);
+	}
+
+	// 사이렌 로드 및 재생 (1회)
+	SirenSound = UResourceManager::GetInstance().Load<USound>(SirenSoundPath);
+	if (SirenSound)
+	{
+		FAudioDevice::PlaySound3D(SirenSound, FVector::Zero(), 0.7f, false);
+	}
+
+	// 시간 종료 알람 사운드 로드 (재생은 limit 화면에서)
+	ClockAlarmSound = UResourceManager::GetInstance().Load<USound>(ClockAlarmSoundPath);
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Limit 애니메이션 업데이트 (알람시계처럼 떨림)
+// ────────────────────────────────────────────────────────────────────────────
+
+void AItemCollectGameMode::UpdateLimitAnimation(float DeltaTime)
+{
+	if (!LimitWidget || !SGameHUD::Get().IsInitialized()) { return; }
+
+	// 알람시계처럼 좌우로 빠르게 흔들림
+	// 주파수를 높여서 빠른 떨림 효과
+	float ShakeFrequency = 7.0f;  // 초당 15번 흔들림
+
+	// 좌우 및 상하로 빠르게 흔들림
+	float OffsetX = std::sin(LimitScreenTimer * 3.14159f * 2.0f * ShakeFrequency) * 15.0f;  // ±15px
+	float OffsetY = std::cos(LimitScreenTimer * 3.14159f * 2.0f * ShakeFrequency * 1.3f) * 8.0f;  // ±8px (약간 다른 주기)
+
+	// 위젯 슬롯 찾아서 오프셋 적용
+	auto& Slots = SGameHUD::Get().GetRootCanvas()->GetCanvasSlots();
+	for (auto& Slot : Slots)
+	{
+		if (Slot.Widget == LimitWidget)
+		{
+			// 오프셋 적용 (떨림)
+			Slot.SetOffset(OffsetX, OffsetY);
 			break;
 		}
 	}

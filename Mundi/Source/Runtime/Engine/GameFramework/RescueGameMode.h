@@ -11,6 +11,7 @@
 class STextBlock;
 class SProgressBar;
 class SPanel;
+class SButton;
 
 /**
  * ARescueGameMode
@@ -204,6 +205,18 @@ public:
     /** 엔딩으로 전환 (GameInstance에 결과 저장 후 씬 전환) */
     void TransitionToEnding(bool bPlayerDead);
 
+    // ────────────────────────────────────────────────
+    // 사운드 설정
+    // ────────────────────────────────────────────────
+
+    /** BGM 사운드 경로 */
+    UPROPERTY(EditAnywhere, Category="Sound", Tooltip="BGM 사운드 경로입니다.")
+    FString BGMSoundPath = "Data/Audio/ResqueSceneBGM.wav";
+
+    /** 사이렌 사운드 경로 */
+    UPROPERTY(EditAnywhere, Category="Sound", Tooltip="사이렌 사운드 경로입니다.")
+    FString SirenSoundPath = "Data/Audio/StartSiren.wav";
+
 protected:
     // ────────────────────────────────────────────────
     // 내부 함수
@@ -241,20 +254,21 @@ private:
     // UI 위젯
     // ────────────────────────────────────────────────
 
-    /** 산소 아이콘 텍스트 */
-    TSharedPtr<STextBlock> OxygenIconText;
-
-    /** 산소 수치 텍스트 */
+    // 좌상단: 산소 시스템
+    TSharedPtr<SButton> OxygenIconWidget;
     TSharedPtr<STextBlock> OxygenValueText;
+    TSharedPtr<SProgressBar> OxygenProgressBar;
 
-    /** 물 게이지 프로그레스 바 */
+    // 우상단: 소화기 + 물 게이지
+    TSharedPtr<SButton> FireExtinguisherIconWidget;
+    TSharedPtr<STextBlock> FireExtinguisherText;
     TSharedPtr<SProgressBar> WaterProgressBar;
 
-    /** 소화기 개수 텍스트 */
-    TSharedPtr<STextBlock> FireExtinguisherText;
-
-    /** 구조 카운트 텍스트 (우측 상단) */
-    TSharedPtr<STextBlock> RescueCountText;
+    // 가운데 상단: 구조 시스템
+    TSharedPtr<SButton> RescuedIconWidget;
+    TSharedPtr<STextBlock> RescuedCountText;
+    TSharedPtr<SButton> RemainingIconWidget;
+    TSharedPtr<STextBlock> RemainingCountText;
 
     /** 공지 이미지 위젯 (start.png) */
     TSharedPtr<STextBlock> NoticeWidget;
@@ -278,7 +292,18 @@ private:
 
     /** 플레이어 사망 여부 (엔딩 결과용) */
     bool bEndingPlayerDead = false;
-
+    
     /** 와이프 효과 시작 여부 */
     bool bWipeStarted = false;
+
+    // ────────────────────────────────────────────────
+    // 사운드 관련
+    // ────────────────────────────────────────────────
+
+    class USound* BGMSound = nullptr;
+    class USound* SirenSound = nullptr;
+    struct IXAudio2SourceVoice* BGMVoice = nullptr;
+
+    /** 사운드 초기화 */
+    void InitializeSounds();
 };

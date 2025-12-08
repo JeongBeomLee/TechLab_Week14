@@ -57,6 +57,12 @@ public:
     UPROPERTY(EditAnywhere)
     FString ButtonSoundPath = "Data/Audio/button.wav";
 
+    /**
+     * BGM 사운드 경로
+     */
+    UPROPERTY(EditAnywhere)
+    FString BGMSoundPath = "Data/Audio/MainSceneBGM.wav";
+
     // ════════════════════════════════════════════════════════════════════════
     // 생명주기
 
@@ -74,6 +80,8 @@ private:
 
     // 사운드
     class USound* ButtonSound = nullptr;
+    class USound* BGMSound = nullptr;
+    struct IXAudio2SourceVoice* BGMVoice = nullptr;
 
     // 와이프 전환 상태
     bool bIsTransitioning = false;

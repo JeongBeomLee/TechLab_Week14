@@ -87,6 +87,13 @@ void AIntroGameMode::EndPlay()
 {
     Super::EndPlay();
 
+    // BGM 정지
+    if (BGMVoice)
+    {
+        FAudioDevice::StopSound(BGMVoice);
+        BGMVoice = nullptr;
+    }
+
     // 다른 씬으로 전환 시 입력 모드를 GameAndUI로 복원
     if (PlayerController)
     {
@@ -103,6 +110,13 @@ void AIntroGameMode::EndPlay()
 void AIntroGameMode::InitializeSounds()
 {
     ButtonSound = UResourceManager::GetInstance().Load<USound>(ButtonSoundPath);
+
+    // BGM 로드 및 재생 (루프)
+    BGMSound = UResourceManager::GetInstance().Load<USound>(BGMSoundPath);
+    if (BGMSound)
+    {
+        BGMVoice = FAudioDevice::PlaySound3D(BGMSound, FVector::Zero(), 0.5f, true);
+    }
 }
 
 void AIntroGameMode::InitializeUI()
