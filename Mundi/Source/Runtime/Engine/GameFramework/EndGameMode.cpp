@@ -564,7 +564,7 @@ FWideString AEndGameMode::GetEndingText() const
 {
     // 엔딩 타입별 멘트 (각 2종류씩)
     static const FWideString MartyrdomTexts[2] = {
-        L"당신의 희생은\n결코 잊혀지지 않을 것입니다.",
+        L"당신의 희생은 결코\n 잊혀지지 않을 것입니다.",
         L"영웅은 떠났지만,\n영원히 기억될 것입니다."
     };
 
