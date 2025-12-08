@@ -73,6 +73,7 @@ void AFireDispatchGameMode::Tick(float DeltaTime)
     UpdateCameraTransition(DeltaTime);
     UpdateCameraShakeDelay(DeltaTime);
     UpdateDoorSoundDelay(DeltaTime);
+    UpdateOuchSoundDelay(DeltaTime);
 }
 
 void AFireDispatchGameMode::InitializeAssets()
@@ -81,6 +82,9 @@ void AFireDispatchGameMode::InitializeAssets()
     OpenSound = UResourceManager::GetInstance().Load<USound>(CarOpenPath);
     PassSound = UResourceManager::GetInstance().Load<USound>(CarPassPath);
     ScreamSound = UResourceManager::GetInstance().Load<USound>(ScreamSoundPath);
+    OuchSound = UResourceManager::GetInstance().Load<USound>(OuchSoundPath);
+    CarCrashSound = UResourceManager::GetInstance().Load<USound>(CarCrashSoundPath);
+    UE_LOG("[FireDispatchGameMode] OuchSound loaded: %p (path: %s)", OuchSound, OuchSoundPath.c_str());
 }
 
 void AFireDispatchGameMode::InitializeCameraEffects()
@@ -170,10 +174,25 @@ void AFireDispatchGameMode::TransitionToPhase(EFireDispatchPhase NewPhase)
         GI->SetFloat("FireDispatch_ImpulseZ", FallImpulseZ);
         // 사운드 위치 하드 코딩
         FAudioDevice::PlaySound3D(ScreamSound, FVector(-45.f,34.f,-19.f), 1.0f, false);
+        FAudioDevice::PlaySound3D(CarCrashSound, FVector(-45.f, 34.f, -19.f), 1.0f, false);
+        // 충돌 카메라 셰이크
+        if (CameraManager)
+        {
+            CameraManager->StartCameraShake(
+                FallShakeDuration,
+                FallShakeIntensity,
+                FallShakeIntensity,
+                FallShakeFrequency,
+                100
+            );
+        }
         break;
 
     case EFireDispatchPhase::GetUp:
         GI->SetBool("FireDispatch_GetUp", true);
+        // Ouch 소리 딜레이 시작
+        bWaitingForOuchSound = true;
+        OuchSoundDelayTimer = 0.0f;
         break;
 
     case EFireDispatchPhase::Walk:
@@ -335,6 +354,24 @@ void AFireDispatchGameMode::UpdateDoorSoundDelay(float DeltaTime)
         {
             FAudioDevice::PlaySound3D(OpenSound, FVector(0, 0, 0), 1.0f, false);
             UE_LOG("[FireDispatchGameMode] Playing door open sound");
+        }
+    }
+}
+
+void AFireDispatchGameMode::UpdateOuchSoundDelay(float DeltaTime)
+{
+    if (!bWaitingForOuchSound) { return; }
+
+    OuchSoundDelayTimer += DeltaTime;
+
+    if (OuchSoundDelayTimer >= OuchSoundDelay)
+    {
+        // 지연 시간 경과 - Ouch 소리 재생
+        bWaitingForOuchSound = false;
+
+        if (OuchSound)
+        {
+            FAudioDevice::PlaySound3D(OuchSound, FVector(-45.f, 34.f, -19.f), 1.0f, false);
         }
     }
 }

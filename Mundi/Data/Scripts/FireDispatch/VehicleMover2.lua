@@ -23,6 +23,18 @@ local ACCELERATION_TIME = 1.0  -- 가속 시간 (초)
 -- ============================================================================
 local function InitReferences()
     State2.Actor = GetOwnerAs(Obj, "AActor")
+    -- 포인트 라이트 컴포넌트들 가져오기
+    State2.PointLights = GetComponents(Obj, "UPointLightComponent")
+end
+
+-- 포인트 라이트 On/Off
+local function SetPointLightsEnabled(bEnabled)
+    if not State2.PointLights then return end
+    for i, light in ipairs(State2.PointLights) do
+        if light then
+            light.Intensity = bEnabled and 1.0 or 0.0
+        end
+    end
 end
 
 function OnBeginPlay()
@@ -38,6 +50,9 @@ function OnBeginPlay()
     State2.ElapsedTime = 0
     State2.StartPosition = nil
     State2.AccelerationTimer = 0.0
+
+    -- 포인트 라이트 초기에 끄기
+    SetPointLightsEnabled(false)
 
     print("[VehicleMover2] Initialized - Waiting for engine start signal")
 end
@@ -64,6 +79,8 @@ function Update(DeltaTime)
             State2.bIsMoving = true
             State2.StartPosition = Obj.Location
             State2.AccelerationTimer = 0.0
+            -- 시동 걸릴 때 포인트 라이트 켜기
+            SetPointLightsEnabled(true)
         end
     end
 

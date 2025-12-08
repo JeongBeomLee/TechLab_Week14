@@ -46,6 +46,12 @@ public:
     UPROPERTY(EditAnywhere)
     FString ScreamSoundPath = "Data/Audio/CutScene/scream.wav";
 
+    UPROPERTY(EditAnywhere)
+    FString OuchSoundPath = "Data/Audio/CutScene/Ouch.wav";
+
+    UPROPERTY(EditAnywhere)
+    FString CarCrashSoundPath = "Data/Audio/CutScene/CarCrash.wav";
+
     // ════════════════════════════════════════════════════════════════════════
     // 타이밍 설정
 
@@ -112,6 +118,18 @@ public:
     UPROPERTY(EditAnywhere)
     float ShakeFrequency = 2.0f;  // 빠른 진동
 
+    // ════════════════════════════════════════════════════════════════════════
+    // 카메라 쉐이크 설정 (충돌 효과)
+
+    UPROPERTY(EditAnywhere)
+    float FallShakeDuration = 0.1f;  // 충돌 쉐이크 지속 시간
+
+    UPROPERTY(EditAnywhere)
+    float FallShakeIntensity = 0.1f;  // 충돌 강도
+
+    UPROPERTY(EditAnywhere)
+    float FallShakeFrequency = 15.0f;  // 충돌 진동 빈도
+
     void BeginPlay() override;
     void EndPlay() override;
     void Tick(float DeltaTime) override;
@@ -125,6 +143,8 @@ private:
     USound* OpenSound = nullptr;
     USound* PassSound = nullptr;
     USound* ScreamSound = nullptr;
+    USound* OuchSound = nullptr;
+    USound* CarCrashSound = nullptr;
     class APlayerCameraManager* CameraManager = nullptr;
     class ACameraActor* MainCamera = nullptr;
 
@@ -143,6 +163,11 @@ private:
     float DoorSoundDelayTimer = 0.f;
     float DoorSoundDelay = 0.5f;
 
+    // Ouch 소리 지연 상태
+    bool bWaitingForOuchSound = false;
+    float OuchSoundDelayTimer = 0.f;
+    float OuchSoundDelay = 0.5f;  // 0.5초 딜레이
+
     // 내부 함수
     void InitializeAssets();
     void InitializeCameraEffects();
@@ -154,6 +179,7 @@ private:
     void StartCameraTransition();
     void UpdateCameraShakeDelay(float DeltaTime);
     void UpdateDoorSoundDelay(float DeltaTime);
+    void UpdateOuchSoundDelay(float DeltaTime);
 
     float GetPhaseDuration(EFireDispatchPhase Phase) const;
 };

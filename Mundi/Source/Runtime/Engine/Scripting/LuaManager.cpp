@@ -1128,6 +1128,35 @@ void FLuaManager::ExposeAllComponentsToLua()
         }
     );
 
+    SharedLib.set_function("GetComponents",
+        [this](sol::object Obj, const FString& ClassName) -> sol::object
+        {
+            if (!Obj.is<FGameObject&>()) {
+                UE_LOG("[Lua][error] GetComponents: Expected GameObject\n");
+                return sol::make_object(*Lua, sol::nil);
+            }
+
+            FGameObject& GameObject = Obj.as<FGameObject&>();
+            AActor* Actor = GameObject.GetOwner();
+            if (!Actor) return sol::make_object(*Lua, sol::nil);
+
+            UClass* Class = UClass::FindClass(ClassName);
+            if (!Class) return sol::make_object(*Lua, sol::nil);
+
+            sol::table Result = Lua->create_table();
+            int Index = 1;
+            const TSet<UActorComponent*>& Components = Actor->GetOwnedComponents();
+            for (UActorComponent* Comp : Components)
+            {
+                if (Comp && Comp->IsA(Class))
+                {
+                    Result[Index++] = MakeCompProxy(*Lua, Comp, Class);
+                }
+            }
+            return Result;
+        }
+    );
+
     SharedLib.set_function("GetOwnerAs",
         [this](sol::object Obj, const FString& ClassName)
         {
