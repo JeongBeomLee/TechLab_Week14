@@ -11,6 +11,7 @@
 class STextBlock;
 class SProgressBar;
 class SPanel;
+class SButton;
 
 /**
  * ARescueGameMode
@@ -253,20 +254,21 @@ private:
     // UI 위젯
     // ────────────────────────────────────────────────
 
-    /** 산소 아이콘 텍스트 */
-    TSharedPtr<STextBlock> OxygenIconText;
-
-    /** 산소 수치 텍스트 */
+    // 좌상단: 산소 시스템
+    TSharedPtr<SButton> OxygenIconWidget;
     TSharedPtr<STextBlock> OxygenValueText;
+    TSharedPtr<SProgressBar> OxygenProgressBar;
 
-    /** 물 게이지 프로그레스 바 */
+    // 우상단: 소화기 + 물 게이지
+    TSharedPtr<SButton> FireExtinguisherIconWidget;
+    TSharedPtr<STextBlock> FireExtinguisherText;
     TSharedPtr<SProgressBar> WaterProgressBar;
 
-    /** 소화기 개수 텍스트 */
-    TSharedPtr<STextBlock> FireExtinguisherText;
-
-    /** 구조 카운트 텍스트 (우측 상단) */
-    TSharedPtr<STextBlock> RescueCountText;
+    // 가운데 상단: 구조 시스템
+    TSharedPtr<SButton> RescuedIconWidget;
+    TSharedPtr<STextBlock> RescuedCountText;
+    TSharedPtr<SButton> RemainingIconWidget;
+    TSharedPtr<STextBlock> RemainingCountText;
 
     /** 공지 이미지 위젯 (start.png) */
     TSharedPtr<STextBlock> NoticeWidget;
