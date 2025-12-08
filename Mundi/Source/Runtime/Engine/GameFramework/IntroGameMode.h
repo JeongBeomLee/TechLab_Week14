@@ -68,6 +68,8 @@ private:
     TSharedPtr<STextBlock> TitleWidget;
     TSharedPtr<SButton> StartButton;
     TSharedPtr<SButton> QuitButton;
+    TSharedPtr<SButton> HelpButton;
+    TSharedPtr<STextBlock> GuideWidget;
 
     // 사운드
     class USound* ButtonSound = nullptr;
@@ -79,6 +81,10 @@ private:
     // 버튼 클릭 핸들러
     static void OnStartButtonClicked();
     static void OnQuitButtonClicked();
+
+    // 버튼 호버 핸들러
+    void OnHelpButtonHovered();
+    void OnHelpButtonUnhovered();
 
     // UI 정리
     void ClearUI();
