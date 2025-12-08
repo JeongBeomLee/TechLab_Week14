@@ -17,6 +17,7 @@
 #include "GameUI/SGameHUD.h"
 #include "GameUI/STextBlock.h"
 #include "GameUI/SProgressBar.h"
+#include "GameUI/SButton.h"
 #include <cmath>
 
 // ----------------------------------------------------------------------------
@@ -80,31 +81,63 @@ void ARescueGameMode::EndPlay()
     // HUD 위젯 정리
     if (SGameHUD::Get().IsInitialized())
     {
-        if (OxygenIconText)
+        // 좌상단: 산소 시스템
+        if (OxygenIconWidget)
         {
-            SGameHUD::Get().RemoveWidget(OxygenIconText);
-            OxygenIconText.Reset();
+            SGameHUD::Get().RemoveWidget(OxygenIconWidget);
+            OxygenIconWidget.Reset();
         }
         if (OxygenValueText)
         {
             SGameHUD::Get().RemoveWidget(OxygenValueText);
             OxygenValueText.Reset();
         }
-        if (WaterProgressBar)
+        if (OxygenProgressBar)
         {
-            SGameHUD::Get().RemoveWidget(WaterProgressBar);
-            WaterProgressBar.Reset();
+            SGameHUD::Get().RemoveWidget(OxygenProgressBar);
+            OxygenProgressBar.Reset();
+        }
+
+        // 우상단: 소화기 + 물 게이지
+        if (FireExtinguisherIconWidget)
+        {
+            SGameHUD::Get().RemoveWidget(FireExtinguisherIconWidget);
+            FireExtinguisherIconWidget.Reset();
         }
         if (FireExtinguisherText)
         {
             SGameHUD::Get().RemoveWidget(FireExtinguisherText);
             FireExtinguisherText.Reset();
         }
-        if (RescueCountText)
+        if (WaterProgressBar)
         {
-            SGameHUD::Get().RemoveWidget(RescueCountText);
-            RescueCountText.Reset();
+            SGameHUD::Get().RemoveWidget(WaterProgressBar);
+            WaterProgressBar.Reset();
         }
+
+        // 가운데 상단: 구조 시스템
+        if (RescuedIconWidget)
+        {
+            SGameHUD::Get().RemoveWidget(RescuedIconWidget);
+            RescuedIconWidget.Reset();
+        }
+        if (RescuedCountText)
+        {
+            SGameHUD::Get().RemoveWidget(RescuedCountText);
+            RescuedCountText.Reset();
+        }
+        if (RemainingIconWidget)
+        {
+            SGameHUD::Get().RemoveWidget(RemainingIconWidget);
+            RemainingIconWidget.Reset();
+        }
+        if (RemainingCountText)
+        {
+            SGameHUD::Get().RemoveWidget(RemainingCountText);
+            RemainingCountText.Reset();
+        }
+
+        // 공지 위젯
         if (NoticeWidget)
         {
             SGameHUD::Get().RemoveWidget(NoticeWidget);
@@ -325,41 +358,92 @@ void ARescueGameMode::InitializeHUD()
     if (!SGameHUD::Get().IsInitialized())
         return;
 
-    // ========================
-    // 산소 아이콘 (좌하단)
-    // ========================
-    OxygenIconText = MakeShared<STextBlock>();
-    OxygenIconText->SetText(L"O2")
-        .SetFontSize(28.f)
-        .SetColor(FSlateColor::White())
-        .SetShadow(true, FVector2D(2.f, 2.f), FSlateColor::Black());
-
-    SGameHUD::Get().AddWidget(OxygenIconText)
-        .SetAnchor(0.f, 1.f)      // 좌하단 앵커
-        .SetPivot(0.f, 1.f)       // 좌하단 피벗
-        .SetOffset(30.f, -100.f)  // 화면 가장자리에서 오프셋
-        .SetSize(60.f, 40.f);
+    const float IconSize = 100.f;
+    const float FontSize = 48.f;
+    const float NumberWidth = 100.f;  // 3자리 숫자 지원
+    const float BarWidth = 220.f;     // 게이지 길이
+    const FString FontPath = "Data/UI/fonts/ChosunKm.TTF";
 
     // ========================
-    // 산소 수치 (아이콘 오른쪽)
+    // 좌상단: 산소 아이콘 + 숫자 + 게이지 (대칭 레이아웃)
     // ========================
+    OxygenIconWidget = MakeShared<SButton>();
+    FSlateRect OxygenAtlas(1200.f, 0.f, 1800.f, 600.f);  // items.png 인덱스 2 (산소통)
+    OxygenIconWidget->SetBackgroundImageAtlas(
+        "Data/Textures/Collect/items.png", OxygenAtlas, OxygenAtlas, OxygenAtlas);
+
+    SGameHUD::Get().AddWidget(OxygenIconWidget)
+        .SetAnchor(0.f, 0.f)
+        .SetPivot(0.f, 0.f)
+        .SetOffset(30.f, 30.f)
+        .SetSize(IconSize, IconSize)
+        .SetZOrder(10);
+
     OxygenValueText = MakeShared<STextBlock>();
     OxygenValueText->SetText(std::to_wstring(static_cast<int32>(CurrentOxygen)))
-        .SetFontSize(32.f)
+        .SetFontSize(FontSize)
+        .SetFontPath(FontPath)
         .SetColor(FSlateColor::White())
-        .SetShadow(true, FVector2D(2.f, 2.f), FSlateColor::Black());
+        .SetHAlign(ETextHAlign::Left)
+        .SetVAlign(ETextVAlign::Center)
+        .SetShadow(true, FVector2D(2.f, 2.f), FSlateColor(0.0f, 0.0f, 0.0f, 0.8f));
 
     SGameHUD::Get().AddWidget(OxygenValueText)
-        .SetAnchor(0.f, 1.f)
-        .SetPivot(0.f, 1.f)
-        .SetOffset(90.f, -100.f)
-        .SetSize(100.f, 40.f);
+        .SetAnchor(0.f, 0.f)
+        .SetPivot(0.f, 0.5f)
+        .SetOffset(30.f + IconSize + 10.f, 30.f + IconSize * 0.5f)
+        .SetSize(NumberWidth, 60.f)
+        .SetZOrder(11);
+
+    OxygenProgressBar = MakeShared<SProgressBar>();
+    float OxygenBarPercent = FMath::Min(CurrentOxygen / 100.f, 1.f);  // 100 기준 클램프
+    OxygenProgressBar->SetPercent(OxygenBarPercent)
+        .SetFillColor(FSlateColor(0.3f, 0.8f, 0.3f, 1.0f))  // 녹색
+        .SetBackgroundColor(FSlateColor(0.15f, 0.15f, 0.15f, 0.9f))
+        .SetBorderColor(FSlateColor::White())
+        .SetBorderThickness(2.0f)
+        .SetCornerRadius(4.0f);
+
+    SGameHUD::Get().AddWidget(OxygenProgressBar)
+        .SetAnchor(0.f, 0.f)
+        .SetPivot(0.f, 0.f)
+        .SetOffset(30.f, 30.f + IconSize + 10.f)
+        .SetSize(BarWidth, 20.f)
+        .SetZOrder(10);
 
     // ========================
-    // 물 게이지 프로그레스 바 (우하단)
+    // 우상단: 소화기 아이콘 + 숫자 + 물 게이지 (대칭 레이아웃)
     // ========================
+    FireExtinguisherIconWidget = MakeShared<SButton>();
+    FSlateRect FireExAtlas(600.f, 0.f, 1200.f, 600.f);  // items.png 인덱스 1 (소화기)
+    FireExtinguisherIconWidget->SetBackgroundImageAtlas(
+        "Data/Textures/Collect/items.png", FireExAtlas, FireExAtlas, FireExAtlas);
+
+    SGameHUD::Get().AddWidget(FireExtinguisherIconWidget)
+        .SetAnchor(1.f, 0.f)
+        .SetPivot(1.f, 0.f)
+        .SetOffset(-30.f, 30.f)
+        .SetSize(IconSize, IconSize)
+        .SetZOrder(10);
+
+    FireExtinguisherText = MakeShared<STextBlock>();
+    FireExtinguisherText->SetText(std::to_wstring(FireExtinguisherCount))
+        .SetFontSize(FontSize)
+        .SetFontPath(FontPath)
+        .SetColor(FSlateColor::White())
+        .SetHAlign(ETextHAlign::Right)
+        .SetVAlign(ETextVAlign::Center)
+        .SetShadow(true, FVector2D(2.f, 2.f), FSlateColor(0.0f, 0.0f, 0.0f, 0.8f));
+
+    SGameHUD::Get().AddWidget(FireExtinguisherText)
+        .SetAnchor(1.f, 0.f)
+        .SetPivot(1.f, 0.5f)
+        .SetOffset(-30.f - IconSize - 10.f, 30.f + IconSize * 0.5f)
+        .SetSize(NumberWidth, 60.f)
+        .SetZOrder(11);
+
     WaterProgressBar = MakeShared<SProgressBar>();
-    WaterProgressBar->SetPercent(1.0f)
+    WaterProgressBar->SetPercent(GetWaterPercent())
         .SetFillColor(FSlateColor(0.2f, 0.5f, 1.0f, 1.0f))  // 파란색
         .SetBackgroundColor(FSlateColor(0.15f, 0.15f, 0.15f, 0.9f))
         .SetBorderColor(FSlateColor::White())
@@ -367,41 +451,79 @@ void ARescueGameMode::InitializeHUD()
         .SetCornerRadius(4.0f);
 
     SGameHUD::Get().AddWidget(WaterProgressBar)
-        .SetAnchor(1.f, 1.f)      // 우하단 앵커
-        .SetPivot(1.f, 1.f)       // 우하단 피벗
-        .SetOffset(-30.f, -100.f)
-        .SetSize(200.f, 20.f);
+        .SetAnchor(1.f, 0.f)
+        .SetPivot(1.f, 0.f)
+        .SetOffset(-30.f, 30.f + IconSize + 10.f)
+        .SetSize(BarWidth, 20.f)
+        .SetZOrder(10);
 
     // ========================
-    // 소화기 개수 텍스트 (프로그레스 바 왼쪽)
+    // 가운데 상단: 구조된 사람 + 남은 사람 (대칭 배치)
+    // 레이아웃: [숫자] [구조 아이콘] | [남은 아이콘] [숫자]
     // ========================
-    FireExtinguisherText = MakeShared<STextBlock>();
-    FireExtinguisherText->SetText(L"x" + std::to_wstring(FireExtinguisherCount))
-        .SetFontSize(24.f)
+    const float CenterGap = 40.f;  // 중앙 간격
+    const float TextWidth = 60.f;
+
+    // 구조된 사람 숫자 (왼쪽 그룹의 왼쪽)
+    RescuedCountText = MakeShared<STextBlock>();
+    RescuedCountText->SetText(std::to_wstring(RescuedCount))
+        .SetFontSize(FontSize)
+        .SetFontPath(FontPath)
         .SetColor(FSlateColor::White())
-        .SetShadow(true, FVector2D(2.f, 2.f), FSlateColor::Black());
+        .SetHAlign(ETextHAlign::Right)
+        .SetVAlign(ETextVAlign::Center)
+        .SetShadow(true, FVector2D(2.f, 2.f), FSlateColor(0.0f, 0.0f, 0.0f, 0.8f));
 
-    SGameHUD::Get().AddWidget(FireExtinguisherText)
-        .SetAnchor(1.f, 1.f)
-        .SetPivot(1.f, 1.f)
-        .SetOffset(-240.f, -95.f)
-        .SetSize(60.f, 30.f);
+    SGameHUD::Get().AddWidget(RescuedCountText)
+        .SetAnchor(0.5f, 0.f)
+        .SetPivot(1.f, 0.5f)
+        .SetOffset(-CenterGap * 0.5f - IconSize - 10.f, 20.f + IconSize * 0.5f)
+        .SetSize(TextWidth, 60.f)
+        .SetZOrder(11);
 
-    // ========================
-    // 구조 카운트 텍스트 (우측 상단)
-    // ========================
-    RescueCountText = MakeShared<STextBlock>();
-    std::wstring RescueStr = L"구조: " + std::to_wstring(RescuedCount) + L"/" + std::to_wstring(TotalPersonCount);
-    RescueCountText->SetText(RescueStr)
-        .SetFontSize(28.f)
+    // 구조된 사람 아이콘 (왼쪽 그룹의 오른쪽)
+    RescuedIconWidget = MakeShared<SButton>();
+    FSlateRect RescuedAtlas(0.f, 0.f, 600.f, 600.f);  // icons.png 왼쪽
+    RescuedIconWidget->SetBackgroundImageAtlas(
+        "Data/Textures/Rescue/icons.png", RescuedAtlas, RescuedAtlas, RescuedAtlas);
+
+    SGameHUD::Get().AddWidget(RescuedIconWidget)
+        .SetAnchor(0.5f, 0.f)
+        .SetPivot(1.f, 0.f)
+        .SetOffset(-CenterGap * 0.5f, 20.f)
+        .SetSize(IconSize, IconSize)
+        .SetZOrder(10);
+
+    // 남은 사람 아이콘 (오른쪽 그룹의 왼쪽)
+    RemainingIconWidget = MakeShared<SButton>();
+    FSlateRect RemainingAtlas(600.f, 0.f, 1200.f, 600.f);  // icons.png 오른쪽
+    RemainingIconWidget->SetBackgroundImageAtlas(
+        "Data/Textures/Rescue/icons.png", RemainingAtlas, RemainingAtlas, RemainingAtlas);
+
+    SGameHUD::Get().AddWidget(RemainingIconWidget)
+        .SetAnchor(0.5f, 0.f)
+        .SetPivot(0.f, 0.f)
+        .SetOffset(CenterGap * 0.5f, 20.f)
+        .SetSize(IconSize, IconSize)
+        .SetZOrder(10);
+
+    // 남은 사람 숫자 (오른쪽 그룹의 오른쪽)
+    RemainingCountText = MakeShared<STextBlock>();
+    int32 RemainingCount = TotalPersonCount - RescuedCount;
+    RemainingCountText->SetText(std::to_wstring(RemainingCount))
+        .SetFontSize(FontSize)
+        .SetFontPath(FontPath)
         .SetColor(FSlateColor::White())
-        .SetShadow(true, FVector2D(2.f, 2.f), FSlateColor::Black());
+        .SetHAlign(ETextHAlign::Left)
+        .SetVAlign(ETextVAlign::Center)
+        .SetShadow(true, FVector2D(2.f, 2.f), FSlateColor(0.0f, 0.0f, 0.0f, 0.8f));
 
-    SGameHUD::Get().AddWidget(RescueCountText)
-        .SetAnchor(1.f, 0.f)      // 우상단 앵커
-        .SetPivot(1.f, 0.f)       // 우상단 피벗
-        .SetOffset(-30.f, 30.f)   // 화면 가장자리에서 오프셋
-        .SetSize(200.f, 40.f);
+    SGameHUD::Get().AddWidget(RemainingCountText)
+        .SetAnchor(0.5f, 0.f)
+        .SetPivot(0.f, 0.5f)
+        .SetOffset(CenterGap * 0.5f + IconSize + 10.f, 20.f + IconSize * 0.5f)
+        .SetSize(TextWidth, 60.f)
+        .SetZOrder(11);
 
     // ========================
     // 공지 이미지 위젯 (화면 중앙, 3초간 크기 변화 애니메이션)
@@ -411,10 +533,10 @@ void ARescueGameMode::InitializeHUD()
         .SetBackgroundImage("Data/Textures/Rescue/start.png");
 
     SGameHUD::Get().AddWidget(NoticeWidget)
-        .SetAnchor(0.5f, 0.5f)      // 화면 중앙
-        .SetPivot(0.5f, 0.5f)       // 중앙 기준
-        .SetSize(1100.f, 400.f)      // 초기 크기
-        .SetZOrder(100);            // 가장 위에 표시
+        .SetAnchor(0.5f, 0.5f)
+        .SetPivot(0.5f, 0.5f)
+        .SetSize(1100.f, 400.f)
+        .SetZOrder(100);
 }
 
 // ----------------------------------------------------------------------------
@@ -434,10 +556,9 @@ void ARescueGameMode::UpdateHUD()
         }
     }
 
-    // 산소 수치 업데이트
+    // 산소 수치 텍스트 업데이트
     if (OxygenValueText)
     {
-        // 사망 시 0 표시
         int32 DisplayOxygen = bPlayerDead ? 0 : static_cast<int32>(CurrentOxygen);
         OxygenValueText->SetText(std::to_wstring(DisplayOxygen));
 
@@ -445,18 +566,27 @@ void ARescueGameMode::UpdateHUD()
         if (bPlayerDead || CurrentOxygen < OxygenWarningThreshold)
         {
             OxygenValueText->SetColor(FSlateColor::Red());
-            if (OxygenIconText)
-            {
-                OxygenIconText->SetColor(FSlateColor::Red());
-            }
         }
         else
         {
             OxygenValueText->SetColor(FSlateColor::White());
-            if (OxygenIconText)
-            {
-                OxygenIconText->SetColor(FSlateColor::White());
-            }
+        }
+    }
+
+    // 산소 게이지 업데이트 (100 기준 클램프)
+    if (OxygenProgressBar)
+    {
+        float ClampedOxygen = bPlayerDead ? 0.f : FMath::Min(CurrentOxygen, 100.f);
+        OxygenProgressBar->SetPercent(ClampedOxygen / 100.f);
+
+        // 경고 상태 또는 사망 시 빨간색 표시
+        if (bPlayerDead || CurrentOxygen < OxygenWarningThreshold)
+        {
+            OxygenProgressBar->SetFillColor(FSlateColor(1.0f, 0.2f, 0.2f, 1.0f));  // 빨간색
+        }
+        else
+        {
+            OxygenProgressBar->SetFillColor(FSlateColor(0.3f, 0.8f, 0.3f, 1.0f));  // 녹색
         }
     }
 
@@ -469,14 +599,20 @@ void ARescueGameMode::UpdateHUD()
     // 소화기 개수 업데이트
     if (FireExtinguisherText)
     {
-        FireExtinguisherText->SetText(L"x" + std::to_wstring(FireExtinguisherCount));
+        FireExtinguisherText->SetText(std::to_wstring(FireExtinguisherCount));
     }
 
-    // 구조 카운트 업데이트
-    if (RescueCountText)
+    // 구조된 사람 수 업데이트
+    if (RescuedCountText)
     {
-        std::wstring RescueStr = L"구조: " + std::to_wstring(RescuedCount) + L"/" + std::to_wstring(TotalPersonCount);
-        RescueCountText->SetText(RescueStr);
+        RescuedCountText->SetText(std::to_wstring(RescuedCount));
+    }
+
+    // 남은 사람 수 업데이트
+    if (RemainingCountText)
+    {
+        int32 RemainingCount = TotalPersonCount - RescuedCount;
+        RemainingCountText->SetText(std::to_wstring(RemainingCount));
     }
 }
 
@@ -663,6 +799,9 @@ void ARescueGameMode::TransitionToEnding(bool bPlayerDead)
     {
         return;  // 이미 전환 대기 중
     }
+
+    // 마지막 HUD 업데이트
+    UpdateHUD();
 
     UE_LOG("[info] RescueGameMode::TransitionToEnding - PlayerDead: %s, DeathDelay: %.1fs, WipeDuration: %.1fs",
         bPlayerDead ? "true" : "false", DeathDelayBeforeWipe, WipeDuration);
