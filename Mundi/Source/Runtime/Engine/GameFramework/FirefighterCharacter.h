@@ -217,6 +217,7 @@ private:
     USound* WaterStartSound = nullptr;
     USound* WaterLoopSound = nullptr;
     USound* WaterEndSound = nullptr;
+    USound* ShoutWaterSound = nullptr;
 
     /** 물 루프 사운드 Voice 핸들 */
     IXAudio2SourceVoice* WaterLoopVoice = nullptr;

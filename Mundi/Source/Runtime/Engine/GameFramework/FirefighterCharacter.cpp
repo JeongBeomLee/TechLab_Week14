@@ -174,6 +174,7 @@ AFirefighterCharacter::AFirefighterCharacter()
 	WaterStartSound = UResourceManager::GetInstance().Load<USound>("Data/Audio/water_start.wav");
 	WaterLoopSound = UResourceManager::GetInstance().Load<USound>("Data/Audio/water_ing.wav");
 	WaterEndSound = UResourceManager::GetInstance().Load<USound>("Data/Audio/water_end.wav");
+	ShoutWaterSound = UResourceManager::GetInstance().Load<USound>("Data/Audio/ShoutWater.wav");
 	
 	// 아이템 획득 사운드 로드
 	ItemPickupSound = UResourceManager::GetInstance().Load<USound>("Data/Audio/AcquisitionSound.wav");
@@ -533,6 +534,10 @@ void AFirefighterCharacter::PlayWaterMagicEffect()
 	if (WaterStartSound)
 	{
 		FAudioDevice::PlaySound3D(WaterStartSound, EmitterLocation, 0.35f, false);
+	}
+	if (ShoutWaterSound)
+	{
+		FAudioDevice::PlaySound3D(ShoutWaterSound, EmitterLocation, 1.0f, false);
 	}
 
 	if (WaterLoopSound && !WaterLoopVoice)
