@@ -233,6 +233,12 @@ private:
     USound* ManThankYouSound = nullptr;
     USound* WomanThankYouSound = nullptr;
 
+    /** 피격 사운드 */
+    USound* DamagedSound = nullptr;
+
+    /** 사망 피격 사운드 (비명) */
+    USound* DeathScreamSound = nullptr;
+
     // ────────────────────────────────────────────────
     // 컨트롤러 진동
     // ────────────────────────────────────────────────
@@ -258,6 +264,15 @@ private:
     /** 아이템 진동 활성화 여부 */
     bool bItemVibrating = false;
 
+    /** 피격 진동 지속 시간 */
+    float DamageVibrationDuration = 0.2f;
+
+    /** 피격 진동 타이머 */
+    float DamageVibrationTimer = 0.0f;
+
+    /** 피격 진동 활성화 여부 */
+    bool bDamageVibrating = false;
+
     // ────────────────────────────────────────────────
     // 충돌 이펙트 (움직이는 물체와 충돌 시)
     // ────────────────────────────────────────────────
@@ -282,6 +297,15 @@ private:
 
     /** 데미지 쿨타임 타이머 */
     float DamageCooldownTimer = 0.0f;
+
+    /** 피격 플래시 효과 */
+    bool bHitFlashActive = false;
+    float HitFlashTimer = 0.0f;
+    float HitFlashDuration = 0.3f;
+    FLinearColor HitFlashColor = FLinearColor(1.0f, 0.0f, 0.0f, 1.0f);  // 빨간색
+
+    void StartHitFlash();
+    void UpdateHitFlash(float DeltaTime);
 
     /** 물 마법 사용 중 여부 */
     bool bIsUsingWaterMagic = false;

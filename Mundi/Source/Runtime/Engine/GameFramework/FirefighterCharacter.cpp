@@ -187,6 +187,10 @@ AFirefighterCharacter::AFirefighterCharacter()
 	ManThankYouSound = UResourceManager::GetInstance().Load<USound>("Data/Audio/ManThankYou.wav");
 	WomanThankYouSound = UResourceManager::GetInstance().Load<USound>("Data/Audio/WomanThankYou.wav");
 
+	// 피격 사운드 로드
+	DamagedSound = UResourceManager::GetInstance().Load<USound>("Data/Audio/Damaged.wav");
+	DeathScreamSound = UResourceManager::GetInstance().Load<USound>("Data/Audio/CutScene/scream.wav");
+
 	// 아이템 픽업 파티클 컴포넌트 생성
 	ItemPickupParticle = CreateDefaultSubobject<UParticleSystemComponent>("ItemPickupParticle");
 	if (ItemPickupParticle)
@@ -410,6 +414,21 @@ void AFirefighterCharacter::Tick(float DeltaSeconds)
 			UInputManager::GetInstance().StopVibration();
 		}
 	}
+
+	// 피격 진동 업데이트
+	if (bDamageVibrating)
+	{
+		DamageVibrationTimer += DeltaSeconds;
+		if (DamageVibrationTimer >= DamageVibrationDuration)
+		{
+			bDamageVibrating = false;
+			DamageVibrationTimer = 0.0f;
+			UInputManager::GetInstance().StopVibration();
+		}
+	}
+
+	// 피격 플래시 효과 업데이트
+	UpdateHitFlash(DeltaSeconds);
 
 	// 사람을 들고 있을 때 상체 본들 위치 업데이트
 	UpdateCarriedPersonPose();
@@ -728,9 +747,31 @@ void AFirefighterCharacter::TakeDamage(float DamageAmount)
 		return;
 	}
 
+	// 사망 여부 미리 확인
+	bool bWillDie = (Health - DamageAmount) <= 0.0f;
+
 	// 데미지 적용
 	Health -= DamageAmount;
 	DamageCooldownTimer = DamageCooldown;
+
+	// 피격 플래시 효과 시작
+	StartHitFlash();
+
+	// 피격 사운드 재생 (사망 시 비명, 아니면 일반 피격음)
+	if (bWillDie && DeathScreamSound)
+	{
+		FAudioDevice::PlaySound3D(DeathScreamSound, GetActorLocation(), 1.0f, false);
+	}
+	else if (DamagedSound)
+	{
+		FAudioDevice::PlaySound3D(DamagedSound, GetActorLocation(), 1.0f, false);
+	}
+
+	// 피격 컨트롤러 진동 (사망 시 더 긴 진동)
+	UInputManager::GetInstance().SetVibration(0.6f, 0.6f);
+	bDamageVibrating = true;
+	DamageVibrationTimer = 0.0f;
+	DamageVibrationDuration = bWillDie ? 1.0f : 0.2f;
 
 	UE_LOG("TakeDamage: %.1f damage, Health: %.1f/%.1f", DamageAmount, Health, MaxHealth);
 
@@ -739,6 +780,68 @@ void AFirefighterCharacter::TakeDamage(float DamageAmount)
 	{
 		Health = 0.0f;
 		Die();
+	}
+}
+
+void AFirefighterCharacter::StartHitFlash()
+{
+	bHitFlashActive = true;
+	HitFlashTimer = 0.0f;
+
+	// 스켈레탈 메쉬의 모든 머티리얼에 Emissive 색상 적용
+	if (MeshComponent)
+	{
+		const TArray<UMaterialInterface*>& Materials = MeshComponent->GetMaterialSlots();
+		for (uint32 i = 0; i < Materials.Num(); ++i)
+		{
+			// 머티리얼이 존재하는 슬롯에만 적용
+			if (MeshComponent->GetMaterial(i))
+			{
+				MeshComponent->CreateAndSetMaterialInstanceDynamic(i);
+				MeshComponent->SetMaterialColorByUser(i, "EmissiveColor", HitFlashColor);
+			}
+		}
+	}
+}
+
+void AFirefighterCharacter::UpdateHitFlash(float DeltaTime)
+{
+	if (!bHitFlashActive) { return; }
+
+	HitFlashTimer += DeltaTime;
+
+	if (HitFlashTimer >= HitFlashDuration)
+	{
+		// 플래시 종료 - Emissive 색상 원래대로
+		bHitFlashActive = false;
+		if (MeshComponent)
+		{
+			const TArray<UMaterialInterface*>& Materials = MeshComponent->GetMaterialSlots();
+			for (uint32 i = 0; i < Materials.Num(); ++i)
+			{
+				if (MeshComponent->GetMaterial(i))
+				{
+					MeshComponent->SetMaterialColorByUser(i, "EmissiveColor", FLinearColor(0, 0, 0, 1));
+				}
+			}
+		}
+	}
+	else
+	{
+		// 페이드 아웃 효과
+		float Alpha = 1.0f - (HitFlashTimer / HitFlashDuration);
+		FLinearColor FadedColor = HitFlashColor * Alpha;
+		if (MeshComponent)
+		{
+			const TArray<UMaterialInterface*>& Materials = MeshComponent->GetMaterialSlots();
+			for (uint32 i = 0; i < Materials.Num(); ++i)
+			{
+				if (MeshComponent->GetMaterial(i))
+				{
+					MeshComponent->SetMaterialColorByUser(i, "EmissiveColor", FadedColor);
+				}
+			}
+		}
 	}
 }
 
