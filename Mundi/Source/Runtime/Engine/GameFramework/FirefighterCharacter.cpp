@@ -791,6 +791,35 @@ void AFirefighterCharacter::TakeDamage(float DamageAmount)
 	}
 }
 
+bool AFirefighterCharacter::PlayDamageEffectsIfReady()
+{
+	// 이미 죽었거나 쿨타임 중이면 false 반환
+	if (bIsDead || DamageCooldownTimer > 0.0f)
+	{
+		return false;
+	}
+
+	// 쿨타임 시작
+	DamageCooldownTimer = DamageCooldown;
+
+	// 피격 플래시 효과 시작
+	StartHitFlash();
+
+	// 피격 사운드 재생
+	if (DamagedSound)
+	{
+		FAudioDevice::PlaySound3D(DamagedSound, GetActorLocation(), 1.0f, false);
+	}
+
+	// 피격 컨트롤러 진동
+	UInputManager::GetInstance().SetVibration(0.6f, 0.6f);
+	bDamageVibrating = true;
+	DamageVibrationTimer = 0.0f;
+	DamageVibrationDuration = 0.2f;
+
+	return true;
+}
+
 void AFirefighterCharacter::StartHitFlash()
 {
 	bHitFlashActive = true;
@@ -1496,8 +1525,27 @@ void AFirefighterCharacter::ProcessGamepadInput()
 
 void AFirefighterCharacter::Kill()
 {
+	// 이미 죽었으면 무시
+	if (bIsDead)
+	{
+		return;
+	}
+
 	// 즉시 사망 처리 (산소 고갈 등 외부에서 호출)
 	Health = 0.0f;
+
+	// 사망 비명 사운드 재생
+	if (DeathScreamSound)
+	{
+		FAudioDevice::PlaySound3D(DeathScreamSound, GetActorLocation(), 1.0f, false);
+	}
+
+	// 사망 시 긴 진동
+	UInputManager::GetInstance().SetVibration(0.6f, 0.6f);
+	bDamageVibrating = true;
+	DamageVibrationTimer = 0.0f;
+	DamageVibrationDuration = 1.0f;
+
 	Die();
 }
 

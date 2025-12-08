@@ -96,6 +96,9 @@ public:
     UFUNCTION(LuaBind, DisplayName="TakeDamage")
     void TakeDamage(float DamageAmount);
 
+    /** 피격 이펙트만 재생 (쿨타임 체크 포함, 산소 데미지용) - 쿨타임 내면 false 반환 */
+    bool PlayDamageEffectsIfReady();
+
     /** 사망 여부 */
     UPROPERTY(LuaBind, DisplayName="bIsDead")
     bool bIsDead = false;

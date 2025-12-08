@@ -409,7 +409,7 @@ void ARescueGameMode::InitializeHUD()
         .SetZOrder(11);
 
     OxygenProgressBar = MakeShared<SProgressBar>();
-    float OxygenBarPercent = FMath::Min(CurrentOxygen / 100.f, 1.f);  // 100 기준 클램프
+    float OxygenBarPercent = MaxOxygen > 0.f ? FMath::Min(CurrentOxygen / MaxOxygen, 1.f) : 0.f;
     OxygenProgressBar->SetPercent(OxygenBarPercent)
         .SetFillColor(FSlateColor(0.3f, 0.8f, 0.3f, 1.0f))  // 녹색
         .SetBackgroundColor(FSlateColor(0.15f, 0.15f, 0.15f, 0.9f))
@@ -586,11 +586,15 @@ void ARescueGameMode::UpdateHUD()
         }
     }
 
-    // 산소 게이지 업데이트 (100 기준 클램프)
+    // 산소 게이지 업데이트 (MaxOxygen 기준 백분율)
     if (OxygenProgressBar)
     {
-        float ClampedOxygen = bPlayerDead ? 0.f : FMath::Min(CurrentOxygen, 100.f);
-        OxygenProgressBar->SetPercent(ClampedOxygen / 100.f);
+        float OxygenPercent = 0.f;
+        if (!bPlayerDead && MaxOxygen > 0.f)
+        {
+            OxygenPercent = FMath::Clamp(CurrentOxygen / MaxOxygen, 0.f, 1.f);
+        }
+        OxygenProgressBar->SetPercent(OxygenPercent);
 
         // 경고 상태 또는 사망 시 빨간색 표시
         if (bPlayerDead || CurrentOxygen < OxygenWarningThreshold)
@@ -803,6 +807,41 @@ void ARescueGameMode::OnPersonRescued()
     {
         UE_LOG("[info] RescueGameMode - All persons rescued! Transitioning to ending...");
         TransitionToEnding(false);  // 플레이어 생존
+    }
+}
+
+void ARescueGameMode::DrainOxygen(float Amount)
+{
+    // 소방복 착용 시 데미지 감소
+    UGameInstance* GI = GetWorld() ? GetWorld()->GetGameInstance() : nullptr;
+    if (GI && GI->HasItem("FireSuit"))
+    {
+        Amount *= FireSuitOxygenMultiplier;
+    }
+
+    CurrentOxygen -= Amount;
+
+    // 플레이어 찾아서 피격 이펙트 재생 (쿨타임 적용됨)
+    AFirefighterCharacter* Firefighter = nullptr;
+    if (PlayerController)
+    {
+        Firefighter = Cast<AFirefighterCharacter>(PlayerController->GetPawn());
+        if (Firefighter && !Firefighter->bIsDead)
+        {
+            Firefighter->PlayDamageEffectsIfReady();
+        }
+    }
+
+    // 산소가 0 이하가 되면 플레이어 사망
+    if (CurrentOxygen <= 0.0f)
+    {
+        CurrentOxygen = 0.0f;
+
+        if (Firefighter && !Firefighter->bIsDead)
+        {
+            Firefighter->Kill();
+            TransitionToEnding(true);  // 플레이어 사망
+        }
     }
 }
 

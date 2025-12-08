@@ -386,6 +386,8 @@ IDWriteTextFormat* FD2DRenderer::GetOrCreateTextFormat(float FontSize, const FSt
 
         if (SUCCEEDED(Hr) && NewFormat)
         {
+            // 줄바꿈 비활성화
+            NewFormat->SetWordWrapping(DWRITE_WORD_WRAPPING_NO_WRAP);
             CustomFontFormatCache.Add(CacheKey, NewFormat);
             return NewFormat;
         }
@@ -419,6 +421,8 @@ IDWriteTextFormat* FD2DRenderer::GetOrCreateTextFormat(float FontSize, const FSt
     if (FAILED(Hr))
         return nullptr;
 
+    // 줄바꿈 비활성화
+    NewFormat->SetWordWrapping(DWRITE_WORD_WRAPPING_NO_WRAP);
     TextFormatCache.Add(FontSizeKey, NewFormat);
     return NewFormat;
 }

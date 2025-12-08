@@ -175,6 +175,9 @@ public:
     /** 물 마법 사용 상태 설정 */
     void SetUsingWaterMagic(bool bUsing) { bIsUsingWaterMagic = bUsing; }
 
+    /** 산소 감소 (불 데미지 등 외부 요인) */
+    void DrainOxygen(float Amount);
+
     /** 구조 시스템 접근 */
     int32 GetRescuedCount() const { return RescuedCount; }
     int32 GetTotalPersonCount() const { return TotalPersonCount; }

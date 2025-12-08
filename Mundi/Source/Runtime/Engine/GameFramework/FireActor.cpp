@@ -9,6 +9,7 @@
 #include "JsonSerializer.h"
 #include "World.h"
 #include "FirefighterCharacter.h"
+#include "RescueGameMode.h"
 
 TArray<AFireActor*> AFireActor::ActiveFires;
 int32 AFireActor::AudioUpdateCursor = 0;
@@ -155,9 +156,12 @@ void AFireActor::Tick(float DeltaSeconds)
 
 	if (Distance <= ScaledRadius)
 	{
-		float Damage = DamagePerSecond * FireIntensity;
-
-		Player->TakeDamage(Damage);
+		// 불 데미지 → 산소 감소 (RescueGameMode 사용)
+		ARescueGameMode* RescueMode = Cast<ARescueGameMode>(World->GetGameMode());
+		if (RescueMode)
+		{
+			RescueMode->DrainOxygen(DamagePerSecond * DeltaSeconds);
+		}
 	}
 
 	// 루프 사운드/끄는 사운드는 프레임당 한 번만 전역 갱신 (가장 가까운 4개만 재생, 끄는 사운드는 전역 제한)
