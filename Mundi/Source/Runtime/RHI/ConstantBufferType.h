@@ -86,16 +86,27 @@ static_assert(sizeof(FFadeInOutBufferType) % 16 == 0, "CB must be 16-byte aligne
 struct alignas(16) FVinetteBufferType // b2
 {
     FLinearColor Color;
-    
+
     float     Radius    = 0.35f;                        // 효과 시작 반경(0~1)
     float     Softness  = 0.25f;                        // 페더 폭(0~1)
     float     Intensity = 1.0f;                       // 컬러 블렌드 강도 (0~1)
     float     Roundness = 2.0f;                       // 1=마름모, 2= 원형, >1 더 네모에 가깝게
-    
+
     float     Weight    = 1.0f;
     float     _Pad0[3];
 };
 static_assert(sizeof(FVinetteBufferType) % 16 == 0, "CB must be 16-byte aligned");
+
+struct alignas(16) FStripedWipeBufferType // b2
+{
+    FLinearColor WipeColor = FLinearColor(0, 0, 0, 1);  // 와이프 색상 (보통 검은색)
+
+    float Progress = 0.0f;      // 0~1 (진행도)
+    float StripeCount = 10.0f;  // 줄무늬 개수
+    float Weight = 1.0f;        // 가중치
+    float _Pad = 0.0f;
+};
+static_assert(sizeof(FStripedWipeBufferType) % 16 == 0, "CB must be 16-byte aligned");
 
 struct alignas(16) FGammaCorrectionBufferType
 {
@@ -316,6 +327,7 @@ MACRO(FGammaCorrectionBufferType)   \
 MACRO(FOutlineBufferType)           \
 MACRO(FDepthOfFieldBufferType)      \
 MACRO(FVinetteBufferType)           \
+MACRO(FStripedWipeBufferType)       \
 MACRO(FXAABufferType)               \
 MACRO(FPixelConstBufferType)        \
 MACRO(ViewProjBufferType)           \
@@ -346,6 +358,7 @@ CONSTANT_BUFFER_INFO(FGammaCorrectionBufferType, 2, false, true)
 CONSTANT_BUFFER_INFO(FOutlineBufferType, 2, false, true)
 CONSTANT_BUFFER_INFO(FDepthOfFieldBufferType, 2, false, true)
 CONSTANT_BUFFER_INFO(FVinetteBufferType, 2, false, true)
+CONSTANT_BUFFER_INFO(FStripedWipeBufferType, 2, false, true)
 CONSTANT_BUFFER_INFO(FXAABufferType, 2, false, true)
 CONSTANT_BUFFER_INFO(ColorBufferType, 3, true, true)   // b3 color
 CONSTANT_BUFFER_INFO(FPixelConstBufferType, 4, true, true) // GOURAUD에도 사용되므로 VS도 true

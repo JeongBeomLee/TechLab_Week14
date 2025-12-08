@@ -6,6 +6,7 @@
 #include "Camera/CamMod_LetterBox.h"
 #include "Camera/CamMod_Vignette.h"
 #include "Camera/CamMod_Gamma.h"
+#include "Camera/CamMod_StripedWipe.h"
 #include "SceneView.h"
 #include "CameraActor.h"
 #include "CameraComponent.h"
@@ -315,6 +316,21 @@ void APlayerCameraManager::StartLetterBox(float InDuration, float Aspect, float 
 	LetterBoxModifier->BoxColor = InColor;
 
 	ActiveModifiers.Add(LetterBoxModifier);
+}
+
+void APlayerCameraManager::StartStripedWipe(float InDuration, float StripeCount, const FLinearColor& InColor, int32 InPriority)
+{
+	UCamMod_StripedWipe* StripedWipeModifier = new UCamMod_StripedWipe();
+	StripedWipeModifier->Duration = InDuration;
+	StripedWipeModifier->Priority = InPriority;
+	StripedWipeModifier->WipeColor = InColor;
+	StripedWipeModifier->StripeCount = StripeCount;
+	StripedWipeModifier->StartProgress = 0.f;
+	StripedWipeModifier->EndProgress = 1.f;
+	StripedWipeModifier->Elapsed = 0.f;
+	StripedWipeModifier->CurrentProgress = 0.f;
+
+	ActiveModifiers.Add(StripedWipeModifier);
 }
 
 int APlayerCameraManager::StartVignette(float InDuration, float Radius, float Softness, float Intensity, float Roundness, const FLinearColor& InColor, int32 InPriority)

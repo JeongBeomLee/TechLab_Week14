@@ -42,8 +42,10 @@ public:
 	void StartCameraShake(float InDuration, float AmpLoc, float AmpRotDeg, float Frequency, int32 InPriority = 0);
 	
 	void StartFade(float InDuration, float FromAlpha, float ToAlpha, const FLinearColor& InColor= FLinearColor::Zero(), int32 InPriority = 0);
-	
+
 	void StartLetterBox(float InDuration, float Aspect, float BarHeight, const FLinearColor& InColor = FLinearColor::Zero(), int32 InPriority = 0);
+
+	void StartStripedWipe(float InDuration, float StripeCount, const FLinearColor& InColor = FLinearColor(0,0,0,1), int32 InPriority = 0);
 	
 	int StartVignette(float InDuration, float Radius, float Softness, float Intensity, float Roundness, const FLinearColor& InColor = FLinearColor::Zero(), int32 InPriority = 0);
 	int UpdateVignette(int Idx, float InDuration, float Radius, float Softness, float Intensity, float Roundness, const FLinearColor& InColor = FLinearColor::Zero(), int32 InPriority = 0);

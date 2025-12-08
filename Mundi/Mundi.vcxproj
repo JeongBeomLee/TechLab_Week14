@@ -1,4 +1,4 @@
-<?xml version='1.0' encoding='utf-8'?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" DefaultTargets="Build">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug_StandAlone|x64">
@@ -459,6 +459,12 @@ xcopy /y /d "$(ProjectDir)ThirdParty\lib\Cloth\Release\*.dll" "$(OutDir)"</Comma
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug_StandAlone|x64'">true</ExcludedFromBuild>
     </FxCompile>
+    <FxCompile Include="Shaders\PostProcess\StripedWipe_PS.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug_StandAlone|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release_StandAlone|x64'">true</ExcludedFromBuild>
+    </FxCompile>
     <FxCompile Include="Shaders\PostProcess\UpSampling_PS.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
@@ -580,6 +586,7 @@ xcopy /y /d "$(ProjectDir)ThirdParty\lib\Cloth\Release\*.dll" "$(OutDir)"</Comma
     <ClCompile Include="Source\Runtime\Renderer\AnimationViewerViewportClient.cpp" />
     <ClCompile Include="Source\Runtime\Renderer\BlendSpaceEditorViewportClient.cpp" />
     <ClCompile Include="Source\Runtime\Renderer\PostProcessing\DepthOfFieldPass.cpp" />
+    <ClCompile Include="Source\Runtime\Renderer\PostProcessing\StripedWipePass.cpp" />
     <ClCompile Include="Source\Runtime\Renderer\RenderTexture.cpp" />
     <ClCompile Include="Source\Runtime\Renderer\SkeletalViewerViewportClient.cpp" />
     <ClCompile Include="Source\Runtime\Renderer\LightManager.cpp" />
@@ -1101,6 +1108,7 @@ xcopy /y /d "$(ProjectDir)ThirdParty\lib\Cloth\Release\*.dll" "$(OutDir)"</Comma
     <ClInclude Include="Source\Runtime\Engine\GameFramework\BoxActor.h" />
     <ClInclude Include="Source\Runtime\Engine\GameFramework\Camera\CamMod_Gamma.h" />
     <ClInclude Include="Source\Runtime\Engine\GameFramework\Camera\CamMod_LetterBox.h" />
+    <ClInclude Include="Source\Runtime\Engine\GameFramework\Camera\CamMod_StripedWipe.h" />
     <ClInclude Include="Source\Runtime\Engine\GameFramework\Camera\CamMod_Vignette.h" />
     <ClInclude Include="Source\Runtime\Engine\GameFramework\CapsuleActor.h" />
     <ClInclude Include="Source\Runtime\Engine\GameFramework\Character.h" />
@@ -1213,6 +1221,7 @@ xcopy /y /d "$(ProjectDir)ThirdParty\lib\Cloth\Release\*.dll" "$(OutDir)"</Comma
     <ClInclude Include="Source\Runtime\Renderer\BlendSpaceEditorViewportClient.h" />
     <ClInclude Include="Source\Runtime\Renderer\LightStats.h" />
     <ClInclude Include="Source\Runtime\Renderer\PostProcessing\DepthOfFieldPass.h" />
+    <ClInclude Include="Source\Runtime\Renderer\PostProcessing\StripedWipePass.h" />
     <ClInclude Include="Source\Runtime\Renderer\RenderTexture.h" />
     <ClInclude Include="Source\Runtime\Renderer\ShadowStats.h" />
     <ClInclude Include="Source\Runtime\Renderer\SkeletalViewerViewportClient.h" />

@@ -1438,6 +1438,9 @@ void FSceneRenderer::RenderPostProcessingPasses()
 		case EPostProcessEffectType::Outline:
 			OutlinePass.Execute(Modifier, View, RHIDevice);
 			break;
+		case EPostProcessEffectType::StripedWipe:
+			StripedWipePass.Execute(Modifier, View, RHIDevice);
+			break;
 		}
 	}
 }

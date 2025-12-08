@@ -10,6 +10,7 @@ enum class EPostProcessEffectType : uint8
     Gamma,
     DOF, //DepthOfField
     Outline, // 아이템 하이라이트용 아웃라인
+    StripedWipe, // 사선 줄무늬 와이프 전환 효과
 };
 
 struct FPostProcessPayload

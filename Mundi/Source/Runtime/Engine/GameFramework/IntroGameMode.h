@@ -61,6 +61,7 @@ public:
     // 생명주기
 
     virtual void BeginPlay() override;
+    virtual void Tick(float DeltaTime) override;
     virtual void EndPlay() override;
 
 private:
@@ -74,13 +75,19 @@ private:
     // 사운드
     class USound* ButtonSound = nullptr;
 
+    // 와이프 전환 상태
+    bool bIsTransitioning = false;
+    float TransitionTimer = 0.0f;
+    bool bIsQuitting = false;
+    float WipeDuration = 1.5f;
+
     // 초기화
     void InitializeUI();
     void InitializeSounds();
 
     // 버튼 클릭 핸들러
-    static void OnStartButtonClicked();
-    static void OnQuitButtonClicked();
+    void OnStartButtonClicked();
+    void OnQuitButtonClicked();
 
     // 버튼 호버 핸들러
     void OnHelpButtonHovered();

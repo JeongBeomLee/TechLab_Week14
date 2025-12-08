@@ -10,10 +10,14 @@
 #include "Sound.h"
 #include "ResourceManager.h"
 #include "PlayerController.h"
+#include "PlayerCameraManager.h"
 
 IMPLEMENT_CLASS(AIntroGameMode)
 
 AIntroGameMode::AIntroGameMode()
+    : bIsTransitioning(false)
+    , TransitionTimer(0.0f)
+    , bIsQuitting(false)
 {
     ObjectName = "IntroGameMode";
 }
@@ -50,6 +54,41 @@ void AIntroGameMode::BeginPlay()
 
     // UI 초기화
     InitializeUI();
+}
+
+void AIntroGameMode::Tick(float DeltaTime)
+{
+    Super::Tick(DeltaTime);
+
+    // 와이프 전환 타이머 처리
+    if (bIsTransitioning)
+    {
+        TransitionTimer += DeltaTime;
+
+        if (TransitionTimer >= WipeDuration)
+        {
+            if (bIsQuitting)
+            {
+                // 게임 종료
+                PostQuitMessage(0);
+            }
+            else
+            {
+                // 다음 씬으로 전환
+                if (GetWorld())
+                {
+                    if (ALevelTransitionManager* Manager = GetWorld()->FindActor<ALevelTransitionManager>())
+                    {
+                        if (!Manager->IsTransitioning())
+                        {
+                            Manager->TransitionToNextLevel();
+                        }
+                    }
+                }
+            }
+            bIsTransitioning = false;
+        }
+    }
 }
 
 void AIntroGameMode::EndPlay()
@@ -100,7 +139,7 @@ void AIntroGameMode::InitializeUI()
             FSlateRect(0.f, 768.f, 1408.f, 1536.f)    // Pressed: Hovered와 동일
         )
         .SetFontSize(28.f)
-        .OnClicked(&AIntroGameMode::OnStartButtonClicked);
+        .OnClicked([this]() { OnStartButtonClicked(); });
 
     SGameHUD::Get().AddWidget(StartButton)
         .SetAnchor(0.5f, 0.75f)       // 화면 중하단
@@ -119,7 +158,7 @@ void AIntroGameMode::InitializeUI()
             FSlateRect(1408.f, 768.f, 2816.f, 1536.f)   // Pressed: Hovered와 동일
         )
         .SetFontSize(28.f)
-        .OnClicked(&AIntroGameMode::OnQuitButtonClicked);
+        .OnClicked([this]() { OnQuitButtonClicked(); });
 
     SGameHUD::Get().AddWidget(QuitButton)
         .SetAnchor(0.5f, 0.75f)       // 화면 중하단
@@ -163,55 +202,64 @@ void AIntroGameMode::InitializeUI()
 
 void AIntroGameMode::OnStartButtonClicked()
 {
-    // World를 통해 안전하게 LevelTransitionManager 접근
-    if (!GEngine.IsPIEActive()) { return; }
+    if (bIsTransitioning) { return; }
 
-    for (const auto& Context : GEngine.GetWorldContexts())
+    // 버튼 사운드 재생
+    if (ButtonSound)
     {
-        if (Context.WorldType == EWorldType::Game && Context.World)
+        FAudioDevice::PlaySound3D(ButtonSound, FVector::Zero(), 1.0f, false);
+    }
+
+    // 모든 UI 즉시 숨김
+    if (TitleWidget) TitleWidget->SetVisibility(ESlateVisibility::Hidden);
+    if (StartButton) StartButton->SetVisibility(ESlateVisibility::Hidden);
+    if (QuitButton) QuitButton->SetVisibility(ESlateVisibility::Hidden);
+    if (HelpButton) HelpButton->SetVisibility(ESlateVisibility::Hidden);
+    if (GuideWidget) GuideWidget->SetVisibility(ESlateVisibility::Hidden);
+
+    // 수직 줄무늬 와이프 시작
+    if (GetWorld())
+    {
+        if (APlayerCameraManager* CameraManager = GetWorld()->FindActor<APlayerCameraManager>())
         {
-            // IntroGameMode 인스턴스 찾아서 버튼 사운드 재생
-            AIntroGameMode* IntroGameMode = Cast<AIntroGameMode>(Context.World->GetGameMode());
-            if (IntroGameMode && IntroGameMode->ButtonSound)
-            {
-                FAudioDevice::PlaySound3D(IntroGameMode->ButtonSound, FVector::Zero(), 1.0f, false);
-            }
-
-            for (AActor* Actor : Context.World->GetActors())
-            {
-                if (ALevelTransitionManager* Manager = Cast<ALevelTransitionManager>(Actor))
-                {
-                    if (Manager->IsTransitioning()) { return; }
-
-                    Manager->TransitionToNextLevel();
-                    return;
-                }
-            }
-            break;
+            CameraManager->StartStripedWipe(WipeDuration, 8.f, FLinearColor(0,0,0,1), 100);
         }
     }
+
+    bIsTransitioning = true;
+    bIsQuitting = false;
+    TransitionTimer = 0.0f;
 }
 
 void AIntroGameMode::OnQuitButtonClicked()
 {
-    // World를 통해 안전하게 IntroGameMode 접근하여 버튼 사운드 재생
-    if (GEngine.IsPIEActive())
+    if (bIsTransitioning) { return; }
+
+    // 버튼 사운드 재생
+    if (ButtonSound)
     {
-        for (const auto& Context : GEngine.GetWorldContexts())
+        FAudioDevice::PlaySound3D(ButtonSound, FVector::Zero(), 1.0f, false);
+    }
+
+    // 모든 UI 즉시 숨김
+    if (TitleWidget) TitleWidget->SetVisibility(ESlateVisibility::Hidden);
+    if (StartButton) StartButton->SetVisibility(ESlateVisibility::Hidden);
+    if (QuitButton) QuitButton->SetVisibility(ESlateVisibility::Hidden);
+    if (HelpButton) HelpButton->SetVisibility(ESlateVisibility::Hidden);
+    if (GuideWidget) GuideWidget->SetVisibility(ESlateVisibility::Hidden);
+
+    // 수직 줄무늬 와이프 시작
+    if (GetWorld())
+    {
+        if (APlayerCameraManager* CameraManager = GetWorld()->FindActor<APlayerCameraManager>())
         {
-            if (Context.WorldType == EWorldType::Game && Context.World)
-            {
-                AIntroGameMode* IntroGameMode = Cast<AIntroGameMode>(Context.World->GetGameMode());
-                if (IntroGameMode && IntroGameMode->ButtonSound)
-                {
-                    FAudioDevice::PlaySound3D(IntroGameMode->ButtonSound, FVector::Zero(), 1.0f, false);
-                }
-                break;
-            }
+            CameraManager->StartStripedWipe(WipeDuration, 8.f, FLinearColor(0,0,0,1), 100);
         }
     }
 
-    PostQuitMessage(0);
+    bIsTransitioning = true;
+    bIsQuitting = true;
+    TransitionTimer = 0.0f;
 }
 
 void AIntroGameMode::OnHelpButtonHovered()
