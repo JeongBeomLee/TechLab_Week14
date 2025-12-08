@@ -33,36 +33,36 @@ local MinSpawnDistance = 5.0         -- 스폰된 오브젝트 간 최소 거리
 local PrefabList = {
     {
         path = "Data/Prefabs/David.prefab",
-        maxCount = 1,
-        maxAttempts = 50,
+        maxCount = 2,
+        maxAttempts = 100,
         floorOffsetRatio = 0.0,
         rotationOffset = Vector(0, 0, 0)
     },
     {
         path = "Data/Prefabs/Elizabeth.prefab",
-        maxCount = 1,
-        maxAttempts = 50,
+        maxCount = 2,
+        maxAttempts = 100,
         floorOffsetRatio = 0.0,
         rotationOffset = Vector(0, 0, 0)
     },
     {
         path = "Data/Prefabs/Lewis.prefab",
-        maxCount = 1,
-        maxAttempts = 50,
+        maxCount = 2,
+        maxAttempts = 100,
         floorOffsetRatio = 0.0,
         rotationOffset = Vector(0, 0, 0)
     },
     {
         path = "Data/Prefabs/Sophie.prefab",
-        maxCount = 1,
-        maxAttempts = 50,
+        maxCount = 2,
+        maxAttempts = 100,
         floorOffsetRatio = 0.0,
         rotationOffset = Vector(0, 0, 0)
     },
     {
         path = "Data/Prefabs/Suzie.prefab",
-        maxCount = 1,
-        maxAttempts = 50,
+        maxCount = 2,
+        maxAttempts = 100,
         floorOffsetRatio = 0.0,
         rotationOffset = Vector(0, 0, 0)
     },

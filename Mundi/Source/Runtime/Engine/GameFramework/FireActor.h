@@ -59,7 +59,11 @@ public:
 
 	/** 불 반경 */
 	UPROPERTY(LuaBind, DisplayName = "FireRadius")
-	float FireRadius = 2.0f;
+	float FireRadius = 2.4f;
+
+	/** 불 성장 속도 (초당 Intensity 증가량, 0이면 성장 안함) */
+	UPROPERTY(LuaBind, DisplayName = "FireGrowthRate")
+	float FireGrowthRate = 0.0f;
 
 protected:
 	/** 불 파티클 컴포넌트 */
@@ -80,9 +84,21 @@ protected:
 	/** 꺼지는 사운드 쿨다운 타이머 */
 	float ExtinguishSoundCooldown;
 
+	/** 불 스케일 업데이트 (FireIntensity 기반) */
+	void UpdateFireScale();
+
 	/** 불 활성화 상태 */
 	bool bIsActive;
 
-	/** 불 세기 (0.0 ~ 1.0) */
+	/** 불 세기 */
 	float FireIntensity;
+
+	/** 초기 불 세기 (랜덤 생성된 값 저장) */
+	float InitialFireIntensity;
+
+	/** 최대 불 세기 (초기값의 2배) */
+	float MaxFireIntensity;
+
+	/** 에디터에서 설정한 기본 스케일 (BeginPlay에서 저장) */
+	FVector BaseScale;
 };

@@ -62,6 +62,19 @@ namespace FMath
 	{
 		return A + (B - A) * Alpha;
 	}
+
+	// [Min, Max] 범위의 랜덤 float 반환
+	static float RandRange(float Min, float Max)
+	{
+		float Normalized = static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
+		return Min + Normalized * (Max - Min);
+	}
+
+	// [Min, Max] 범위의 랜덤 int 반환
+	static int32 RandRange(int32 Min, int32 Max)
+	{
+		return Min + (rand() % (Max - Min + 1));
+	}
 }
 // 각도를 -180 ~ 180 범위로 정규화 (모듈러 연산)
 inline float NormalizeAngleDeg(float angleDeg)

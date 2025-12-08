@@ -13,6 +13,9 @@
 AFireActor::AFireActor()
 	: bIsActive(true)
 	, FireIntensity(1.0f)
+	, InitialFireIntensity(1.0f)
+	, MaxFireIntensity(2.0f)
+	, BaseScale(1.0f, 1.0f, 1.0f)
 	, FireLoopSound(nullptr)
 	, FireExtinguishSound(nullptr)
 	, FireLoopVoice(nullptr)
@@ -66,6 +69,21 @@ void AFireActor::BeginPlay()
 {
 	Super::BeginPlay();
 
+	// 에디터에서 설정한 기본 스케일 저장
+	BaseScale = GetActorScale();
+
+	// 초기 FireIntensity를 0.7~1.5 사이 랜덤으로 설정
+	InitialFireIntensity = FMath::RandRange(0.7f, 1.5f);
+	MaxFireIntensity = InitialFireIntensity * 2.0f;
+	FireIntensity = InitialFireIntensity;
+
+	// 성장 속도 계산: 100초에 2배 (초기값만큼 증가)
+	// GrowthRate = InitialFireIntensity / 100.0f
+	FireGrowthRate = InitialFireIntensity / 100.0f;
+
+	// 초기 스케일 적용
+	UpdateFireScale();
+
 	if (bIsActive && FireParticle)
 	{
 		FireParticle->ActivateSystem();
@@ -98,6 +116,17 @@ void AFireActor::Tick(float DeltaSeconds)
 	if (!bIsActive)
 	{
 		return;
+	}
+
+	// 불 성장: 시간에 따라 FireIntensity 증가 (최대값까지)
+	if (FireGrowthRate > 0.0f && FireIntensity < MaxFireIntensity)
+	{
+		FireIntensity += FireGrowthRate * DeltaSeconds;
+		if (FireIntensity > MaxFireIntensity)
+		{
+			FireIntensity = MaxFireIntensity;
+		}
+		UpdateFireScale();
 	}
 
 	// 월드에서 플레이어 캐릭터 찾기
@@ -229,18 +258,27 @@ void AFireActor::SetFireActive(bool bActive)
 
 void AFireActor::SetFireIntensity(float Intensity)
 {
-	FireIntensity = FMath::Clamp(Intensity, 0.0f, 1.0f);
+	// 클램프: 0 ~ MaxFireIntensity (최대 3.0 정도까지)
+	FireIntensity = FMath::Clamp(Intensity, 0.0f, MaxFireIntensity);
 
-	// 파티클 스케일 조절로 세기 표현
-	// Actor 자체의 스케일로 조절
-	float Scale = 0.5f + FireIntensity * 0.5f;  // 0.5 ~ 1.0 스케일
-	SetActorScale(FVector(Scale, Scale, Scale));
+	UpdateFireScale();
 
 	// 불이 완전히 꺼지면 비활성화
 	if (FireIntensity <= 0.0f)
 	{
 		SetFireActive(false);
 	}
+}
+
+void AFireActor::UpdateFireScale()
+{
+	// 스케일 계산: Intensity 0->0.5, 1->1.0, 3->2.0
+	// Scale = 0.5 + 0.5 * Intensity
+	float ScaleMultiplier = 0.5f + 0.5f * FireIntensity;
+
+	// 에디터에서 설정한 기본 스케일에 곱함
+	FVector FinalScale = BaseScale * ScaleMultiplier;
+	SetActorScale(FinalScale);
 }
 
 void AFireActor::ApplyWaterDamage(float DamageAmount)
