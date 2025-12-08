@@ -387,28 +387,98 @@ void UBoneSocketComponent::AttachRagdoll(USkeletalMeshComponent* RagdollMesh, in
         UE_LOG("[BoneSocketComponent] AttachRagdoll: PhysicsAsset found");
     }
 
-    // 래그돌 모드가 아니면 래그돌 모드로 전환
-    if (RagdollMesh->GetPhysicsMode() != EPhysicsMode::Ragdoll)
+    // 이미 Ragdoll 모드인 경우: 해당 본만 kinematic으로 설정하고 끝
+    // (다른 소켓에서 이미 AttachRagdoll을 호출한 경우)
+    if (RagdollMesh->GetPhysicsMode() == EPhysicsMode::Ragdoll)
     {
-        UE_LOG("[BoneSocketComponent] AttachRagdoll: Setting Ragdoll mode");
-        RagdollMesh->SetPhysicsMode(EPhysicsMode::Ragdoll);
+        UE_LOG("[BoneSocketComponent] AttachRagdoll: Already in Ragdoll mode, just setting bone %d to kinematic", AttachBoneIndex);
+        FBodyInstance* AttachBody = RagdollMesh->GetBodyInstance(AttachBoneIndex);
+        if (AttachBody && AttachBody->IsValidBodyInstance())
+        {
+            AttachBody->SetKinematic(true);
+
+            // 속도만 초기화
+            if (AttachBody->RigidActor)
+            {
+                PxRigidDynamic* DynActor = AttachBody->RigidActor->is<PxRigidDynamic>();
+                if (DynActor)
+                {
+                    DynActor->setLinearVelocity(PxVec3(0, 0, 0));
+                    DynActor->setAngularVelocity(PxVec3(0, 0, 0));
+                }
+            }
+        }
+        else
+        {
+            UE_LOG("[BoneSocketComponent] AttachRagdoll: WARNING - No body for bone index %d", AttachBoneIndex);
+        }
+        SyncAttachedRagdoll();
+        return;
     }
 
-    // Bodies 확인
+    // 1단계: 현재 애니메이션 포즈를 먼저 캐시 (물리 모드 전환 전)
+    USkeletalMesh* SkelMesh = RagdollMesh->GetSkeletalMesh();
+    int32 NumBones = 0;
+    if (SkelMesh && SkelMesh->GetSkeleton())
+    {
+        NumBones = SkelMesh->GetSkeleton()->Bones.Num();
+    }
+
+    TArray<FTransform> CachedBonePoses;
+    CachedBonePoses.SetNum(NumBones);
+    for (int32 i = 0; i < NumBones; ++i)
+    {
+        CachedBonePoses[i] = RagdollMesh->GetBoneWorldTransform(i);
+    }
+    UE_LOG("[BoneSocketComponent] AttachRagdoll: Cached %d bone poses", NumBones);
+
+    // 2단계: Ragdoll 모드로 전환 (물리 바디 생성 및 초기화)
+    UE_LOG("[BoneSocketComponent] AttachRagdoll: Setting Ragdoll mode");
+    RagdollMesh->SetPhysicsMode(EPhysicsMode::Ragdoll);
+
+    // 3단계: 모든 바디를 kinematic으로 설정하고 캐시된 포즈 적용
     const TArray<FBodyInstance*>& Bodies = RagdollMesh->GetBodies();
     UE_LOG("[BoneSocketComponent] AttachRagdoll: Bodies count = %d", Bodies.Num());
 
-    // 고정할 본의 바디를 키네마틱으로 설정
-    FBodyInstance* AttachBody = RagdollMesh->GetBodyInstance(AttachBoneIndex);
-    if (AttachBody && AttachBody->IsValidBodyInstance())
+    for (int32 i = 0; i < Bodies.Num(); ++i)
     {
-        UE_LOG("[BoneSocketComponent] AttachRagdoll: Setting bone %d to kinematic", AttachBoneIndex);
-        AttachBody->SetKinematic(true); // 키네마틱으로 전환
+        FBodyInstance* Body = Bodies[i];
+        if (Body && Body->IsValidBodyInstance())
+        {
+            // 먼저 kinematic으로 설정 (Constraint가 작동하지 않도록)
+            Body->SetKinematic(true);
+
+            // 속도 초기화 및 캐시된 포즈 적용
+            if (Body->RigidActor)
+            {
+                PxRigidDynamic* DynActor = Body->RigidActor->is<PxRigidDynamic>();
+                if (DynActor)
+                {
+                    DynActor->setLinearVelocity(PxVec3(0, 0, 0));
+                    DynActor->setAngularVelocity(PxVec3(0, 0, 0));
+
+                    // 캐시된 포즈로 위치 설정 (Bodies 인덱스 = Bone 인덱스)
+                    if (i < CachedBonePoses.Num())
+                    {
+                        PxTransform PxPose = U2PTransform(CachedBonePoses[i]);
+                        DynActor->setGlobalPose(PxPose);
+                    }
+                }
+            }
+        }
     }
-    else
+
+    // 4단계: attach bone만 kinematic 유지, 나머지는 dynamic으로 전환
+    for (int32 i = 0; i < Bodies.Num(); ++i)
     {
-        UE_LOG("[BoneSocketComponent] AttachRagdoll: WARNING - No body for bone index %d", AttachBoneIndex);
+        FBodyInstance* Body = Bodies[i];
+        if (Body && Body->IsValidBodyInstance() && i != AttachBoneIndex)
+        {
+            Body->SetKinematic(false);  // dynamic으로 전환
+        }
     }
+
+    UE_LOG("[BoneSocketComponent] AttachRagdoll: Bone %d set to kinematic", AttachBoneIndex);
 
     // 즉시 동기화
     SyncAttachedRagdoll();

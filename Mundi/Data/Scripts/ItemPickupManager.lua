@@ -232,7 +232,7 @@ function OnBeginOverlap(OtherObj)
         if itemInfo and itemInfo.CanPickUp then
             table.insert(ItemsInRange, OtherObj)
             UpdateClosestItem()
-            print("[ItemPickupManager] Item in range: " .. (itemInfo.Name or "Unknown"))
+            --print("[ItemPickupManager] Item in range: " .. (itemInfo.Name or "Unknown"))
         end
     end
 end
@@ -248,7 +248,7 @@ function OnEndOverlap(OtherObj)
             ClosestItem = nil
         end
         UpdateClosestItem()
-        print("[ItemPickupManager] Item left range")
+        --print("[ItemPickupManager] Item left range")
     end
 end
 

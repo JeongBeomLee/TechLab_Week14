@@ -219,6 +219,9 @@ public:
     /** 현재 들고 있는 사람 (스켈레탈 메시 컴포넌트의 오너 액터) */
     AActor* CarriedPerson = nullptr;
 
+    /** 원래 스켈레톤의 척추 길이 (Hips ~ Head) - 소켓 거리 고정용 */
+    float OriginalSpineLength = 0.0f;
+
     /** 사람을 들고 있는지 여부 */
     UPROPERTY(LuaBind, DisplayName="bIsCarryingPerson")
     bool bIsCarryingPerson = false;
@@ -238,6 +241,9 @@ public:
     /** 사람 내려놓기 (Lua에서 호출) */
     UFUNCTION(LuaBind, DisplayName="StopCarryingPerson")
     void StopCarryingPerson();
+
+    /** 들고 있는 사람의 상체 본들 위치 업데이트 (Tick에서 호출) */
+    void UpdateCarriedPersonPose();
 
     /** 본 소켓 재바인딩 (메시 변경 후 호출, Lua에서 호출) */
     UFUNCTION(LuaBind, DisplayName="RebindBoneSockets")
