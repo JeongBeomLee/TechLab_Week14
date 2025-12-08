@@ -13,6 +13,7 @@
 #include "PhysicalMaterialLoader.h"
 #include "GameInstance.h"
 #include "LevelTransitionManager.h"
+#include "PathUtils.h"
 #include <sol/sol.hpp>
 
 float UGameEngine::ClientWidth = 1024.0f;
@@ -20,7 +21,7 @@ float UGameEngine::ClientHeight = 1024.0f;
 
 static void LoadIniFile()
 {
-    std::ifstream infile("editor.ini");
+    std::ifstream infile(UTF8ToWide("editor.ini"));
     if (!infile.is_open()) return;
 
     std::string line;
@@ -45,7 +46,7 @@ static void LoadIniFile()
 
 static void SaveIniFile()
 {
-    std::ofstream outfile("editor.ini");
+    std::ofstream outfile(UTF8ToWide("editor.ini"));
     for (const auto& pair : EditorINI)
         outfile << pair.first << " = " << pair.second << std::endl;
 }

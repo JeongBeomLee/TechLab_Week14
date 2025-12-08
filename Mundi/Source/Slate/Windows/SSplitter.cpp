@@ -1,5 +1,6 @@
 ﻿#include "pch.h"
 #include "SSplitter.h"
+#include "PathUtils.h"
 extern float CLIENTWIDTH;
 extern float CLIENTHEIGHT;
 SSplitter::SSplitter()
@@ -143,7 +144,7 @@ void SSplitter::OnMouseUp(FVector2D MousePos, uint32 Button)
 void SSplitter::SaveToConfig(const FString& SectionName) const
 {
     // editor.ini 파일에 스플리터 설정 저장
-    std::string filename = "editor.ini";
+    FWideString filename = UTF8ToWide("editor.ini");
     std::string searchKey = std::string(SectionName.c_str()) + "_SplitRatio";
 
     // 기존 파일 읽기
@@ -192,7 +193,7 @@ void SSplitter::SaveToConfig(const FString& SectionName) const
 void SSplitter::LoadFromConfig(const FString& SectionName)
 {
     // editor.ini 파일에서 스플리터 설정 로드
-    std::ifstream file("editor.ini");
+    std::ifstream file(UTF8ToWide("editor.ini"));
     if (file.is_open())
     {
         std::string line;

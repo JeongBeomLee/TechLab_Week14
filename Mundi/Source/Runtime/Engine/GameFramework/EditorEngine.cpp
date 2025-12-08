@@ -13,13 +13,14 @@
 #include "Source/Runtime/Engine/Cloth/ClothManager.h"
 #include "GameInstance.h"
 #include "LevelTransitionManager.h"
+#include "PathUtils.h"
 
 float UEditorEngine::ClientWidth = 1024.0f;
 float UEditorEngine::ClientHeight = 1024.0f;
 
 static void LoadIniFile()
 {
-    std::ifstream infile("editor.ini");
+    std::ifstream infile(UTF8ToWide("editor.ini"));
     if (!infile.is_open()) return;
 
     std::string line;
@@ -44,7 +45,7 @@ static void LoadIniFile()
 
 void UEditorEngine::SaveIniFile()
 {
-    std::ofstream Outfile("editor.ini");
+    std::ofstream Outfile(UTF8ToWide("editor.ini"));
     for (const auto& Pair : EditorINI)
         Outfile << Pair.first << " = " << Pair.second << std::endl;
 }
