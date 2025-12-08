@@ -80,6 +80,7 @@ void AFireDispatchGameMode::InitializeAssets()
     CarSound = UResourceManager::GetInstance().Load<USound>(CarSoundPath);
     OpenSound = UResourceManager::GetInstance().Load<USound>(CarOpenPath);
     PassSound = UResourceManager::GetInstance().Load<USound>(CarPassPath);
+    ScreamSound = UResourceManager::GetInstance().Load<USound>(ScreamSoundPath);
 }
 
 void AFireDispatchGameMode::InitializeCameraEffects()
@@ -167,6 +168,8 @@ void AFireDispatchGameMode::TransitionToPhase(EFireDispatchPhase NewPhase)
         GI->SetBool("FireDispatch_Fall", true);
         GI->SetFloat("FireDispatch_ImpulseX", FallImpulseX);
         GI->SetFloat("FireDispatch_ImpulseZ", FallImpulseZ);
+        // 사운드 위치 하드 코딩
+        FAudioDevice::PlaySound3D(ScreamSound, FVector(-45.f,34.f,-19.f), 1.0f, false);
         break;
 
     case EFireDispatchPhase::GetUp:
@@ -199,14 +202,16 @@ void AFireDispatchGameMode::TransitionToPhase(EFireDispatchPhase NewPhase)
         // 차량 사운드 재생
         if (CarSound)
         {
-            FAudioDevice::PlaySound3D(CarSound, FVector(0, 0, 0), 1.0f, false);
+            // 위치 하드 코딩
+            FAudioDevice::PlaySound3D(CarSound, FVector(-48.5, 36, -19), 1.0f, false);
         }
         break;
 
     case EFireDispatchPhase::Complete:
         if (PassSound)
         {
-            FAudioDevice::PlaySound3D(PassSound, FVector(0, 0, 0), 1.0f, false);
+            // 위치 하드 코딩
+            FAudioDevice::PlaySound3D(PassSound, FVector(-48.5, 36, -19), 1.0f, false);
         }
         break;
     }
