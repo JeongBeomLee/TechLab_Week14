@@ -66,6 +66,10 @@ public:
     UFUNCTION(LuaBind, DisplayName="StopWaterMagicEffect")
     void StopWaterMagicEffect();
 
+    /** 아이템 픽업 파티클 재생 (Lua에서 호출) */
+    UFUNCTION(LuaBind, DisplayName="PlayItemPickupEffect")
+    void PlayItemPickupEffect(const FVector& Position);
+
     /** 소화 게이지 감소 (Lua에서 호출) */
     UFUNCTION(LuaBind, DisplayName="DrainExtinguishGauge")
     void DrainExtinguishGauge(float Amount);
@@ -172,6 +176,9 @@ private:
     /** 오른발 먼지 파티클 컴포넌트 */
     UParticleSystemComponent* RightFootDustParticle;
 
+    /** 아이템 픽업 파티클 컴포넌트 */
+    UParticleSystemComponent* ItemPickupParticle;
+
     /** 발먼지 파티클 재생 (내부 함수) */
     void PlayFootDustEffect(bool bLeftFoot);
 
@@ -180,6 +187,9 @@ private:
 
     /** 발소리 사운드 */
     USound* FootstepSound = nullptr;
+
+    /** 아이템 획득 사운드 */
+    USound* ItemPickupSound = nullptr;
 
     /** 데미지 쿨타임 타이머 */
     float DamageCooldownTimer = 0.0f;

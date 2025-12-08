@@ -164,6 +164,22 @@ AFirefighterCharacter::AFirefighterCharacter()
 	// 발소리 사운드 로드
 	FootstepSound = UResourceManager::GetInstance().Load<USound>("Data/Audio/FirefighterStep.wav");
 
+	// 아이템 획득 사운드 로드
+	ItemPickupSound = UResourceManager::GetInstance().Load<USound>("Data/Audio/AcquisitionSound.wav");
+
+	// 아이템 픽업 파티클 컴포넌트 생성
+	ItemPickupParticle = CreateDefaultSubobject<UParticleSystemComponent>("ItemPickupParticle");
+	if (ItemPickupParticle)
+	{
+		// 루트에 붙이지 않고 월드 위치로 직접 설정할 것임
+		ItemPickupParticle->bAutoActivate = false;
+		UParticleSystem* PickupEffect = UResourceManager::GetInstance().Load<UParticleSystem>("Data/Particles/ItemPickup.particle");
+		if (PickupEffect)
+		{
+			ItemPickupParticle->SetTemplate(PickupEffect);
+		}
+	}
+
 	// 왼손 본 소켓 컴포넌트 생성 (사람 들기용 - Neck 부착)
 	LeftHandSocket = CreateDefaultSubobject<UBoneSocketComponent>("LeftHandSocket");
 	if (LeftHandSocket && MeshComponent)
@@ -439,6 +455,25 @@ void AFirefighterCharacter::StopWaterMagicEffect()
 	if (WaterMagicParticle)
 	{
 		WaterMagicParticle->DeactivateSystem();
+	}
+}
+
+void AFirefighterCharacter::PlayItemPickupEffect(const FVector& Position)
+{
+	if (!ItemPickupParticle)
+	{
+		return;
+	}
+
+	// 지정된 위치에 파티클 배치
+	ItemPickupParticle->SetWorldLocation(Position);
+	ItemPickupParticle->ResetParticles();
+	ItemPickupParticle->ActivateSystem();
+
+	// 아이템 획득 사운드 재생
+	if (ItemPickupSound)
+	{
+		FAudioDevice::PlaySound3D(ItemPickupSound, Position, 1.0f, false);
 	}
 }
 

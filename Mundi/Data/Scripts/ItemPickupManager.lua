@@ -181,12 +181,19 @@ local function TryPickup()
 
     -- 픽업할 아이템 참조 저장
     local pickedItem = PendingPickupItem
+    local itemLocation = pickedItem.Location  -- 파괴 전에 위치 저장
     PendingPickupItem = nil
 
     -- 목록에서 제거
     RemoveFromList(pickedItem)
     if ClosestItem == pickedItem then
         ClosestItem = nil
+    end
+
+    -- 아이템 픽업 파티클 재생
+    local firefighter = GetOwnerAs(Obj, "AFirefighterCharacter")
+    if firefighter then
+        firefighter:PlayItemPickupEffect(itemLocation)
     end
 
     -- 아이템 파괴
