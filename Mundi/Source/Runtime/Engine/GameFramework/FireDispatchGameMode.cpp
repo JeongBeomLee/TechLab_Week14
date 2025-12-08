@@ -13,6 +13,8 @@
 #include "World.h"
 #include "PlayerController.h"
 #include "InputManager.h"
+#include "SkeletalMeshComponent.h"
+#include "PhysicsAsset.h"
 
 IMPLEMENT_CLASS(AFireDispatchGameMode)
 
@@ -42,6 +44,9 @@ void AFireDispatchGameMode::BeginPlay()
     {
         UInputManager::GetInstance().SetInputMode(EInputMode::UIOnly);
     }
+
+    // 소방복 획득 여부에 따라 메쉬 변경
+    UpdateFirefighterMeshBasedOnFireSuit();
 
     InitializeAssets();
     InitializeCameraEffects();
@@ -400,4 +405,44 @@ void AFireDispatchGameMode::UpdateVibration(float DeltaTime)
         bVibrating = false;
         UInputManager::GetInstance().StopVibration();
     }
+}
+
+void AFireDispatchGameMode::UpdateFirefighterMeshBasedOnFireSuit()
+{
+    if (!GetWorld()) { return; }
+
+    // GameInstance에서 소방복 획득 여부 확인
+    UGameInstance* GI = GetWorld()->GetGameInstance();
+    bool bHasFireSuit = GI ? GI->HasItem("FireSuit") : false;
+
+    // 소방복이 있으면 기본 메쉬 사용 (With_Cloth)
+    if (bHasFireSuit)
+    {
+        UE_LOG("[FireDispatchGameMode] Player has fire suit - using default mesh");
+        return;
+    }
+
+    // 소방복이 없으면 Without_Cloth 메쉬와 nocloth 피직스 에셋 사용
+    UE_LOG("[FireDispatchGameMode] Player does NOT have fire suit - changing to no-cloth mesh");
+
+    // 씬에서 SkeletalMeshComponent 찾기
+    USkeletalMeshComponent* MeshComp = GetWorld()->FindComponent<USkeletalMeshComponent>();
+    if (!MeshComp)
+    {
+        UE_LOG("[FireDispatchGameMode] Warning: Firefighter actor has no SkeletalMeshComponent");
+        return;
+    }
+
+    // 메쉬 변경 (소방복 없는 버전)
+    MeshComp->SetSkeletalMesh("Data/firefighter/Firefighter_Without_Cloth.fbx");
+
+    // PhysicsAsset 변경
+    UPhysicsAsset* NoClothPhysAsset = UResourceManager::GetInstance().Load<UPhysicsAsset>("Data/Physics/firefighter_nocloth.physicsasset");
+    if (NoClothPhysAsset)
+    {
+        MeshComp->SetPhysicsAsset(NoClothPhysAsset);
+        UE_LOG("[FireDispatchGameMode] Changed to no-cloth physics asset");
+    }
+
+    UE_LOG("[FireDispatchGameMode] Successfully changed firefighter mesh to no-cloth version");
 }

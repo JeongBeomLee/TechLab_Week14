@@ -17,6 +17,7 @@
 #include "ParticleSystem.h"
 #include "ResourceManager.h"
 #include "World.h"
+#include "GameInstance.h"
 #include "PhysScene.h"
 #include "FireActor.h"
 #include "EPhysicsMode.h"
@@ -745,6 +746,13 @@ void AFirefighterCharacter::TakeDamage(float DamageAmount)
 	if (bIsDead || DamageCooldownTimer > 0.0f)
 	{
 		return;
+	}
+
+	// 소방복 착용 시 데미지 50% 감소
+	UGameInstance* GI = GetWorld() ? GetWorld()->GetGameInstance() : nullptr;
+	if (GI && GI->HasItem("FireSuit"))
+	{
+		DamageAmount *= 0.5f;
 	}
 
 	// 사망 여부 미리 확인

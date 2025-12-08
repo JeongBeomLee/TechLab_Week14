@@ -7,9 +7,14 @@
         "Source" : "Mesh"
       }],
     "SphereElems" : [],
-    "SphylElems" : []
+    "SphylElems" : [],
+    "TriangleMeshElems" : []
   },
+  "AngularDamping" : 0.050000,
   "BoneIndex" : -1,
   "BoneName" : "None",
+  "CollisionComplexity" : "UseSimple",
+  "LinearDamping" : 0.010000,
+  "MassInKg" : 1.000000,
   "PhysicalMaterial" : ""
 }

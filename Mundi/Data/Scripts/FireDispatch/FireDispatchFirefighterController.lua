@@ -24,8 +24,18 @@ local ANIM_WITH_CLOTH = {
     KIP_UP = "Data/firefighter/Firefighter_With_Cloth_Kip_Up_mixamo.com"
 }
 
+-- 애니메이션 에셋 경로 (Without_Cloth 버전 - 소방복 미장착 상태)
+local ANIM_WITHOUT_CLOTH = {
+    IDLE = "Data/firefighter/Firefighter_Without_Cloth_Idle_mixamo.com",
+    WALK = "Data/firefighter/Firefighter_Without_Cloth_Walking_mixamo.com",
+    RUNNING = "Data/firefighter/Firefighter_Without_Cloth_Running_mixamo.com",
+    PICKUP = "Data/firefighter/Firefighter_Without_Cloth_Picking_Up_Object_mixamo.com",
+    KIP_UP = "Data/firefighter/Firefighter_Without_Cloth_Kip_Up_mixamo.com"
+}
+
 -- 메시 경로
 local MESH_WITH_CLOTH = "Data/firefighter/Firefighter_With_Cloth.fbx"
+local MESH_WITHOUT_CLOTH = "Data/firefighter/Firefighter_Without_Cloth.fbx"
 
 -- 이동 속도
 local WALK_SPEED = 3.0
@@ -99,12 +109,23 @@ function SetupAnimationStateMachine()
     -- 기존 상태 클리어
     State.StateMachine:Clear()
 
+    -- 소방복 획득 여부에 따라 애니메이션 선택
+    local gi = GetGameInstance()
+    local bHasFireSuit = gi and gi:HasItem("FireSuit") or false
+    local ANIM = bHasFireSuit and ANIM_WITH_CLOTH or ANIM_WITHOUT_CLOTH
+
+    if bHasFireSuit then
+        print("[FireDispatchFirefighter] Using WITH_CLOTH animations (has fire suit)")
+    else
+        print("[FireDispatchFirefighter] Using WITHOUT_CLOTH animations (no fire suit)")
+    end
+
     -- 상태 추가 (이름, 에셋 경로, 재생 속도, 루핑 여부)
-    local idleIdx = State.StateMachine:AddState(STATE_IDLE, ANIM_WITH_CLOTH.IDLE, 1.0, true)
-    local walkIdx = State.StateMachine:AddState(STATE_WALK, ANIM_WITH_CLOTH.WALK, 1.0, true)
-    local runIdx = State.StateMachine:AddState(STATE_RUNNING, ANIM_WITH_CLOTH.RUNNING, 1.5, true)
-    local pickupIdx = State.StateMachine:AddState(STATE_PICKUP, ANIM_WITH_CLOTH.PICKUP, 1.0, false)
-    local kipUpIdx = State.StateMachine:AddState(STATE_KIP_UP, ANIM_WITH_CLOTH.KIP_UP, 1.0, false)
+    local idleIdx = State.StateMachine:AddState(STATE_IDLE, ANIM.IDLE, 1.0, true)
+    local walkIdx = State.StateMachine:AddState(STATE_WALK, ANIM.WALK, 1.0, true)
+    local runIdx = State.StateMachine:AddState(STATE_RUNNING, ANIM.RUNNING, 1.5, true)
+    local pickupIdx = State.StateMachine:AddState(STATE_PICKUP, ANIM.PICKUP, 1.0, false)
+    local kipUpIdx = State.StateMachine:AddState(STATE_KIP_UP, ANIM.KIP_UP, 1.0, false)
 
     -- 전이(Transition) 추가 (BlendTime)
     State.StateMachine:AddTransitionByName(STATE_IDLE, STATE_WALK, 0.2)

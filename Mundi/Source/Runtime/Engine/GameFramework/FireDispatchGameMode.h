@@ -201,6 +201,7 @@ private:
     void UpdateDoorSoundDelay(float DeltaTime);
     void UpdateOuchSoundDelay(float DeltaTime);
     void UpdateVibration(float DeltaTime);
+    void UpdateFirefighterMeshBasedOnFireSuit();
 
     float GetPhaseDuration(EFireDispatchPhase Phase) const;
 };
