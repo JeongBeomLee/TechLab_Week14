@@ -1,0 +1,9 @@
+{
+  "FrameRate" : 30.000000,
+  "NotifyTracks" : [{
+      "Name" : "Track 0",
+      "Notifies" : []
+    }],
+  "NumberOfFrames" : 58,
+  "SourceFilePath" : "Data/People/Knee_Praying_mixamo.com"
+}

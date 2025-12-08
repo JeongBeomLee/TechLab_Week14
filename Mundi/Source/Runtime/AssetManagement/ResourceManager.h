@@ -230,6 +230,22 @@ inline T* UResourceManager::Load(const FString& InFilePath, Args && ...InArgs)
 	// 경로 정규화: 모든 백슬래시를 슬래시로 변환하여 일관성 유지
 	FString NormalizedPath = NormalizePath(InFilePath);
 
+	// .animsequence 파일 처리: SourceFilePath를 읽어서 실제 애니메이션 로드
+	if constexpr (std::is_same_v<T, UAnimSequence>)
+	{
+		if (NormalizedPath.size() > 13 && NormalizedPath.substr(NormalizedPath.size() - 13) == ".animsequence")
+		{
+			// .animsequence 파일에서 SourceFilePath 읽기
+			FString SourcePath = UAnimSequence::GetSourceFilePathFromAnimSequence(NormalizedPath);
+			if (!SourcePath.empty())
+			{
+				// SourceFilePath로 실제 애니메이션 로드
+				return Load<UAnimSequence>(SourcePath, std::forward<Args>(InArgs)...);
+			}
+			return nullptr;
+		}
+	}
+
 	uint8 typeIndex = static_cast<uint8>(GetResourceType<T>());
 	auto iter = Resources[typeIndex].find(NormalizedPath);
 	if (iter != Resources[typeIndex].end())

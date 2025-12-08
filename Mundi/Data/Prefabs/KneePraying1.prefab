@@ -1,0 +1,54 @@
+{
+  "ObjectName" : "KneePraying1",
+  "OwnedComponents" : [{
+      "CollisionChannel" : 1,
+      "CollisionEnabled" : 3,
+      "CollisionMask" : -1,
+      "Id" : 2914,
+      "MaterialSlots" : [{
+          "Type" : "None"
+        }, {
+          "AssetPath" : "Ch26_body",
+          "Type" : "UMaterial"
+        }, {
+          "AssetPath" : "Ch26_hair",
+          "Type" : "UMaterial"
+        }],
+      "Mobility" : 1,
+      "ObjectName" : "USkeletalMeshComponent_1",
+      "ParentId" : 0,
+      "PhysicalMaterial" : "",
+      "PhysicsAsset" : "Data/Physics/Elizabeth.physicsasset",
+      "PhysicsMode" : 0,
+      "RagdollRootBoneIndex" : 0,
+      "RagdollRootBoneName" : "",
+      "RelativeLocation" : [-53.199310, -304.914215, -17.273945],
+      "RelativeRotationEuler" : [0.000000, -0.000000, 90.000008],
+      "RelativeScale" : [1.500000, 1.500000, 1.500000],
+      "SkeletalMesh" : "Data/People/Elizabeth.fbx",
+      "Type" : "USkeletalMeshComponent",
+      "bBlockComponent" : false,
+      "bCastShadows" : true,
+      "bGenerateOverlapEvents" : true,
+      "bHiddenInGame" : false,
+      "bIsActive" : true,
+      "bIsVisible" : true,
+      "bSimulatePhysics" : true,
+      "bTickEnabled" : true,
+      "bTickInEditor" : false,
+      "bUpdateComponentLocationFromRagdoll" : true
+    }, {
+      "ObjectName" : "ULuaScriptComponent_2",
+      "ScriptFilePath" : "Data/Scripts/KneePraying.lua",
+      "Type" : "ULuaScriptComponent",
+      "bHiddenInGame" : false,
+      "bIsActive" : true,
+      "bTickEnabled" : true,
+      "bTickInEditor" : false
+    }],
+  "RootComponentId" : 2914,
+  "Tag" : "",
+  "Type" : "ASkeletalMeshActor",
+  "bActorHiddenInGame" : false,
+  "bActorIsActive" : true
+}

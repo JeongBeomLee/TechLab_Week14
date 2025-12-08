@@ -5,6 +5,8 @@
 #include "SphereComponent.h"
 #include "ResourceManager.h"
 #include "JsonSerializer.h"
+#include "World.h"
+#include "FirefighterCharacter.h"
 
 AFireActor::AFireActor()
 	: bIsActive(true)
@@ -58,8 +60,40 @@ void AFireActor::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
 
-	// 불이 활성화 상태이고 데미지 스피어가 있으면 오버랩된 액터에 데미지
-	// (데미지 로직은 Lua 스크립트에서 처리하거나 추후 구현)
+	// 불이 비활성화 상태면 데미지 없음
+	if (!bIsActive)
+	{
+		return;
+	}
+
+	// 월드에서 플레이어 캐릭터 찾기
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	AFirefighterCharacter* Player = World->FindActor<AFirefighterCharacter>();
+	if (!Player || Player->bIsDead)
+	{
+		return;
+	}
+
+	// 거리 체크 (스케일 적용된 반경 사용)
+	FVector FireLocation = GetActorLocation();
+	FVector PlayerLocation = Player->GetActorLocation();
+	float Distance = (FireLocation - PlayerLocation).Size();
+
+	// 스케일 적용된 데미지 반경
+	FVector CurrentScale = GetActorScale();
+	float ScaledRadius = FireRadius * CurrentScale.X;
+
+	if (Distance <= ScaledRadius)
+	{
+		float Damage = DamagePerSecond * FireIntensity;
+
+		Player->TakeDamage(Damage);
+	}
 }
 
 void AFireActor::DuplicateSubObjects()
@@ -99,7 +133,7 @@ void AFireActor::Serialize(const bool bInIsLoading, JSON& InOutHandle)
 		// 불 상태 로드
 		FJsonSerializer::ReadBool(InOutHandle, "bIsActive", bIsActive, true);
 		FJsonSerializer::ReadFloat(InOutHandle, "FireIntensity", FireIntensity, 1.0f);
-		FJsonSerializer::ReadFloat(InOutHandle, "DamagePerSecond", DamagePerSecond, 10.0f);
+		FJsonSerializer::ReadFloat(InOutHandle, "DamagePerSecond", DamagePerSecond, 50.0f);
 		FJsonSerializer::ReadFloat(InOutHandle, "FireRadius", FireRadius, 2.0f);
 		FJsonSerializer::ReadFloat(InOutHandle, "WaterDamageMultiplier", WaterDamageMultiplier, 1.0f);
 

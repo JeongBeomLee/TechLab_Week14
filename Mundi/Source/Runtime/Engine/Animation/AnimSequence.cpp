@@ -417,3 +417,35 @@ bool UAnimSequence::LoadAnimSequenceFile(const FString& InFilePath)
 		return false;
 	}
 }
+
+FString UAnimSequence::GetSourceFilePathFromAnimSequence(const FString& InFilePath)
+{
+	try
+	{
+		// 파일 존재 확인
+		if (!std::filesystem::exists(InFilePath))
+		{
+			return "";
+		}
+
+		// FString을 FWideString으로 변환
+		FWideString WidePath(InFilePath.begin(), InFilePath.end());
+
+		// 파일에서 JSON 로드
+		JSON JsonHandle;
+		if (!FJsonSerializer::LoadJsonFromFile(JsonHandle, WidePath))
+		{
+			return "";
+		}
+
+		// SourceFilePath 읽기
+		FString SourcePath;
+		FJsonSerializer::ReadString(JsonHandle, "SourceFilePath", SourcePath, "", false);
+
+		return SourcePath;
+	}
+	catch (const std::exception&)
+	{
+		return "";
+	}
+}

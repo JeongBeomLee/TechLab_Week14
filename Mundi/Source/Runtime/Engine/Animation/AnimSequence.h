@@ -77,6 +77,14 @@ public:
 	bool LoadAnimSequenceFile(const FString& InFilePath);
 
 	/**
+	 * .animsequence 파일에서 SourceFilePath 읽기 (정적 함수)
+	 * ResourceManager에서 .animsequence 경로를 실제 애니메이션 경로로 변환할 때 사용
+	 * @param InFilePath .animsequence 파일 경로
+	 * @return SourceFilePath (실패 시 빈 문자열)
+	 */
+	static FString GetSourceFilePathFromAnimSequence(const FString& InFilePath);
+
+	/**
 	 * 캐시 파일 경로 설정 (.anim.bin)
 	 */
 	void SetCachePath(const FString& InPath) { CachePath = InPath; }

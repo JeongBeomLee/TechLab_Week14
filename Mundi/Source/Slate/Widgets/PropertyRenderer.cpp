@@ -53,6 +53,8 @@ TArray<FString> UPropertyRenderer::CachedParticleSystemPaths;
 TArray<FString> UPropertyRenderer::CachedParticleSystemItems;
 TArray<FString> UPropertyRenderer::CachedPhysicsAssetPaths;
 TArray<FString> UPropertyRenderer::CachedPhysicsAssetItems;
+TArray<FString> UPropertyRenderer::CachedAnimSequencePaths;
+TArray<FString> UPropertyRenderer::CachedAnimSequenceItems;
 char UPropertyRenderer::TextureSearchFilter[256] = "";
 char UPropertyRenderer::StaticMeshSearchFilter[256] = "";
 
@@ -709,6 +711,34 @@ void UPropertyRenderer::CacheResources()
 			}
 		}
 	}
+
+	// 8. AnimSequence (.animsequence) - 파일 시스템 스캔
+	if (CachedAnimSequencePaths.IsEmpty() && CachedAnimSequenceItems.IsEmpty())
+	{
+		// "None" 항목 추가
+		CachedAnimSequencePaths.Add("");
+		CachedAnimSequenceItems.Add("None");
+
+		// Data/Animations/ 디렉토리 스캔
+		const FString AnimationsDir = GDataDir + "/Animations/";
+		if (fs::exists(UTF8ToWide(AnimationsDir)) && fs::is_directory(UTF8ToWide(AnimationsDir)))
+		{
+			for (const auto& Entry : fs::recursive_directory_iterator(UTF8ToWide(AnimationsDir)))
+			{
+				if (Entry.is_regular_file())
+				{
+					FString Ext = WideToUTF8(Entry.path().extension().wstring());
+					std::transform(Ext.begin(), Ext.end(), Ext.begin(), ::tolower);
+					if (Ext == ".animsequence")
+					{
+						FString Path = NormalizePath(WideToUTF8(Entry.path().wstring()));
+						CachedAnimSequencePaths.Add(Path);
+						CachedAnimSequenceItems.Add(WideToUTF8(Entry.path().filename().wstring()));
+					}
+				}
+			}
+		}
+	}
 }
 
 void UPropertyRenderer::ClearResourcesCache()
@@ -731,6 +761,8 @@ void UPropertyRenderer::ClearResourcesCache()
 	CachedParticleSystemItems.Empty();
 	CachedPhysicsAssetPaths.Empty();
 	CachedPhysicsAssetItems.Empty();
+	CachedAnimSequencePaths.Empty();
+	CachedAnimSequenceItems.Empty();
 }
 
 // ===== 타입별 렌더링 구현 =====

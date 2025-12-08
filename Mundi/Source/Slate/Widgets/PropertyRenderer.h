@@ -100,6 +100,8 @@ private:
 	static TArray<FString> CachedParticleSystemItems;
 	static TArray<FString> CachedPhysicsAssetPaths;
 	static TArray<FString> CachedPhysicsAssetItems;
+	static TArray<FString> CachedAnimSequencePaths;
+	static TArray<FString> CachedAnimSequenceItems;
 
 	// 검색 필터 버퍼
 	static char TextureSearchFilter[256];

@@ -788,11 +788,19 @@ void SPhysicsAssetEditorWindow::LoadPhysicsAsset()
     PhysState->EditingAsset = LoadedAsset;
 
     // SkeletalMeshComponent에 EditingAsset 설정 (디버그 렌더링을 위해)
+    // 주의: 로드 시에는 물리 바디를 생성하지 않도록 직접 할당
+    // (SetPhysicsAsset은 bSimulatePhysics가 true면 InitRagdoll을 호출해서 바디가 생성됨)
     if (PhysState->PreviewActor)
     {
         if (USkeletalMeshComponent* SkelComp = PhysState->PreviewActor->GetSkeletalMeshComponent())
         {
-            SkelComp->SetPhysicsAsset(LoadedAsset);
+            // 기존 물리 상태 정리 (혹시 있다면)
+            if (SkelComp->bRagdollInitialized)
+            {
+                SkelComp->TermRagdoll();
+            }
+            // PhysicsAsset만 설정 (바디 생성 없이)
+            SkelComp->PhysicsAsset = LoadedAsset;
         }
     }
 
@@ -4548,18 +4556,23 @@ void SPhysicsAssetEditorWindow::RenderToolsPanel()
                         PreviewComp->TermRagdoll();
                     }
 
-                    PreviewComp->ResetToRefPose();
-                    PreviewComp->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-
-                    // PhysicsAsset 강제 재설정 (같은 에셋이라도)
-                    UPhysicsAsset* AssetToSet = PhysState->EditingAsset;
-                    PreviewComp->PhysicsAsset = nullptr;
-                    PreviewComp->SetPhysicsAsset(AssetToSet);
-
                     FPhysScene* PhysScene = PhysState->World->GetPhysicsScene();
                     if (PhysScene)
                     {
+                        // 지연된 릴리즈 먼저 처리 (이전 바디가 완전히 제거되도록)
                         PhysScene->FlushDeferredReleases();
+                    }
+
+                    PreviewComp->ResetToRefPose();
+
+                    // 직접 할당하여 OnCreatePhysicsState() 호출 방지
+                    // (SetCollisionEnabled, SetPhysicsAsset은 내부에서 InitRagdoll을 호출할 수 있음)
+                    PreviewComp->CollisionEnabled = ECollisionEnabled::QueryAndPhysics;
+                    PreviewComp->PhysicsAsset = PhysState->EditingAsset;
+
+                    if (PhysScene)
+                    {
+                        // 래그돌 초기화 (바디 생성은 여기서 한 번만)
                         PreviewComp->InitRagdoll(PhysScene);
                         PreviewComp->SetPhysicsMode(EPhysicsMode::Ragdoll);
                     }
