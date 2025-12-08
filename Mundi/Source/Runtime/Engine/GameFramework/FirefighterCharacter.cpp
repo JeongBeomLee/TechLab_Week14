@@ -166,6 +166,11 @@ AFirefighterCharacter::AFirefighterCharacter()
 	// 발소리 사운드 로드
 	FootstepSound = UResourceManager::GetInstance().Load<USound>("Data/Audio/FirefighterStep.wav");
 
+	// 물 마법 사운드 로드
+	WaterStartSound = UResourceManager::GetInstance().Load<USound>("Data/Audio/water_start.wav");
+	WaterLoopSound = UResourceManager::GetInstance().Load<USound>("Data/Audio/water_ing.wav");
+	WaterEndSound = UResourceManager::GetInstance().Load<USound>("Data/Audio/water_end.wav");
+
 	// 왼손 본 소켓 컴포넌트 생성 (사람 들기용 - Neck 부착)
 	LeftHandSocket = CreateDefaultSubobject<UBoneSocketComponent>("LeftHandSocket");
 	if (LeftHandSocket && MeshComponent)
@@ -189,6 +194,11 @@ AFirefighterCharacter::AFirefighterCharacter()
 
 AFirefighterCharacter::~AFirefighterCharacter()
 {
+	if (WaterLoopVoice)
+	{
+		FAudioDevice::StopSound(WaterLoopVoice);
+		WaterLoopVoice = nullptr;
+	}
 }
 
 void AFirefighterCharacter::BeginPlay()
@@ -291,6 +301,12 @@ void AFirefighterCharacter::Tick(float DeltaSeconds)
 
 	// Super::Tick에서 Component들의 Tick이 호출됨 (SpringArm 포함)
 	Super::Tick(DeltaSeconds);
+
+	// 물 루프 사운드 위치 업데이트
+	if (WaterLoopVoice)
+	{
+		FAudioDevice::UpdateSoundPosition(WaterLoopVoice, GetWaterEmitterLocation());
+	}
 
 	// 데미지 쿨타임 타이머 업데이트
 	if (DamageCooldownTimer > 0.0f)
@@ -437,6 +453,19 @@ void AFirefighterCharacter::PlayWaterMagicEffect()
 		WaterMagicParticle->ResetParticles();
 		WaterMagicParticle->ActivateSystem();
 	}
+
+	// 시작/루프 사운드 재생
+	FVector EmitterLocation = GetWaterEmitterLocation();
+
+	if (WaterStartSound)
+	{
+		FAudioDevice::PlaySound3D(WaterStartSound, EmitterLocation, 0.35f, false);
+	}
+
+	if (WaterLoopSound && !WaterLoopVoice)
+	{
+		WaterLoopVoice = FAudioDevice::PlaySound3D(WaterLoopSound, EmitterLocation, 0.35f, true);
+	}
 }
 
 void AFirefighterCharacter::StopWaterMagicEffect()
@@ -444,6 +473,18 @@ void AFirefighterCharacter::StopWaterMagicEffect()
 	if (WaterMagicParticle)
 	{
 		WaterMagicParticle->DeactivateSystem();
+	}
+
+	// 루프 사운드 정지 및 종료 사운드 재생
+	if (WaterLoopVoice)
+	{
+		FAudioDevice::StopSound(WaterLoopVoice);
+		WaterLoopVoice = nullptr;
+	}
+
+	if (WaterEndSound)
+	{
+		FAudioDevice::PlaySound3D(WaterEndSound, GetWaterEmitterLocation(), 0.35f, false);
 	}
 }
 
@@ -488,6 +529,16 @@ void AFirefighterCharacter::PlayFootstepSound(const FVector& FootPosition)
 
 	// 3D 공간 사운드로 발소리 재생
 	FAudioDevice::PlaySound3D(FootstepSound, FootPosition, 0.5f, false);
+}
+
+FVector AFirefighterCharacter::GetWaterEmitterLocation() const
+{
+	if (WaterMagicParticle)
+	{
+		return WaterMagicParticle->GetWorldLocation();
+	}
+
+	return GetActorLocation();
 }
 
 void AFirefighterCharacter::DrainExtinguishGauge(float Amount)

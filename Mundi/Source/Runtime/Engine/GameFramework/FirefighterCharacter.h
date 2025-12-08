@@ -8,6 +8,7 @@ class ULuaScriptComponent;
 class UParticleSystemComponent;
 class UBoneSocketComponent;
 class USound;
+struct IXAudio2SourceVoice;
 
 UCLASS(DisplayName = "파이어 파이터 캐릭터", Description = "렛츠고 파이어 파이터")
 class AFirefighterCharacter : public ACharacter
@@ -178,8 +179,19 @@ private:
     /** 발소리 재생 (내부 함수) */
     void PlayFootstepSound(const FVector& FootPosition);
 
+    /** 물줄기 사운드/파티클 위치 계산 (손목 근처) */
+    FVector GetWaterEmitterLocation() const;
+
     /** 발소리 사운드 */
     USound* FootstepSound = nullptr;
+
+    /** 물 마법 사운드 (시작/루프/종료) */
+    USound* WaterStartSound = nullptr;
+    USound* WaterLoopSound = nullptr;
+    USound* WaterEndSound = nullptr;
+
+    /** 물 루프 사운드 Voice 핸들 */
+    IXAudio2SourceVoice* WaterLoopVoice = nullptr;
 
     /** 데미지 쿨타임 타이머 */
     float DamageCooldownTimer = 0.0f;
