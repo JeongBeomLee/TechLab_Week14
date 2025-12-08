@@ -126,6 +126,39 @@ void AIntroGameMode::InitializeUI()
         .SetPivot(0.5f, 0.5f)
         .SetOffset(230.f, 0.f)        // 오른쪽으로 230px (버튼 너비 400 + 여백 60 / 2)
         .SetSize(400.f, 220.f);
+
+    // 도움말 버튼 (우측 상단)
+    HelpButton = MakeShared<SButton>();
+    HelpButton->SetText(L"")
+        .SetBackgroundImageAtlas(
+            "Data/Textures/Intro/Fire_Scene1_Btn_Help.png",
+            FSlateRect(0.f, 0.f, 768.f, 768.f),      // Normal: 왼쪽
+            FSlateRect(768.f, 0.f, 1536.f, 768.f),   // Hovered: 오른쪽
+            FSlateRect(768.f, 0.f, 1536.f, 768.f)    // Pressed: Hovered와 동일
+        )
+        .OnHover([this](bool bIsHovered) {
+            if (bIsHovered)
+                OnHelpButtonHovered();
+            else
+                OnHelpButtonUnhovered();
+        });
+
+    SGameHUD::Get().AddWidget(HelpButton)
+        .SetAnchor(1.0f, 0.0f)        // 우측 상단
+        .SetPivot(1.0f, 0.0f)         // 우측 상단 기준
+        .SetOffset(-20.f, 20.f)       // 우측 상단에서 약간의 여백
+        .SetSize(200.f, 200.f);
+
+    // 가이드 이미지 (화면 중앙, 초기에는 숨김)
+    GuideWidget = MakeShared<STextBlock>();
+    GuideWidget->SetText(L"")
+        .SetBackgroundImage("Data/Textures/Intro/Fire_Scene1_Guide.png")
+        .SetVisibility(ESlateVisibility::Hidden);
+
+    SGameHUD::Get().AddWidget(GuideWidget)
+        .SetAnchor(0.5f, 0.5f)        // 화면 중앙
+        .SetPivot(0.5f, 0.5f)         // 중앙 기준
+        .SetSize(1350.f, 800.f);       // 적절한 크기로 조정
 }
 
 void AIntroGameMode::OnStartButtonClicked()
@@ -181,6 +214,22 @@ void AIntroGameMode::OnQuitButtonClicked()
     PostQuitMessage(0);
 }
 
+void AIntroGameMode::OnHelpButtonHovered()
+{
+    if (GuideWidget)
+    {
+        GuideWidget->SetVisibility(ESlateVisibility::Visible);
+    }
+}
+
+void AIntroGameMode::OnHelpButtonUnhovered()
+{
+    if (GuideWidget)
+    {
+        GuideWidget->SetVisibility(ESlateVisibility::Hidden);
+    }
+}
+
 void AIntroGameMode::ClearUI()
 {
     if (!SGameHUD::Get().IsInitialized()) { return; }
@@ -201,5 +250,17 @@ void AIntroGameMode::ClearUI()
     {
         SGameHUD::Get().RemoveWidget(QuitButton);
         QuitButton.Reset();
+    }
+
+    if (HelpButton)
+    {
+        SGameHUD::Get().RemoveWidget(HelpButton);
+        HelpButton.Reset();
+    }
+
+    if (GuideWidget)
+    {
+        SGameHUD::Get().RemoveWidget(GuideWidget);
+        GuideWidget.Reset();
     }
 }
