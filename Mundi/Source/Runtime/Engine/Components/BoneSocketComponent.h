@@ -71,6 +71,16 @@ public:
     USkeletalMeshComponent* GetTargetMesh() const { return TargetMesh; }
     int32 GetBoneIndex() const { return BoneIndex; }
 
+    /**
+     * @brief 스켈레톤에서 본 이름의 suffix로 검색 (접두사 무시)
+     * @param Skeleton 검색할 스켈레톤
+     * @param BaseName 찾을 본의 기본 이름 (예: "LeftHand", "Neck")
+     * @param OutBoneIndex [out] 찾은 본의 인덱스 (-1 if not found)
+     * @param OutFullName [out] 찾은 본의 전체 이름
+     * @return 성공 여부
+     */
+    static bool FindBoneBySuffix(const struct FSkeleton* Skeleton, const FString& BaseName, int32& OutBoneIndex, FString& OutFullName);
+
     // ──────────────────────────────
     // 래그돌 자식 부착 (시체 메기 등)
     // ──────────────────────────────

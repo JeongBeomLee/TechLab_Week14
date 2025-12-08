@@ -212,4 +212,8 @@ public:
     /** 사람 내려놓기 (Lua에서 호출) */
     UFUNCTION(LuaBind, DisplayName="StopCarryingPerson")
     void StopCarryingPerson();
+
+    /** 본 소켓 재바인딩 (메시 변경 후 호출, Lua에서 호출) */
+    UFUNCTION(LuaBind, DisplayName="RebindBoneSockets")
+    void RebindBoneSockets();
 };

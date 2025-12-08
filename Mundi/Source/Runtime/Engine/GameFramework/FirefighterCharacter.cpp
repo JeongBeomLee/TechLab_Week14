@@ -555,32 +555,20 @@ void AFirefighterCharacter::StartCarryingPerson(FGameObject* PersonGameObject)
 		UE_LOG("  - %s (index: %d)", Pair.first.c_str(), Pair.second);
 	}
 
-	// Neck 본 인덱스 찾기 (여러 이름 시도)
+	// Neck 본 인덱스 찾기 (suffix 검색 사용)
 	int32 NeckBoneIndex = -1;
-	const char* NeckNames[] = { "mixamorig4:Neck", "mixamorig:Neck", "Neck", "neck", "Bip01_Neck", "Bip001_Neck" };
-	for (const char* Name : NeckNames)
+	FString NeckBoneName;
+	if (UBoneSocketComponent::FindBoneBySuffix(Skeleton, "Neck", NeckBoneIndex, NeckBoneName))
 	{
-		auto It = Skeleton->BoneNameToIndex.find(Name);
-		if (It != Skeleton->BoneNameToIndex.end())
-		{
-			NeckBoneIndex = It->second;
-			UE_LOG("[FirefighterCharacter] Found Neck bone: %s (index: %d)", Name, NeckBoneIndex);
-			break;
-		}
+		UE_LOG("[FirefighterCharacter] Found Neck bone: %s (index: %d)", NeckBoneName.c_str(), NeckBoneIndex);
 	}
 
-	// Hips 본 인덱스 찾기 (여러 이름 시도)
+	// Hips 본 인덱스 찾기 (suffix 검색 사용)
 	int32 HipsBoneIndex = -1;
-	const char* HipsNames[] = { "mixamorig4:Hips", "mixamorig:Hips", "Hips", "hips", "Bip01_Pelvis", "Bip001_Pelvis", "pelvis", "Pelvis" };
-	for (const char* Name : HipsNames)
+	FString HipsBoneName;
+	if (UBoneSocketComponent::FindBoneBySuffix(Skeleton, "Hips", HipsBoneIndex, HipsBoneName))
 	{
-		auto It = Skeleton->BoneNameToIndex.find(Name);
-		if (It != Skeleton->BoneNameToIndex.end())
-		{
-			HipsBoneIndex = It->second;
-			UE_LOG("[FirefighterCharacter] Found Hips bone: %s (index: %d)", Name, HipsBoneIndex);
-			break;
-		}
+		UE_LOG("[FirefighterCharacter] Found Hips bone: %s (index: %d)", HipsBoneName.c_str(), HipsBoneIndex);
 	}
 
 	UE_LOG("[FirefighterCharacter] StartCarryingPerson: Neck=%d, Hips=%d", NeckBoneIndex, HipsBoneIndex);
@@ -612,7 +600,26 @@ void AFirefighterCharacter::StopCarryingPerson()
 	{
 		return;
 	}
-	
+
+}
+
+void AFirefighterCharacter::RebindBoneSockets()
+{
+	UE_LOG("[FirefighterCharacter] RebindBoneSockets called");
+
+	// 메시 변경 후 BoneSocketComponent에 새 스켈레톤의 본을 다시 바인딩
+	if (LeftHandSocket && MeshComponent)
+	{
+		bool bFound = LeftHandSocket->SetTargetByName(MeshComponent, "mixamorig:LeftHand");
+		UE_LOG("[FirefighterCharacter] RebindBoneSockets: LeftHandSocket BoneIndex=%d, found=%d",
+			LeftHandSocket->BoneIndex, bFound ? 1 : 0);
+	}
+	if (RightHandSocket && MeshComponent)
+	{
+		bool bFound = RightHandSocket->SetTargetByName(MeshComponent, "mixamorig:RightHand");
+		UE_LOG("[FirefighterCharacter] RebindBoneSockets: RightHandSocket BoneIndex=%d, found=%d",
+			RightHandSocket->BoneIndex, bFound ? 1 : 0);
+	}
 }
 
 void AFirefighterCharacter::ProcessGamepadInput()

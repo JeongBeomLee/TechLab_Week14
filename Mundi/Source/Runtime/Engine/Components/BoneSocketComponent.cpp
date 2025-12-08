@@ -14,101 +14,86 @@ UBoneSocketComponent::UBoneSocketComponent()
     SocketOffset = FTransform();
 }
 
+bool UBoneSocketComponent::FindBoneBySuffix(const FSkeleton* Skeleton, const FString& BaseName, int32& OutBoneIndex, FString& OutFullName)
+{
+    OutBoneIndex = -1;
+    OutFullName.clear();
+
+    if (!Skeleton || BaseName.empty())
+    {
+        return false;
+    }
+
+    // 먼저 정확히 일치하는 이름 검색
+    auto ExactIt = Skeleton->BoneNameToIndex.find(BaseName);
+    if (ExactIt != Skeleton->BoneNameToIndex.end())
+    {
+        OutBoneIndex = ExactIt->second;
+        OutFullName = BaseName;
+        return true;
+    }
+
+    // suffix로 끝나는 본 검색 (예: "mixamorig10:LeftHand" -> "LeftHand"로 끝남)
+    FString Suffix = ":" + BaseName;
+    for (const auto& Pair : Skeleton->BoneNameToIndex)
+    {
+        // 본 이름이 ":BaseName"으로 끝나는지 확인
+        if (Pair.first.length() > Suffix.length())
+        {
+            size_t SuffixStart = Pair.first.length() - Suffix.length();
+            if (Pair.first.substr(SuffixStart) == Suffix)
+            {
+                OutBoneIndex = Pair.second;
+                OutFullName = Pair.first;
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
 void UBoneSocketComponent::BeginPlay()
 {
     Super::BeginPlay();
-
-    UE_LOG("[BoneSocketComponent] ===== BeginPlay START =====");
-    UE_LOG("[BoneSocketComponent] Component: %s, BoneName='%s', BoneIndex=%d", GetName().c_str(), BoneName.c_str(), BoneIndex);
 
     // TargetMesh가 설정되지 않았으면 부모에서 자동으로 찾기
     if (!TargetMesh)
     {
         FindAndSetTargetFromParent();
     }
-    UE_LOG("[BoneSocketComponent] TargetMesh=%p", TargetMesh);
 
     // BoneName이 설정되어 있고 BoneIndex가 -1이면 이름으로 인덱스 찾기
     if (TargetMesh && BoneIndex == -1 && !BoneName.empty())
     {
         USkeletalMesh* SkelMesh = TargetMesh->GetSkeletalMesh();
-        UE_LOG("[BoneSocketComponent] SkelMesh=%p", SkelMesh);
-
         if (SkelMesh)
         {
             const FSkeleton* Skeleton = SkelMesh->GetSkeleton();
-            UE_LOG("[BoneSocketComponent] Skeleton=%p", Skeleton);
-
             if (Skeleton)
             {
-                // 모든 본 이름 출력 (디버깅용)
-                UE_LOG("[BoneSocketComponent] Available bones in target mesh:");
-                for (const auto& Pair : Skeleton->BoneNameToIndex)
+                // 접두사 제거하여 기본 이름 추출
+                FString BaseName = BoneName;
+                size_t ColonPos = BaseName.find(':');
+                if (ColonPos != FString::npos)
                 {
-                    if (Pair.first.find("Hand") != FString::npos ||
-                        Pair.first.find("hand") != FString::npos ||
-                        Pair.first.find("Arm") != FString::npos)
-                    {
-                        UE_LOG("  - %s (index: %d)", Pair.first.c_str(), Pair.second);
-                    }
+                    BaseName = BaseName.substr(ColonPos + 1);
                 }
 
-                // 먼저 정확한 이름으로 검색
-                auto It = Skeleton->BoneNameToIndex.find(BoneName);
-                if (It != Skeleton->BoneNameToIndex.end())
+                // suffix 검색 사용
+                FString FoundName;
+                if (FindBoneBySuffix(Skeleton, BaseName, BoneIndex, FoundName))
                 {
-                    BoneIndex = It->second;
-                    UE_LOG("[BoneSocketComponent] Found bone '%s' at index %d", BoneName.c_str(), BoneIndex);
+                    BoneName = FoundName;
+                    UE_LOG("[BoneSocketComponent] BeginPlay: Found bone '%s' at index %d", BoneName.c_str(), BoneIndex);
                 }
                 else
                 {
-                    // 접두사 변형 시도 (mixamorig:, mixamorig4:, 접두사 없음)
-                    FString BaseName = BoneName;
-
-                    // 기존 접두사 제거
-                    if (BaseName.find("mixamorig4:") == 0)
-                    {
-                        BaseName = BaseName.substr(11);
-                    }
-                    else if (BaseName.find("mixamorig:") == 0)
-                    {
-                        BaseName = BaseName.substr(10);
-                    }
-
-                    UE_LOG("[BoneSocketComponent] Trying variants for BaseName='%s'", BaseName.c_str());
-
-                    // 다양한 접두사로 시도
-                    const char* Prefixes[] = { "mixamorig:", "mixamorig4:", "mixamorig9:", "" };
-                    for (const char* Prefix : Prefixes)
-                    {
-                        FString TestName = FString(Prefix) + BaseName;
-                        UE_LOG("[BoneSocketComponent] Trying: '%s'", TestName.c_str());
-                        auto TestIt = Skeleton->BoneNameToIndex.find(TestName);
-                        if (TestIt != Skeleton->BoneNameToIndex.end())
-                        {
-                            BoneIndex = TestIt->second;
-                            BoneName = TestName;  // 찾은 이름으로 업데이트
-                            UE_LOG("[BoneSocketComponent] SUCCESS! Found bone '%s' at index %d", TestName.c_str(), BoneIndex);
-                            break;
-                        }
-                    }
-
-                    // 여전히 못 찾았으면 로그 출력
-                    if (BoneIndex == -1)
-                    {
-                        UE_LOG("[BoneSocketComponent] FAILED: Bone '%s' not found!", BoneName.c_str());
-                    }
+                    UE_LOG("[BoneSocketComponent] BeginPlay: Bone '%s' not found!", BaseName.c_str());
                 }
             }
         }
     }
-    else
-    {
-        UE_LOG("[BoneSocketComponent] Skipping bone search: TargetMesh=%p, BoneIndex=%d, BoneName.empty()=%d",
-               TargetMesh, BoneIndex, BoneName.empty() ? 1 : 0);
-    }
-
-    UE_LOG("[BoneSocketComponent] ===== BeginPlay END: BoneIndex=%d =====", BoneIndex);
 
     // 오프셋 프로퍼티에서 SocketOffset 계산
     UpdateSocketOffsetFromProperties();
@@ -162,66 +147,29 @@ bool UBoneSocketComponent::SetTargetByName(USkeletalMeshComponent* InTargetMesh,
         return false;
     }
 
-    // 먼저 정확한 이름으로 검색
-    auto It = Skeleton->BoneNameToIndex.find(InBoneName);
-    if (It != Skeleton->BoneNameToIndex.end())
+    // 접두사 제거하여 기본 이름 추출
+    FString BaseName = InBoneName;
+    size_t ColonPos = BaseName.find(':');
+    if (ColonPos != FString::npos)
+    {
+        BaseName = BaseName.substr(ColonPos + 1);
+    }
+
+    // suffix 검색 사용
+    int32 FoundIndex;
+    FString FoundName;
+    if (FindBoneBySuffix(Skeleton, BaseName, FoundIndex, FoundName))
     {
         TargetMesh = InTargetMesh;
-        BoneIndex = It->second;
-        BoneName = InBoneName;
+        BoneIndex = FoundIndex;
+        BoneName = FoundName;
         UE_LOG("[BoneSocketComponent] SetTargetByName: Found '%s' at index %d", BoneName.c_str(), BoneIndex);
         SyncWithBone();
         return true;
     }
 
-    // 접두사 변형 시도
-    FString BaseName = InBoneName;
-    if (BaseName.find("mixamorig4:") == 0)
-    {
-        BaseName = BaseName.substr(11);
-    }
-    else if (BaseName.find("mixamorig:") == 0)
-    {
-        BaseName = BaseName.substr(10);
-    }
-
-    const char* Prefixes[] = { "mixamorig:", "mixamorig4:", "mixamorig9:", "" };
-    for (const char* Prefix : Prefixes)
-    {
-        FString TestName = FString(Prefix) + BaseName;
-        auto TestIt = Skeleton->BoneNameToIndex.find(TestName);
-        if (TestIt != Skeleton->BoneNameToIndex.end())
-        {
-            TargetMesh = InTargetMesh;
-            BoneIndex = TestIt->second;
-            BoneName = TestName;
-            UE_LOG("[BoneSocketComponent] SetTargetByName: Found variant '%s' at index %d", BoneName.c_str(), BoneIndex);
-            SyncWithBone();
-            return true;
-        }
-    }
-
-    // 못 찾았으면 모든 본 출력
-    UE_LOG("[BoneSocketComponent] SetTargetByName: Bone '%s' not found!", InBoneName.c_str());
-    UE_LOG("[BoneSocketComponent] BoneNameToIndex.size() = %d", (int)Skeleton->BoneNameToIndex.size());
-    UE_LOG("[BoneSocketComponent] Bones.Num() = %d", (int)Skeleton->Bones.Num());
-
-    // 처음 15개 본 이름 출력
-    int32 Count = FMath::Min(15, static_cast<int32>(Skeleton->Bones.Num()));
-    for (int32 i = 0; i < Count; ++i)
-    {
-        const FString& Name = Skeleton->Bones[i].Name;
-        UE_LOG("[BoneSocketComponent] Bone[%d] = '%s' (len=%d)", i, Name.c_str(), (int)Name.length());
-    }
-
-    // 맵에서도 출력 시도 (처음 15개)
-    UE_LOG("[BoneSocketComponent] From BoneNameToIndex map:");
-    int32 MapCount = 0;
-    for (const auto& Pair : Skeleton->BoneNameToIndex)
-    {
-        if (MapCount++ >= 15) break;
-        UE_LOG("[BoneSocketComponent] Map: '%s' -> %d", Pair.first.c_str(), Pair.second);
-    }
+    // 못 찾았으면 로그 출력
+    UE_LOG("[BoneSocketComponent] SetTargetByName: Bone '%s' (base: '%s') not found!", InBoneName.c_str(), BaseName.c_str());
     return false;
 }
 

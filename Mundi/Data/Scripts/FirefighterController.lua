@@ -252,6 +252,12 @@ function EquipFireSuit()
         -- 피직스 에셋 변경
         State.SkeletalMeshComp:SetPhysicsAsset(PHYSICS_WITH_CLOTH)
         print("[FirefighterController] PhysicsAsset changed to With_Cloth")
+
+        -- 본 소켓 재바인딩 (새 스켈레톤의 손 본에 연결)
+        if State.Character and State.Character.RebindBoneSockets then
+            State.Character:RebindBoneSockets()
+            print("[FirefighterController] Bone sockets rebound to new skeleton")
+        end
     end
 
     -- 참조 재초기화 (메시 변경 후 필요할 수 있음)
