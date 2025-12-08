@@ -43,6 +43,9 @@ public:
     UPROPERTY(EditAnywhere)
     FString CarPassPath = "Data/Audio/CutScene/pass.wav";
 
+    UPROPERTY(EditAnywhere)
+    FString ScreamSoundPath = "Data/Audio/CutScene/scream.wav";
+
     // ════════════════════════════════════════════════════════════════════════
     // 타이밍 설정
 
@@ -121,6 +124,7 @@ private:
     USound* CarSound = nullptr;
     USound* OpenSound = nullptr;
     USound* PassSound = nullptr;
+    USound* ScreamSound = nullptr;
     class APlayerCameraManager* CameraManager = nullptr;
     class ACameraActor* MainCamera = nullptr;
 
