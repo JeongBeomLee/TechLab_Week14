@@ -178,6 +178,10 @@ AFirefighterCharacter::AFirefighterCharacter()
 	// 아이템 획득 사운드 로드
 	ItemPickupSound = UResourceManager::GetInstance().Load<USound>("Data/Audio/AcquisitionSound.wav");
 
+	// 구출 사운드 로드 (남성/여성)
+	ManLetsGoSound = UResourceManager::GetInstance().Load<USound>("Data/Audio/ManLetsGo.wav");
+	WomanLetsGoSound = UResourceManager::GetInstance().Load<USound>("Data/Audio/WomanLetsGo.wav");
+
 	// 아이템 픽업 파티클 컴포넌트 생성
 	ItemPickupParticle = CreateDefaultSubobject<UParticleSystemComponent>("ItemPickupParticle");
 	if (ItemPickupParticle)
@@ -785,6 +789,31 @@ void AFirefighterCharacter::StartCarryingPerson(FGameObject* PersonGameObject)
 	{
 		UE_LOG("[FirefighterCharacter] StartCarryingPerson: Already carrying someone");
 		return;
+	}
+
+	// 액터 이름에 따라 구출 사운드 재생
+	FString ActorName = PersonActor->GetName();
+	UE_LOG("[FirefighterCharacter] StartCarryingPerson: Actor name = %s", ActorName.c_str());
+
+	// 남성 이름: David, Lewis
+	if (ActorName.find("David") != FString::npos || ActorName.find("Lewis") != FString::npos)
+	{
+		if (ManLetsGoSound)
+		{
+			FAudioDevice::PlaySound3D(ManLetsGoSound, GetActorLocation(), 1.0f, false);
+			UE_LOG("[FirefighterCharacter] Playing ManLetsGo sound");
+		}
+	}
+	// 여성 이름: Elizabeth, Sophie, Suzie
+	else if (ActorName.find("Elizabeth") != FString::npos ||
+	         ActorName.find("Sophie") != FString::npos ||
+	         ActorName.find("Suzie") != FString::npos)
+	{
+		if (WomanLetsGoSound)
+		{
+			FAudioDevice::PlaySound3D(WomanLetsGoSound, GetActorLocation(), 1.0f, false);
+			UE_LOG("[FirefighterCharacter] Playing WomanLetsGo sound");
+		}
 	}
 
 	// Person의 SkeletalMeshComponent 가져오기

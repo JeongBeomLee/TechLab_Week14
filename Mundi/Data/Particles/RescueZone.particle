@@ -1,0 +1,589 @@
+{
+  "Emitters" : [{
+      "LODLevels" : [{
+          "Level" : 0,
+          "Modules" : [{
+              "EmitterDelay" : 0.000000,
+              "EmitterDelayLow" : 0.000000,
+              "EmitterDuration" : 0.000000,
+              "EmitterDurationLow" : 0.000000,
+              "EmitterLoops" : 0,
+              "EmitterName" : "GlowBase",
+              "EmitterOrigin" : [0.000000, 0.000000, 0.100000],
+              "EmitterRotation" : [0.000000, 0.000000, 0.000000],
+              "Material" : "",
+              "MaterialShader" : "Shaders/Particle/ParticleSprite.hlsl",
+              "MaterialTexture" : "Data/Textures/Particles/Particle_SoftCircle.png",
+              "ScreenAlignment" : 0,
+              "SortMode" : 0,
+              "SubImages_Horizontal" : 1,
+              "SubImages_Vertical" : 1,
+              "SubUV_MaxElements" : 0,
+              "Type" : "UParticleModuleRequired",
+              "bDelayFirstLoopOnly" : false,
+              "bEnabled" : true,
+              "bOrientZAxisTowardCamera" : false,
+              "bSpawnModule" : false,
+              "bUpdateModule" : false
+            }, {
+              "BurstList" : [],
+              "BurstScale" : {
+                "ConstantValue" : 1.000000,
+                "Type" : 0
+              },
+              "SpawnRate" : {
+                "ConstantValue" : 25.000000,
+                "Type" : 0
+              },
+              "Type" : "UParticleModuleSpawn",
+              "bEnabled" : true,
+              "bSpawnModule" : true,
+              "bUpdateModule" : false
+            }, {
+              "Type" : "UParticleModuleTypeDataSprite",
+              "bEnabled" : true,
+              "bSpawnModule" : false,
+              "bUpdateModule" : false
+            }, {
+              "Lifetime" : {
+                "ConstantValue" : 2.000000,
+                "MaxValue" : 2.500000,
+                "MinValue" : 1.500000,
+                "Type" : 1
+              },
+              "Type" : "UParticleModuleLifetime",
+              "bEnabled" : true,
+              "bSpawnModule" : true,
+              "bUpdateModule" : false
+            }, {
+              "StartLocation" : {
+                "ConstantValue" : [0.000000, 0.000000, 0.000000],
+                "Type" : 0
+              },
+              "DistributionShape" : 1,
+              "BoxExtent" : {
+                "ConstantValue" : [3.000000, 3.000000, 0.100000],
+                "Type" : 0
+              },
+              "SphereRadius" : {
+                "ConstantValue" : 0.000000,
+                "Type" : 0
+              },
+              "CylinderHeight" : {
+                "ConstantValue" : 0.000000,
+                "Type" : 0
+              },
+              "bSurfaceOnly" : false,
+              "Type" : "UParticleModuleLocation",
+              "bEnabled" : true,
+              "bSpawnModule" : true,
+              "bUpdateModule" : false
+            }, {
+              "SizeOverLife" : {
+                "ConstantCurve" : {
+                  "LoopKeyOffset" : 0.000000,
+                  "Points" : [{
+                      "ArriveTangent" : [0.000000, 0.000000, 0.000000],
+                      "InVal" : 0.000000,
+                      "InterpMode" : 2,
+                      "LeaveTangent" : [0.000000, 0.000000, 0.000000],
+                      "OutVal" : [0.200000, 0.200000, 0.200000]
+                    }, {
+                      "ArriveTangent" : [0.000000, 0.000000, 0.000000],
+                      "InVal" : 0.300000,
+                      "InterpMode" : 2,
+                      "LeaveTangent" : [0.000000, 0.000000, 0.000000],
+                      "OutVal" : [0.600000, 0.600000, 0.600000]
+                    }, {
+                      "ArriveTangent" : [0.000000, 0.000000, 0.000000],
+                      "InVal" : 0.700000,
+                      "InterpMode" : 2,
+                      "LeaveTangent" : [0.000000, 0.000000, 0.000000],
+                      "OutVal" : [0.500000, 0.500000, 0.500000]
+                    }, {
+                      "ArriveTangent" : [0.000000, 0.000000, 0.000000],
+                      "InVal" : 1.000000,
+                      "InterpMode" : 2,
+                      "LeaveTangent" : [0.000000, 0.000000, 0.000000],
+                      "OutVal" : [0.100000, 0.100000, 0.100000]
+                    }],
+                  "bIsLooped" : false
+                },
+                "ConstantValue" : [0.400000, 0.400000, 0.400000],
+                "Type" : 2
+              },
+              "Type" : "UParticleModuleSize",
+              "bEnabled" : true,
+              "bSpawnModule" : true,
+              "bUpdateModule" : true
+            }, {
+              "StartVelocity" : {
+                "ConstantValue" : [0.000000, 0.000000, 1.500000],
+                "MaxValue" : [0.300000, 0.300000, 2.000000],
+                "MinValue" : [-0.300000, -0.300000, 1.000000],
+                "Type" : 1
+              },
+              "Type" : "UParticleModuleVelocity",
+              "VelocityDamping" : 0.100000,
+              "bEnabled" : true,
+              "bSpawnModule" : true,
+              "bUpdateModule" : true
+            }, {
+              "ColorOverLife" : {
+                "Alpha" : {
+                  "ConstantCurve" : {
+                    "LoopKeyOffset" : 0.000000,
+                    "Points" : [{
+                        "ArriveTangent" : 0.000000,
+                        "InVal" : 0.000000,
+                        "InterpMode" : 2,
+                        "LeaveTangent" : 0.000000,
+                        "OutVal" : 0.000000
+                      }, {
+                        "ArriveTangent" : 0.000000,
+                        "InVal" : 0.150000,
+                        "InterpMode" : 2,
+                        "LeaveTangent" : 0.000000,
+                        "OutVal" : 0.700000
+                      }, {
+                        "ArriveTangent" : 0.000000,
+                        "InVal" : 0.600000,
+                        "InterpMode" : 2,
+                        "LeaveTangent" : 0.000000,
+                        "OutVal" : 0.500000
+                      }, {
+                        "ArriveTangent" : 0.000000,
+                        "InVal" : 1.000000,
+                        "InterpMode" : 2,
+                        "LeaveTangent" : 0.000000,
+                        "OutVal" : 0.000000
+                      }],
+                    "bIsLooped" : false
+                  },
+                  "ConstantValue" : 0.600000,
+                  "Type" : 2
+                },
+                "RGB" : {
+                  "ConstantCurve" : {
+                    "LoopKeyOffset" : 0.000000,
+                    "Points" : [{
+                        "ArriveTangent" : [0.000000, 0.000000, 0.000000],
+                        "InVal" : 0.000000,
+                        "InterpMode" : 2,
+                        "LeaveTangent" : [0.000000, 0.000000, 0.000000],
+                        "OutVal" : [1.000000, 0.950000, 0.500000]
+                      }, {
+                        "ArriveTangent" : [0.000000, 0.000000, 0.000000],
+                        "InVal" : 0.500000,
+                        "InterpMode" : 2,
+                        "LeaveTangent" : [0.000000, 0.000000, 0.000000],
+                        "OutVal" : [1.000000, 0.850000, 0.200000]
+                      }, {
+                        "ArriveTangent" : [0.000000, 0.000000, 0.000000],
+                        "InVal" : 1.000000,
+                        "InterpMode" : 2,
+                        "LeaveTangent" : [0.000000, 0.000000, 0.000000],
+                        "OutVal" : [1.000000, 0.700000, 0.100000]
+                      }],
+                    "bIsLooped" : false
+                  },
+                  "ConstantValue" : [1.000000, 0.900000, 0.300000],
+                  "Type" : 2
+                }
+              },
+              "Type" : "UParticleModuleColor",
+              "bEnabled" : true,
+              "bSpawnModule" : true,
+              "bUpdateModule" : true
+            }],
+          "bEnabled" : true
+        }]
+    }, {
+      "LODLevels" : [{
+          "Level" : 0,
+          "Modules" : [{
+              "EmitterDelay" : 0.000000,
+              "EmitterDelayLow" : 0.000000,
+              "EmitterDuration" : 0.000000,
+              "EmitterDurationLow" : 0.000000,
+              "EmitterLoops" : 0,
+              "EmitterName" : "RisingSparks",
+              "EmitterOrigin" : [0.000000, 0.000000, 0.050000],
+              "EmitterRotation" : [0.000000, 0.000000, 0.000000],
+              "Material" : "",
+              "MaterialShader" : "Shaders/Particle/ParticleSprite.hlsl",
+              "MaterialTexture" : "Data/Textures/Particles/Particle_Spark.png",
+              "ScreenAlignment" : 0,
+              "SortMode" : 0,
+              "SubImages_Horizontal" : 1,
+              "SubImages_Vertical" : 1,
+              "SubUV_MaxElements" : 0,
+              "Type" : "UParticleModuleRequired",
+              "bDelayFirstLoopOnly" : false,
+              "bEnabled" : true,
+              "bOrientZAxisTowardCamera" : false,
+              "bSpawnModule" : false,
+              "bUpdateModule" : false
+            }, {
+              "BurstList" : [],
+              "BurstScale" : {
+                "ConstantValue" : 1.000000,
+                "Type" : 0
+              },
+              "SpawnRate" : {
+                "ConstantValue" : 40.000000,
+                "Type" : 0
+              },
+              "Type" : "UParticleModuleSpawn",
+              "bEnabled" : true,
+              "bSpawnModule" : true,
+              "bUpdateModule" : false
+            }, {
+              "Type" : "UParticleModuleTypeDataSprite",
+              "bEnabled" : true,
+              "bSpawnModule" : false,
+              "bUpdateModule" : false
+            }, {
+              "Lifetime" : {
+                "ConstantValue" : 1.500000,
+                "MaxValue" : 2.000000,
+                "MinValue" : 1.000000,
+                "Type" : 1
+              },
+              "Type" : "UParticleModuleLifetime",
+              "bEnabled" : true,
+              "bSpawnModule" : true,
+              "bUpdateModule" : false
+            }, {
+              "StartLocation" : {
+                "ConstantValue" : [0.000000, 0.000000, 0.000000],
+                "Type" : 0
+              },
+              "DistributionShape" : 1,
+              "BoxExtent" : {
+                "ConstantValue" : [3.000000, 3.000000, 0.050000],
+                "Type" : 0
+              },
+              "SphereRadius" : {
+                "ConstantValue" : 0.000000,
+                "Type" : 0
+              },
+              "CylinderHeight" : {
+                "ConstantValue" : 0.000000,
+                "Type" : 0
+              },
+              "bSurfaceOnly" : false,
+              "Type" : "UParticleModuleLocation",
+              "bEnabled" : true,
+              "bSpawnModule" : true,
+              "bUpdateModule" : false
+            }, {
+              "SizeOverLife" : {
+                "ConstantCurve" : {
+                  "LoopKeyOffset" : 0.000000,
+                  "Points" : [{
+                      "ArriveTangent" : [0.000000, 0.000000, 0.000000],
+                      "InVal" : 0.000000,
+                      "InterpMode" : 2,
+                      "LeaveTangent" : [0.000000, 0.000000, 0.000000],
+                      "OutVal" : [0.150000, 0.150000, 0.150000]
+                    }, {
+                      "ArriveTangent" : [0.000000, 0.000000, 0.000000],
+                      "InVal" : 0.250000,
+                      "InterpMode" : 2,
+                      "LeaveTangent" : [0.000000, 0.000000, 0.000000],
+                      "OutVal" : [0.250000, 0.250000, 0.250000]
+                    }, {
+                      "ArriveTangent" : [0.000000, 0.000000, 0.000000],
+                      "InVal" : 1.000000,
+                      "InterpMode" : 2,
+                      "LeaveTangent" : [0.000000, 0.000000, 0.000000],
+                      "OutVal" : [0.050000, 0.050000, 0.050000]
+                    }],
+                  "bIsLooped" : false
+                },
+                "ConstantValue" : [0.200000, 0.200000, 0.200000],
+                "Type" : 2
+              },
+              "Type" : "UParticleModuleSize",
+              "bEnabled" : true,
+              "bSpawnModule" : true,
+              "bUpdateModule" : true
+            }, {
+              "StartVelocity" : {
+                "ConstantValue" : [0.000000, 0.000000, 4.000000],
+                "MaxValue" : [0.800000, 0.800000, 5.500000],
+                "MinValue" : [-0.800000, -0.800000, 3.000000],
+                "Type" : 1
+              },
+              "Type" : "UParticleModuleVelocity",
+              "VelocityDamping" : 0.150000,
+              "bEnabled" : true,
+              "bSpawnModule" : true,
+              "bUpdateModule" : true
+            }, {
+              "ColorOverLife" : {
+                "Alpha" : {
+                  "ConstantCurve" : {
+                    "LoopKeyOffset" : 0.000000,
+                    "Points" : [{
+                        "ArriveTangent" : 0.000000,
+                        "InVal" : 0.000000,
+                        "InterpMode" : 2,
+                        "LeaveTangent" : 0.000000,
+                        "OutVal" : 0.000000
+                      }, {
+                        "ArriveTangent" : 0.000000,
+                        "InVal" : 0.100000,
+                        "InterpMode" : 2,
+                        "LeaveTangent" : 0.000000,
+                        "OutVal" : 1.000000
+                      }, {
+                        "ArriveTangent" : 0.000000,
+                        "InVal" : 0.500000,
+                        "InterpMode" : 2,
+                        "LeaveTangent" : 0.000000,
+                        "OutVal" : 0.800000
+                      }, {
+                        "ArriveTangent" : 0.000000,
+                        "InVal" : 1.000000,
+                        "InterpMode" : 2,
+                        "LeaveTangent" : 0.000000,
+                        "OutVal" : 0.000000
+                      }],
+                    "bIsLooped" : false
+                  },
+                  "ConstantValue" : 1.000000,
+                  "Type" : 2
+                },
+                "RGB" : {
+                  "ConstantCurve" : {
+                    "LoopKeyOffset" : 0.000000,
+                    "Points" : [{
+                        "ArriveTangent" : [0.000000, 0.000000, 0.000000],
+                        "InVal" : 0.000000,
+                        "InterpMode" : 2,
+                        "LeaveTangent" : [0.000000, 0.000000, 0.000000],
+                        "OutVal" : [1.000000, 1.000000, 0.700000]
+                      }, {
+                        "ArriveTangent" : [0.000000, 0.000000, 0.000000],
+                        "InVal" : 0.400000,
+                        "InterpMode" : 2,
+                        "LeaveTangent" : [0.000000, 0.000000, 0.000000],
+                        "OutVal" : [1.000000, 0.900000, 0.300000]
+                      }, {
+                        "ArriveTangent" : [0.000000, 0.000000, 0.000000],
+                        "InVal" : 1.000000,
+                        "InterpMode" : 2,
+                        "LeaveTangent" : [0.000000, 0.000000, 0.000000],
+                        "OutVal" : [1.000000, 0.750000, 0.150000]
+                      }],
+                    "bIsLooped" : false
+                  },
+                  "ConstantValue" : [1.000000, 0.950000, 0.500000],
+                  "Type" : 2
+                }
+              },
+              "Type" : "UParticleModuleColor",
+              "bEnabled" : true,
+              "bSpawnModule" : true,
+              "bUpdateModule" : true
+            }, {
+              "AccelerationOverLife" : {
+                "ConstantValue" : [0.000000, 0.000000, 1.000000],
+                "Type" : 0
+              },
+              "GravityScale" : 0.000000,
+              "Type" : "UParticleModuleAcceleration",
+              "bApplyGravity" : false,
+              "bEnabled" : true,
+              "bSpawnModule" : true,
+              "bUpdateModule" : true
+            }],
+          "bEnabled" : true
+        }]
+    }, {
+      "LODLevels" : [{
+          "Level" : 0,
+          "Modules" : [{
+              "EmitterDelay" : 0.000000,
+              "EmitterDelayLow" : 0.000000,
+              "EmitterDuration" : 0.000000,
+              "EmitterDurationLow" : 0.000000,
+              "EmitterLoops" : 0,
+              "EmitterName" : "GroundGlow",
+              "EmitterOrigin" : [0.000000, 0.000000, 0.020000],
+              "EmitterRotation" : [0.000000, 0.000000, 0.000000],
+              "Material" : "",
+              "MaterialShader" : "Shaders/Particle/ParticleSprite.hlsl",
+              "MaterialTexture" : "Data/Textures/Particles/Particle_Gaussian.png",
+              "ScreenAlignment" : 0,
+              "SortMode" : 0,
+              "SubImages_Horizontal" : 1,
+              "SubImages_Vertical" : 1,
+              "SubUV_MaxElements" : 0,
+              "Type" : "UParticleModuleRequired",
+              "bDelayFirstLoopOnly" : false,
+              "bEnabled" : true,
+              "bOrientZAxisTowardCamera" : false,
+              "bSpawnModule" : false,
+              "bUpdateModule" : false
+            }, {
+              "BurstList" : [],
+              "BurstScale" : {
+                "ConstantValue" : 1.000000,
+                "Type" : 0
+              },
+              "SpawnRate" : {
+                "ConstantValue" : 8.000000,
+                "Type" : 0
+              },
+              "Type" : "UParticleModuleSpawn",
+              "bEnabled" : true,
+              "bSpawnModule" : true,
+              "bUpdateModule" : false
+            }, {
+              "Type" : "UParticleModuleTypeDataSprite",
+              "bEnabled" : true,
+              "bSpawnModule" : false,
+              "bUpdateModule" : false
+            }, {
+              "Lifetime" : {
+                "ConstantValue" : 3.000000,
+                "MaxValue" : 4.000000,
+                "MinValue" : 2.500000,
+                "Type" : 1
+              },
+              "Type" : "UParticleModuleLifetime",
+              "bEnabled" : true,
+              "bSpawnModule" : true,
+              "bUpdateModule" : false
+            }, {
+              "StartLocation" : {
+                "ConstantValue" : [0.000000, 0.000000, 0.000000],
+                "Type" : 0
+              },
+              "DistributionShape" : 1,
+              "BoxExtent" : {
+                "ConstantValue" : [2.500000, 2.500000, 0.010000],
+                "Type" : 0
+              },
+              "SphereRadius" : {
+                "ConstantValue" : 0.000000,
+                "Type" : 0
+              },
+              "CylinderHeight" : {
+                "ConstantValue" : 0.000000,
+                "Type" : 0
+              },
+              "bSurfaceOnly" : false,
+              "Type" : "UParticleModuleLocation",
+              "bEnabled" : true,
+              "bSpawnModule" : true,
+              "bUpdateModule" : false
+            }, {
+              "SizeOverLife" : {
+                "ConstantCurve" : {
+                  "LoopKeyOffset" : 0.000000,
+                  "Points" : [{
+                      "ArriveTangent" : [0.000000, 0.000000, 0.000000],
+                      "InVal" : 0.000000,
+                      "InterpMode" : 2,
+                      "LeaveTangent" : [0.000000, 0.000000, 0.000000],
+                      "OutVal" : [0.500000, 0.500000, 0.500000]
+                    }, {
+                      "ArriveTangent" : [0.000000, 0.000000, 0.000000],
+                      "InVal" : 0.300000,
+                      "InterpMode" : 2,
+                      "LeaveTangent" : [0.000000, 0.000000, 0.000000],
+                      "OutVal" : [1.500000, 1.500000, 1.500000]
+                    }, {
+                      "ArriveTangent" : [0.000000, 0.000000, 0.000000],
+                      "InVal" : 0.700000,
+                      "InterpMode" : 2,
+                      "LeaveTangent" : [0.000000, 0.000000, 0.000000],
+                      "OutVal" : [1.200000, 1.200000, 1.200000]
+                    }, {
+                      "ArriveTangent" : [0.000000, 0.000000, 0.000000],
+                      "InVal" : 1.000000,
+                      "InterpMode" : 2,
+                      "LeaveTangent" : [0.000000, 0.000000, 0.000000],
+                      "OutVal" : [0.300000, 0.300000, 0.300000]
+                    }],
+                  "bIsLooped" : false
+                },
+                "ConstantValue" : [1.000000, 1.000000, 1.000000],
+                "Type" : 2
+              },
+              "Type" : "UParticleModuleSize",
+              "bEnabled" : true,
+              "bSpawnModule" : true,
+              "bUpdateModule" : true
+            }, {
+              "ColorOverLife" : {
+                "Alpha" : {
+                  "ConstantCurve" : {
+                    "LoopKeyOffset" : 0.000000,
+                    "Points" : [{
+                        "ArriveTangent" : 0.000000,
+                        "InVal" : 0.000000,
+                        "InterpMode" : 2,
+                        "LeaveTangent" : 0.000000,
+                        "OutVal" : 0.000000
+                      }, {
+                        "ArriveTangent" : 0.000000,
+                        "InVal" : 0.200000,
+                        "InterpMode" : 2,
+                        "LeaveTangent" : 0.000000,
+                        "OutVal" : 0.400000
+                      }, {
+                        "ArriveTangent" : 0.000000,
+                        "InVal" : 0.500000,
+                        "InterpMode" : 2,
+                        "LeaveTangent" : 0.000000,
+                        "OutVal" : 0.350000
+                      }, {
+                        "ArriveTangent" : 0.000000,
+                        "InVal" : 1.000000,
+                        "InterpMode" : 2,
+                        "LeaveTangent" : 0.000000,
+                        "OutVal" : 0.000000
+                      }],
+                    "bIsLooped" : false
+                  },
+                  "ConstantValue" : 0.350000,
+                  "Type" : 2
+                },
+                "RGB" : {
+                  "ConstantCurve" : {
+                    "LoopKeyOffset" : 0.000000,
+                    "Points" : [{
+                        "ArriveTangent" : [0.000000, 0.000000, 0.000000],
+                        "InVal" : 0.000000,
+                        "InterpMode" : 2,
+                        "LeaveTangent" : [0.000000, 0.000000, 0.000000],
+                        "OutVal" : [1.000000, 0.950000, 0.400000]
+                      }, {
+                        "ArriveTangent" : [0.000000, 0.000000, 0.000000],
+                        "InVal" : 1.000000,
+                        "InterpMode" : 2,
+                        "LeaveTangent" : [0.000000, 0.000000, 0.000000],
+                        "OutVal" : [1.000000, 0.800000, 0.200000]
+                      }],
+                    "bIsLooped" : false
+                  },
+                  "ConstantValue" : [1.000000, 0.900000, 0.300000],
+                  "Type" : 2
+                }
+              },
+              "Type" : "UParticleModuleColor",
+              "bEnabled" : true,
+              "bSpawnModule" : true,
+              "bUpdateModule" : true
+            }],
+          "bEnabled" : true
+        }]
+    }],
+  "LODDistances" : [],
+  "bUseLOD" : false
+}
