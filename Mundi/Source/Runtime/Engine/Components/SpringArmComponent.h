@@ -109,11 +109,17 @@ public:
 	UPROPERTY(EditAnywhere, Category="Collision", Tooltip="충돌 테스트 디버그 시각화를 활성화합니다.")
 	bool bDrawDebugCollision;
 
+	UPROPERTY(EditAnywhere, Category="Collision", Range="0.0, 10.0", Tooltip="충돌 시 카메라를 타겟 방향으로 밀어내는 바이어스 값입니다. 카메라가 벽을 뚫고 보이는 것을 방지합니다.")
+	float CameraCollisionBias;
+
 	void SetDoCollisionTest(bool bEnable) { bDoCollisionTest = bEnable; }
 	bool GetDoCollisionTest() const { return bDoCollisionTest; }
 
 	void SetProbeSize(float Size) { ProbeSize = Size; }
 	float GetProbeSize() const { return ProbeSize; }
+
+	void SetCameraCollisionBias(float Bias) { CameraCollisionBias = Bias; }
+	float GetCameraCollisionBias() const { return CameraCollisionBias; }
 
 	void SetDrawDebugCollision(bool bEnable) { bDrawDebugCollision = bEnable; }
 

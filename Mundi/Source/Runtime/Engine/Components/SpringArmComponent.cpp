@@ -30,6 +30,7 @@ USpringArmComponent::USpringArmComponent()
 	, bDoCollisionTest(true)
 	, ProbeSize(0.12f)
 	, bDrawDebugCollision(false)
+	, CameraCollisionBias(0.5f)
 	, bUsePawnControlRotation(false)
 	, SocketLocation(FVector())
 	, SocketRotation(FQuat::Identity())
@@ -280,11 +281,16 @@ bool USpringArmComponent::DoCollisionTest(const FVector& DesiredLocation, FVecto
 		// PhysX에서 반환된 충돌 위치를 직접 사용 (P2UVector 좌표 변환이 적용됨)
 		FVector HitLocation = HitResult.ImpactPoint;
 
-		// 충돌 위치를 카메라 위치로 사용
-		OutLocation = HitLocation;
+		// Bias 적용: 충돌 지점에서 타겟(캐릭터) 방향으로 살짝 밀어줌
+		// 이렇게 하면 카메라의 Near Clip Plane이 벽을 뚫고 보이는 것을 방지
+		FVector ToTarget = (SweepStart - HitLocation).GetNormalized();
+		FVector BiasedLocation = HitLocation + ToTarget * CameraCollisionBias;
+
+		// 충돌 위치를 카메라 위치로 사용 (Bias 적용됨)
+		OutLocation = BiasedLocation;
 
 		// 현재 암 길이 업데이트 (엔진 좌표계에서 실제 거리 계산)
-		CurrentArmLength = (HitLocation - SweepStart).Size();
+		CurrentArmLength = (BiasedLocation - SweepStart).Size();
 
 		// 디버그 로그
 		if (bDrawDebugCollision)
