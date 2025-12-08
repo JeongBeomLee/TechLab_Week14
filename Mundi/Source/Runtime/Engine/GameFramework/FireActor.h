@@ -5,6 +5,8 @@
 
 class UParticleSystemComponent;
 class USphereComponent;
+class USound;
+struct IXAudio2SourceVoice;
 
 UCLASS(DisplayName = "불 액터", Description = "강렬한 불 이펙트를 생성하는 액터입니다")
 class AFireActor : public AActor
@@ -65,6 +67,18 @@ protected:
 
 	/** 데미지 감지용 스피어 컴포넌트 */
 	USphereComponent* DamageSphere;
+
+	/** 불 루프 사운드 (fire.wav) */
+	USound* FireLoopSound;
+
+	/** 불 꺼지는 사운드 (fire_over.wav) */
+	USound* FireExtinguishSound;
+
+	/** 현재 재생 중인 루프 사운드 Voice */
+	IXAudio2SourceVoice* FireLoopVoice;
+
+	/** 꺼지는 사운드 쿨다운 타이머 */
+	float ExtinguishSoundCooldown;
 
 	/** 불 활성화 상태 */
 	bool bIsActive;

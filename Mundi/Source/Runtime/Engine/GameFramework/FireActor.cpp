@@ -3,6 +3,8 @@
 #include "ParticleSystemComponent.h"
 #include "ParticleSystem.h"
 #include "SphereComponent.h"
+#include "Sound.h"
+#include "FAudioDevice.h"
 #include "ResourceManager.h"
 #include "JsonSerializer.h"
 #include "World.h"
@@ -11,6 +13,10 @@
 AFireActor::AFireActor()
 	: bIsActive(true)
 	, FireIntensity(1.0f)
+	, FireLoopSound(nullptr)
+	, FireExtinguishSound(nullptr)
+	, FireLoopVoice(nullptr)
+	, ExtinguishSoundCooldown(0.0f)
 {
 	ObjectName = "Fire Actor";
 
@@ -40,10 +46,20 @@ AFireActor::AFireActor()
 		DamageSphere->SetGenerateOverlapEvents(true);
 		DamageSphere->CollisionMask = CollisionMasks::Pawn;  // 캐릭터만 감지
 	}
+
+	// 사운드 로드
+	FireLoopSound = UResourceManager::GetInstance().Load<USound>("Data/Audio/fire.wav");
+	FireExtinguishSound = UResourceManager::GetInstance().Load<USound>("Data/Audio/fire_over.wav");
 }
 
 AFireActor::~AFireActor()
 {
+	// 루프 사운드 정지
+	if (FireLoopVoice)
+	{
+		FAudioDevice::StopSound(FireLoopVoice);
+		FireLoopVoice = nullptr;
+	}
 }
 
 void AFireActor::BeginPlay()
@@ -54,11 +70,29 @@ void AFireActor::BeginPlay()
 	{
 		FireParticle->ActivateSystem();
 	}
+
+	// 불이 활성화 상태면 루프 사운드 시작
+	if (bIsActive && FireLoopSound)
+	{
+		FireLoopVoice = FAudioDevice::PlaySound3D(FireLoopSound, GetActorLocation(), 1.0f, true);
+	}
 }
 
 void AFireActor::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
+
+	// 꺼지는 사운드 쿨다운 감소
+	if (ExtinguishSoundCooldown > 0.0f)
+	{
+		ExtinguishSoundCooldown -= DeltaSeconds;
+	}
+
+	// 루프 사운드 위치 업데이트
+	if (FireLoopVoice)
+	{
+		FAudioDevice::UpdateSoundPosition(FireLoopVoice, GetActorLocation());
+	}
 
 	// 불이 비활성화 상태면 데미지 없음
 	if (!bIsActive)
@@ -111,6 +145,10 @@ void AFireActor::DuplicateSubObjects()
 			DamageSphere = Sphere;
 		}
 	}
+
+	// 사운드 다시 로드
+	FireLoopSound = UResourceManager::GetInstance().Load<USound>("Data/Audio/fire.wav");
+	FireExtinguishSound = UResourceManager::GetInstance().Load<USound>("Data/Audio/fire_over.wav");
 }
 
 void AFireActor::Serialize(const bool bInIsLoading, JSON& InOutHandle)
@@ -170,6 +208,23 @@ void AFireActor::SetFireActive(bool bActive)
 			FireParticle->DeactivateSystem();
 		}
 	}
+
+	// 불 루프 사운드 제어
+	if (bActive)
+	{
+		if (FireLoopSound && !FireLoopVoice)
+		{
+			FireLoopVoice = FAudioDevice::PlaySound3D(FireLoopSound, GetActorLocation(), 1.0f, true);
+		}
+	}
+	else
+	{
+		if (FireLoopVoice)
+		{
+			FAudioDevice::StopSound(FireLoopVoice);
+			FireLoopVoice = nullptr;
+		}
+	}
 }
 
 void AFireActor::SetFireIntensity(float Intensity)
@@ -202,6 +257,13 @@ void AFireActor::ApplyWaterDamage(float DamageAmount)
 
 	UE_LOG("ApplyWaterDamage: DamageAmount=%.4f, Multiplier=%.2f, ActualDamage=%.4f, OldIntensity=%.2f, NewIntensity=%.2f",
 		DamageAmount, WaterDamageMultiplier, ActualDamage, FireIntensity, NewIntensity);
+
+	// 불이 작아질 때 fire_over 사운드 재생 (쿨다운 적용)
+	if (FireExtinguishSound && ExtinguishSoundCooldown <= 0.0f)
+	{
+		FAudioDevice::PlaySound3D(FireExtinguishSound, GetActorLocation(), 1.0f, false);
+		ExtinguishSoundCooldown = 0.3f;  // 0.3초 쿨다운
+	}
 
 	SetFireIntensity(NewIntensity);
 }

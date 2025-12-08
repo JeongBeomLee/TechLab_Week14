@@ -15,6 +15,7 @@
 #include "World.h"
 #include "FViewport.h"
 #include "RenderSettings.h"
+#include "FAudioDevice.h"
 // IMPLEMENT_CLASS is now auto-generated in .generated.cpp
 //
 //BEGIN_PROPERTIES(APlayerCameraManager)
@@ -446,4 +447,9 @@ void APlayerCameraManager::UpdateViewInfo(float DeltaTime)
 		CurrentViewInfo.ZoomFactor = CurrentViewCamera->GetZoomFactor();
 		CurrentViewInfo.ProjectionMode = CurrentViewCamera->GetProjectionMode();
 	}
+
+	// 오디오 리스너 위치 업데이트
+	FVector Forward = CurrentViewInfo.ViewRotation.GetForwardVector();
+	FVector Up = CurrentViewInfo.ViewRotation.GetUpVector();
+	FAudioDevice::SetListenerPosition(CurrentViewInfo.ViewLocation, Forward, Up);
 }
