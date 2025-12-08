@@ -342,22 +342,44 @@ function Update(DeltaTime)
             State.DebugTimer = 0
         end
 
-        if bInputHeld and extinguishGauge > 0 then
-            -- 소화 게이지 감소 (C++ 함수 호출)
+        if bInputHeld then
+            -- 소화 게이지 감소
             local drainAmount = EXTINGUISH_DRAIN_RATE * DeltaTime
-            --State.Character:DrainExtinguishGauge(drainAmount)
+            State.Character:DrainExtinguishGauge(drainAmount)
+            extinguishGauge = State.Character.ExtinguishGauge  -- 갱신
+
+            -- 게이지가 0이 되면 소화기로 충전 시도
+            if extinguishGauge <= 0 then
+                local gi = GetGameInstance()
+                local fireExCount = gi and gi:GetItemCount("FireEx") or 0
+                if fireExCount > 0 then
+                    gi:RemoveItem("FireEx", 1)
+                    State.Character:ChargeExtinguishGauge(100.0)  -- 충전
+                    print("[FirefighterController] Fire extinguisher used for recharge. Remaining: " .. (fireExCount - 1))
+                else
+                    -- 소화기 없으면 물 마법 종료
+                    print("[FirefighterController] WaterMagic ending - no extinguisher left")
+                    State.bIsUsingWaterMagic = false
+                    State.Character:SetUsingWaterMagic(false)
+                    State.bWaterMagicEnding = true
+                    State.StateMachine:SetState(STATE_WATERMAGIC_END, 0.15)
+                    if State.Character.StopWaterMagicEffect then
+                        State.Character:StopWaterMagicEffect()
+                    end
+                    return
+                end
+            end
 
             -- 물 마법 발사 (전방의 불에 데미지)
             local waterDamage = WATER_MAGIC_DAMAGE_RATE * DeltaTime
             State.Character:FireWaterMagic(waterDamage)
         else
-            -- 물 마법 종료 조건: 입력 놓음 또는 소화 게이지 0
-            print("[FirefighterController] WaterMagic ending (gauge=" .. tostring(extinguishGauge) .. ", inputHeld=" .. tostring(bInputHeld) .. ")")
+            -- 물 마법 종료 조건: 입력 놓음
+            print("[FirefighterController] WaterMagic ending (input released)")
             State.bIsUsingWaterMagic = false
-            State.Character:SetUsingWaterMagic(false)  -- C++ 변수도 리셋
+            State.Character:SetUsingWaterMagic(false)
             State.bWaterMagicEnding = true
             State.StateMachine:SetState(STATE_WATERMAGIC_END, 0.15)
-            -- 파티클 중지
             if State.Character.StopWaterMagicEffect then
                 State.Character:StopWaterMagicEffect()
             end
@@ -400,11 +422,26 @@ function Update(DeltaTime)
     local bRTPressed = (rtValue > 0.5) and (not State.bWasRTPressed)  -- RT Press 감지
     local bWaterMagicInput = Input:IsMouseButtonPressed(1) or bRTPressed
 
-    if bWaterMagicInput and extinguishGauge > 0 then
+    -- 게이지가 있거나, 소화기가 있으면 물 마법 시작 가능
+    local gi = GetGameInstance()
+    local fireExCount = gi and gi:GetItemCount("FireEx") or 0
+    local bCanStartWaterMagic = extinguishGauge > 0 or fireExCount > 0
+
+    -- C++에서 물 마법 사용 가능 여부 체크
+    local bCanUseWaterMagic = State.Character:CanUseWaterMagic()
+
+    if bWaterMagicInput and bCanStartWaterMagic and bCanUseWaterMagic then
+        -- 게이지가 0이면 소화기 소진해서 충전
+        if extinguishGauge <= 0 and fireExCount > 0 then
+            gi:RemoveItem("FireEx", 1)
+            State.Character:ChargeExtinguishGauge(100.0)
+            print("[FirefighterController] Fire extinguisher used to start. Remaining: " .. (fireExCount - 1))
+        end
+
         -- 현재 상태가 Idle/Walking/Running일 때만 물 마법 허용 (전환 중 광클 방지)
         local currentState = State.StateMachine:GetCurrentStateName()
         if currentState == STATE_IDLE or currentState == STATE_WALKING or currentState == STATE_RUNNING then
-            print("[FirefighterController] WaterMagic Start triggered! (gauge=" .. tostring(extinguishGauge) .. ")")
+            print("[FirefighterController] WaterMagic Start triggered! (gauge=" .. tostring(State.Character.ExtinguishGauge) .. ")")
             State.bIsPerformingAction = true
             State.bWaterMagicStarted = false
             State.StateMachine:SetState(STATE_WATERMAGIC_START, 0.1)

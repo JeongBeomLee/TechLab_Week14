@@ -630,6 +630,11 @@ void AFirefighterCharacter::DrainExtinguishGauge(float Amount)
 	ExtinguishGauge = FMath::Max(0.0f, ExtinguishGauge - Amount);
 }
 
+void AFirefighterCharacter::ChargeExtinguishGauge(float Amount)
+{
+	ExtinguishGauge = FMath::Min(MaxExtinguishGauge, ExtinguishGauge + Amount);
+}
+
 void AFirefighterCharacter::FireWaterMagic(float DamageAmount)
 {
 	UWorld* World = GetWorld();

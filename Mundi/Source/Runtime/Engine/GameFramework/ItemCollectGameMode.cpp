@@ -77,6 +77,15 @@ void AItemCollectGameMode::BeginPlay()
 	// UI 초기화
 	InitializeUI();
 	InitializeItemUI();
+
+	// 물 마법 사용 불가 설정 (ItemCollect 씬에서는 물 발사 비활성화)
+	if (PlayerController)
+	{
+		if (AFirefighterCharacter* Firefighter = Cast<AFirefighterCharacter>(PlayerController->GetPawn()))
+		{
+			Firefighter->SetCanUseWaterMagic(false);
+		}
+	}
 }
 
 // ────────────────────────────────────────────────────────────────────────────

@@ -271,14 +271,14 @@ void ARescueGameMode::InitializePlayerState()
 
     // GameInstance에서 실제 아이템 개수 가져오기
     int32 OxygenTankCount = GI ? GI->GetItemCount("Oxygen") : 0;
-    int32 FireExCount = GI ? GI->GetItemCount("FireEX") : 0;
+    int32 FireExCount = GI ? GI->GetItemCount("FireEx") : 0;
     bool bHasFireSuit = GI ? GI->HasItem("FireSuit") : false;
 
     // 산소 시스템 초기화
     MaxOxygen = BaseOxygen + (OxygenPerTank * OxygenTankCount);
     CurrentOxygen = MaxOxygen;
 
-    // 물 시스템 초기화
+    // 물 시스템 초기화 (HUD 표시용, 실제 로직은 Lua에서 처리)
     FireExtinguisherCount = FireExCount;
     CurrentWater = BaseWater;
 
@@ -506,45 +506,23 @@ void ARescueGameMode::UpdateOxygenSystem(float DeltaSeconds)
 
 void ARescueGameMode::UpdateWaterSystem(float DeltaSeconds)
 {
-    // 물 마법 사용 중 확인
+    // HUD 표시를 위해 캐릭터의 ExtinguishGauge와 GameInstance 소화기 개수를 읽기만 함
+    // 실제 로직(게이지 감소, 소화기 소진, 충전)은 Lua에서 처리
     if (PlayerController)
     {
         APawn* ControlledPawn = PlayerController->GetPawn();
         if (AFirefighterCharacter* Firefighter = Cast<AFirefighterCharacter>(ControlledPawn))
         {
             bIsUsingWaterMagic = Firefighter->IsUsingWaterMagic();
+            CurrentWater = Firefighter->ExtinguishGauge;
         }
     }
 
-    // 물 마법 사용 시 물 게이지 감소
-    if (bIsUsingWaterMagic)
+    // GameInstance에서 소화기 개수 읽기 (HUD용)
+    UGameInstance* GI = GetWorld() ? GetWorld()->GetGameInstance() : nullptr;
+    if (GI)
     {
-        CurrentWater -= WaterDecreaseRate * DeltaSeconds;
-
-        // 물이 다 떨어지면 자동 충전
-        if (CurrentWater <= 0.0f)
-        {
-            if (FireExtinguisherCount > 0)
-            {
-                // 소화기 사용하여 충전
-                FireExtinguisherCount--;
-                CurrentWater = BaseWater;
-
-                // GameInstance에서도 아이템 제거
-                UGameInstance* GI = GetWorld() ? GetWorld()->GetGameInstance() : nullptr;
-                if (GI)
-                {
-                    GI->RemoveItem("FireEX", 1);
-                }
-
-                UE_LOG("[info] RescueGameMode - Fire extinguisher used. Remaining: %d", FireExtinguisherCount);
-            }
-            else
-            {
-                // 소화기가 없으면 물 마법 사용 불가
-                CurrentWater = 0.0f;
-            }
-        }
+        FireExtinguisherCount = GI->GetItemCount("FireEx");
     }
 }
 

@@ -33,7 +33,7 @@ public:
 
     /** 현재 소화 게이지 */
     UPROPERTY(LuaBind, DisplayName="ExtinguishGauge")
-    float ExtinguishGauge = 100.0f;
+    float ExtinguishGauge = 0.0f;
 
     /** 최대 소화 게이지 */
     UPROPERTY(LuaBind, DisplayName="MaxExtinguishGauge")
@@ -75,6 +75,10 @@ public:
     /** 소화 게이지 감소 (Lua에서 호출) */
     UFUNCTION(LuaBind, DisplayName="DrainExtinguishGauge")
     void DrainExtinguishGauge(float Amount);
+
+    /** 소화 게이지 충전 (Lua에서 호출) */
+    UFUNCTION(LuaBind, DisplayName="ChargeExtinguishGauge")
+    void ChargeExtinguishGauge(float Amount);
 
     /** 물 마법 발사 - 전방 Raycast로 불 액터에 데미지 (Lua에서 호출) */
     UFUNCTION(LuaBind, DisplayName="FireWaterMagic")
