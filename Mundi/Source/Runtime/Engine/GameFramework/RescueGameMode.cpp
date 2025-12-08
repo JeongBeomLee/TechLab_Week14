@@ -12,10 +12,12 @@
 #include "Pawn.h"
 #include "GameInstance.h"
 #include "BoxComponent.h"
+#include "PlayerCameraManager.h"
 
 #include "GameUI/SGameHUD.h"
 #include "GameUI/STextBlock.h"
 #include "GameUI/SProgressBar.h"
+#include <cmath>
 
 // ----------------------------------------------------------------------------
 // 생성자
@@ -103,6 +105,11 @@ void ARescueGameMode::EndPlay()
             SGameHUD::Get().RemoveWidget(RescueCountText);
             RescueCountText.Reset();
         }
+        if (NoticeWidget)
+        {
+            SGameHUD::Get().RemoveWidget(NoticeWidget);
+            NoticeWidget.Reset();
+        }
     }
 }
 
@@ -110,11 +117,34 @@ void ARescueGameMode::Tick(float DeltaSeconds)
 {
     Super::Tick(DeltaSeconds);
 
+    // 공지 애니메이션 업데이트 (3초 동안만)
+    if (NoticeElapsedTime < NoticeDuration)
+    {
+        UpdateNoticeAnimation(DeltaSeconds);
+    }
+
     // 엔딩 전환 대기 중이면 타이머 처리
     if (bWaitingForEnding)
     {
         EndingTimer += DeltaSeconds;
-        if (EndingTimer >= EndingTransitionDelay)
+
+        // 플레이어 사망 시: 1.5초 대기 후 와이프 시작
+        if (bEndingPlayerDead && !bWipeStarted && EndingTimer >= DeathDelayBeforeWipe)
+        {
+            // 스트립와이프 효과 시작
+            if (GetWorld())
+            {
+                if (APlayerCameraManager* CameraManager = GetWorld()->FindActor<APlayerCameraManager>())
+                {
+                    CameraManager->StartStripedWipe(WipeDuration, 8.f, FLinearColor(0, 0, 0, 1), 100);
+                }
+            }
+            bWipeStarted = true;
+        }
+
+        // 와이프가 시작된 후, 와이프 완료까지 대기
+        float TotalDelay = bEndingPlayerDead ? (DeathDelayBeforeWipe + WipeDuration) : WipeDuration;
+        if (EndingTimer >= TotalDelay)
         {
             // GameInstance에 결과 저장
             UGameInstance* GI = GetWorld() ? GetWorld()->GetGameInstance() : nullptr;
@@ -372,6 +402,19 @@ void ARescueGameMode::InitializeHUD()
         .SetPivot(1.f, 0.f)       // 우상단 피벗
         .SetOffset(-30.f, 30.f)   // 화면 가장자리에서 오프셋
         .SetSize(200.f, 40.f);
+
+    // ========================
+    // 공지 이미지 위젯 (화면 중앙, 3초간 크기 변화 애니메이션)
+    // ========================
+    NoticeWidget = MakeShared<STextBlock>();
+    NoticeWidget->SetText(L"")
+        .SetBackgroundImage("Data/Textures/Rescue/start.png");
+
+    SGameHUD::Get().AddWidget(NoticeWidget)
+        .SetAnchor(0.5f, 0.5f)      // 화면 중앙
+        .SetPivot(0.5f, 0.5f)       // 중앙 기준
+        .SetSize(1100.f, 400.f)      // 초기 크기
+        .SetZOrder(100);            // 가장 위에 표시
 }
 
 // ----------------------------------------------------------------------------
@@ -643,10 +686,61 @@ void ARescueGameMode::TransitionToEnding(bool bPlayerDead)
         return;  // 이미 전환 대기 중
     }
 
-    UE_LOG("[info] RescueGameMode::TransitionToEnding - PlayerDead: %s, Delay: %.1fs",
-        bPlayerDead ? "true" : "false", EndingTransitionDelay);
+    UE_LOG("[info] RescueGameMode::TransitionToEnding - PlayerDead: %s, DeathDelay: %.1fs, WipeDuration: %.1fs",
+        bPlayerDead ? "true" : "false", DeathDelayBeforeWipe, WipeDuration);
+
+    // 사망 시에는 와이프를 즉시 시작하지 않고 타이머로 처리
+    // 구조 완료 시에는 즉시 와이프 시작
+    if (!bPlayerDead)
+    {
+        // 구조 완료: 즉시 와이프 시작
+        if (GetWorld())
+        {
+            if (APlayerCameraManager* CameraManager = GetWorld()->FindActor<APlayerCameraManager>())
+            {
+                CameraManager->StartStripedWipe(WipeDuration, 8.f, FLinearColor(0, 0, 0, 1), 100);
+            }
+        }
+        bWipeStarted = true;
+    }
 
     bWaitingForEnding = true;
     bEndingPlayerDead = bPlayerDead;
+    bWipeStarted = !bPlayerDead;  // 구조 완료 시에는 이미 와이프 시작됨
     EndingTimer = 0.0f;
+}
+
+// ----------------------------------------------------------------------------
+// 공지 애니메이션 업데이트
+// ----------------------------------------------------------------------------
+
+void ARescueGameMode::UpdateNoticeAnimation(float DeltaTime)
+{
+    if (!NoticeWidget || !SGameHUD::Get().IsInitialized()) { return; }
+
+    NoticeElapsedTime += DeltaTime;
+
+    // 3초가 지나면 완전히 숨김
+    if (NoticeElapsedTime >= NoticeDuration)
+    {
+        NoticeWidget->SetVisibility(ESlateVisibility::Hidden);
+        return;
+    }
+
+    // 애니메이션 계산
+    // 0초~3초: 펄스 애니메이션 (크기 0.9 ~ 1.1 반복)
+    float PulseProgress = (NoticeElapsedTime / 3.0f) * 3.14159f * 4.0f;  // 4회 반복
+    float Scale = 1.0f + std::sin(PulseProgress) * 0.1f;  // 0.9 ~ 1.1
+
+    // 위젯 슬롯 찾아서 크기 적용
+    auto& Slots = SGameHUD::Get().GetRootCanvas()->GetCanvasSlots();
+    for (auto& Slot : Slots)
+    {
+        if (Slot.Widget == NoticeWidget)
+        {
+            // 크기 적용
+            Slot.SetSize(1100.f * Scale, 400.f * Scale);
+            break;
+        }
+    }
 }

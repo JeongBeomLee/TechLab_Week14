@@ -193,9 +193,13 @@ public:
     UPROPERTY(EditAnywhere, Category="Ending", Tooltip="엔딩 씬 경로입니다.")
     FWideString EndingScenePath = L"Data/Scenes/Ending.scene";
 
-    /** 엔딩 전환 지연 시간 (초) */
-    UPROPERTY(EditAnywhere, Category="Ending", Tooltip="게임 오버/구조 완료 후 엔딩 전환까지 지연 시간입니다.")
-    float EndingTransitionDelay = 2.0f;
+    /** 플레이어 사망 후 와이프 시작까지 대기 시간 (초) */
+    UPROPERTY(EditAnywhere, Category="Ending", Tooltip="플레이어 사망 후 와이프 효과 시작까지 대기 시간입니다.")
+    float DeathDelayBeforeWipe = 1.5f;
+
+    /** 와이프 애니메이션 지속 시간 (초) */
+    UPROPERTY(EditAnywhere, Category="Ending", Tooltip="스트립와이프 애니메이션 지속 시간입니다.")
+    float WipeDuration = 1.5f;
 
     /** 엔딩으로 전환 (GameInstance에 결과 저장 후 씬 전환) */
     void TransitionToEnding(bool bPlayerDead);
@@ -229,6 +233,9 @@ protected:
     /** 구조 구역 Actor 찾기 */
     AActor* FindSafeZoneActor() const;
 
+    /** 공지 애니메이션 업데이트 */
+    void UpdateNoticeAnimation(float DeltaTime);
+
 private:
     // ────────────────────────────────────────────────
     // UI 위젯
@@ -249,6 +256,13 @@ private:
     /** 구조 카운트 텍스트 (우측 상단) */
     TSharedPtr<STextBlock> RescueCountText;
 
+    /** 공지 이미지 위젯 (start.png) */
+    TSharedPtr<STextBlock> NoticeWidget;
+
+    /** 공지 애니메이션 상태 */
+    float NoticeElapsedTime = 0.0f;
+    static constexpr float NoticeDuration = 3.0f;  // 전체 애니메이션 시간
+
     /** 캐시된 구조 구역 Actor */
     mutable AActor* CachedSafeZoneActor = nullptr;
 
@@ -264,4 +278,7 @@ private:
 
     /** 플레이어 사망 여부 (엔딩 결과용) */
     bool bEndingPlayerDead = false;
+
+    /** 와이프 효과 시작 여부 */
+    bool bWipeStarted = false;
 };
