@@ -33,7 +33,7 @@ public:
 
     /** 현재 소화 게이지 */
     UPROPERTY(LuaBind, DisplayName="ExtinguishGauge")
-    float ExtinguishGauge = 99990.0f;
+    float ExtinguishGauge = 0.0f;
 
     /** 최대 소화 게이지 */
     UPROPERTY(LuaBind, DisplayName="MaxExtinguishGauge")
